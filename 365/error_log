@@ -1,0 +1,6 @@
+[09-Feb-2023 21:05:09 UTC] PHP Fatal error:  Uncaught TypeError: Argument 1 passed to myPHPnotes\Microsoft\Auth::getToken() must be of the type string, null given, called in /home/aplicacion/public_html/365/callback.php on line 12 and defined in /home/aplicacion/public_html/365/vendor/adnanhussainturki/microsoft-api-php/src/Auth.php:82
+Stack trace:
+#0 /home/aplicacion/public_html/365/callback.php(12): myPHPnotes\Microsoft\Auth->getToken(NULL)
+#1 {main}
+  thrown in /home/aplicacion/public_html/365/vendor/adnanhussainturki/microsoft-api-php/src/Auth.php on line 82
+[09-Feb-2023 21:11:54 UTC] PHP Warning:  Unterminated comment starting line 12 in /home/aplicacion/public_html/365/callback.php on line 12

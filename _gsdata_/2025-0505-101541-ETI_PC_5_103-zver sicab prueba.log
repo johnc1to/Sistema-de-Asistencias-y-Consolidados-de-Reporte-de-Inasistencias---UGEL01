@@ -1,0 +1,22 @@
+2025-05-05 10:15:41: Server KEXes: curve25519-sha256,curve25519-sha256@libssh.org,ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,diffie-hellman-group-exchange-sha256,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512,diffie-hellman-group-exchange-sha1,diffie-hellman-group14-sha256,diffie-hellman-group14-sha1,diffie-hellman-group1-sha1,kex-strict-s-v00@openssh.com
+2025-05-05 10:15:41: Chosen KEX: curve25519-sha256@libssh.org
+2025-05-05 10:15:41: Server Hostkey Algorithms: ssh-rsa,rsa-sha2-512,rsa-sha2-256,ssh-dss,ecdsa-sha2-nistp256
+2025-05-05 10:15:41: Chosen Hostkey Algorithm: ecdsa-sha2-nistp256
+2025-05-05 10:15:41: Server Client->Server Ciphers: chacha20-poly1305@openssh.com,aes128-ctr,aes192-ctr,aes256-ctr,aes128-gcm@openssh.com,aes256-gcm@openssh.com,aes128-cbc,aes192-cbc,aes256-cbc,blowfish-cbc,cast128-cbc,3des-cbc
+2025-05-05 10:15:41: Chosen Client->Server Cipher: aes256-ctr
+2025-05-05 10:15:41: Server Server->Client Ciphers: chacha20-poly1305@openssh.com,aes128-ctr,aes192-ctr,aes256-ctr,aes128-gcm@openssh.com,aes256-gcm@openssh.com,aes128-cbc,aes192-cbc,aes256-cbc,blowfish-cbc,cast128-cbc,3des-cbc
+2025-05-05 10:15:41: Chosen Server->Client Cipher: aes256-ctr
+2025-05-05 10:15:41: Server Client->Server MACs: umac-64-etm@openssh.com,umac-128-etm@openssh.com,hmac-sha2-256-etm@openssh.com,hmac-sha2-512-etm@openssh.com,hmac-sha1-etm@openssh.com,umac-64@openssh.com,umac-128@openssh.com,hmac-sha2-256,hmac-sha2-512,hmac-sha1
+2025-05-05 10:15:41: Chosen Client->Server MAC: hmac-sha2-256
+2025-05-05 10:15:41: Server Server->Client MACs: umac-64-etm@openssh.com,umac-128-etm@openssh.com,hmac-sha2-256-etm@openssh.com,hmac-sha2-512-etm@openssh.com,hmac-sha1-etm@openssh.com,umac-64@openssh.com,umac-128@openssh.com,hmac-sha2-256,hmac-sha2-512,hmac-sha1
+2025-05-05 10:15:41: Chosen Server->Client MAC: hmac-sha2-256
+2025-05-05 10:15:41: SSH_MSG_EXT_INFO: server-sig-algs: rsa-sha2-256,rsa-sha2-512
+2025-05-05 10:15:43: -- Análisis iniciado por User Command
+2025-05-05 10:15:44: I: Leyendo archivo de estado sftp://167.86.105.116/home/aplicacion/public_html/_gsdata_/_file_state_v4._gs
+2025-05-05 10:18:07: I: Leyendo Archivo de Estado sftp://167.86.105.116/home/aplicacion/public_html/storage y fusionarlo con el estado raíz
+2025-05-05 10:36:36: D: Leyendo archivo de estado C:/caplicacion/_gsdata_/_file_state_v4._gs
+2025-05-05 10:36:36: D: State file does not exist: C:/caplicacion/_gsdata_/_file_state_v4._gs
+2025-05-05 10:36:37: I: En el disco sftp://167.86.105.116, el espacio requerido para sincronizar es de 0.00, el espacio libre es desconocido
+2025-05-05 10:36:37: Cambios: 26,472, Conflictos: 0, CopiaFecha: 0, CopiaEstado: 23,202, Errores: 0, All: 65028
+2025-05-05 10:36:37: Left to Right: Copy File: 26472 
+2025-05-05 10:36:37: -- Análisis completo. Tiempo 00:20:56, Velocidad: 472 archivo/s
