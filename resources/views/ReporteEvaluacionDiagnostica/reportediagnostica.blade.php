@@ -302,7 +302,8 @@
     const labels = avancePorGrado.map(d => d.grado);
     const esperados = avancePorGrado.map(d => d.esperado);
     const evaluados = avancePorGrado.map(d => d.evaluado);
-
+    const seccionesPorGrado = @json($detalleSecciones);
+    
     const ctxComparativo = document.getElementById('graficoComparativo');
     new Chart(ctxComparativo, {
         type: 'bar',
@@ -392,13 +393,30 @@
         options: {
             responsive: true,
             plugins: {
-                legend: { display: false },
+                legend: {
+                    display: true,
+                    position: 'top',
+                    labels: {
+                        boxWidth: 20,
+                        padding: 20,
+                        font: {
+                            size: 12
+                        },
+                        color: '#333',
+                        generateLabels: function(chart) {
+                            return [
+                                { text: 'CON CSV', fillStyle: '#194BE0' },
+                                { text: 'SIN CSV', fillStyle: '#E7EAF4' }
+                            ];
+                        }
+                    }
+                },
                 tooltip: {
                     callbacks: {
                         label: function (ctx) {
                             const total = conCSV + sinCSV;
                             const porcentaje = ((ctx.raw / total) * 100).toFixed(2);
-                            return `${ctx.label}: ${ctx.raw} IIEE (${porcentaje}%)`;
+                            return `${ctx.label}: ${ctx.raw} SERVICIO EDUCATIVO (${porcentaje}%)`;
                         }
                     }
                 },
@@ -424,47 +442,57 @@
     });
 
     new Chart(document.getElementById('graficoAvanceGrado'), {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [
-                {
-                    label: 'Esperado',
-                    data: esperados,
-                    backgroundColor: ' #CBD5E0' // gris claro
+    type: 'bar',
+    data: {
+        labels: labels,
+        datasets: [
+            {
+                label: 'Esperado',
+                data: esperados,
+                backgroundColor: ' #CBD5E0' // gris claro
+            },
+            {
+                label: 'Evaluado',
+                data: evaluados,
+                backgroundColor: ' #3B82F6' // azul
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            title: {
+                display: true,
+                text: 'Estudiantes esperados vs evaluados por grado',
+                font: {
+                    size: 18
                 },
-                {
-                    label: 'Evaluado',
-                    data: evaluados,
-                    backgroundColor: ' #3B82F6' // azul
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                title: {
-                    display: true,
-                    text: 'Estudiantes esperados vs evaluados por grado',
-                    font: {
-                        size: 18
-                    },
-                    padding: {
-                        top: 10,
-                        bottom: 20
-                    }
+                padding: {
+                    top: 10,
+                    bottom: 20
                 }
             },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        precision: 0
+            tooltip: {
+                callbacks: {
+                    afterLabel: function (context) {
+                        const grado = context.label;
+                        const detalles = seccionesPorGrado[grado] || [];
+                        return detalles; 
                     }
                 }
             }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    precision: 0
+                }
+            }
         }
-    });
+    }
+});
+
 
 </script>
 

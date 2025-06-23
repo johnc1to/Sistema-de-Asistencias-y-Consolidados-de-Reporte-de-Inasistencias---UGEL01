@@ -188,7 +188,7 @@ class ReporteDiagnostico extends Controller
 
             $resultados[$nombreGrado] = $cantidad;
         }
-
+        
         return $resultados;
     }
 
@@ -207,10 +207,10 @@ class ReporteDiagnostico extends Controller
                 $join->on('E.codmodce', '=', 'R.codmod')
                     ->where('E.estado', '=', 1);
             })
-            ->leftJoin('app_resumen as T', function ($join) {
-                $join->on('T.id_evaluacion', '=', 'E.id_evaluacion')
-                    ->where('T.id_matrix', '=', 1);
-            })
+            // ->leftJoin('app_resumen as T', function ($join) {
+            //     $join->on('T.id_evaluacion', '=', 'E.id_evaluacion')
+            //         ->where('T.id_matrix', '=', 1);
+            // })
             ->select(
                 'R.codlocal',
                 'R.codmod',
@@ -226,12 +226,12 @@ class ReporteDiagnostico extends Controller
                 DB::raw('COUNT(DISTINCT E.id_evaluacion) AS importo_csv'),
                 DB::raw('COUNT(DISTINCT E.cod_grado) AS cantidad_grados'),
                 DB::raw('COUNT(DISTINCT E.id_evaluacion) AS cantidad_secciones'),
-                DB::raw('COUNT(DISTINCT T.id_evaluacion) AS cantidad_registrados'),
-                DB::raw("CASE 
-                            WHEN COUNT(DISTINCT E.id_evaluacion) > 0 THEN 
-                                ROUND((COUNT(DISTINCT T.id_evaluacion) * 100.0) / COUNT(DISTINCT E.id_evaluacion), 2)
-                            ELSE 0
-                        END AS porcentaje_avance")
+                // DB::raw('COUNT(DISTINCT T.id_evaluacion) AS cantidad_registrados'),
+                // DB::raw("CASE 
+                //             WHEN COUNT(DISTINCT E.id_evaluacion) > 0 THEN 
+                //                 ROUND((COUNT(DISTINCT T.id_evaluacion) * 100.0) / COUNT(DISTINCT E.id_evaluacion), 2)
+                //             ELSE 0
+                //         END AS porcentaje_avance")
             )
             ->where('R.estado', 1)
             ->where('R.cant_plazas_nexus', '>', 0);
@@ -255,7 +255,9 @@ class ReporteDiagnostico extends Controller
                 'R.correo_inst'
             )
             ->get();
+        
 
+        
         $registradosPorCodmod = $this->obtenerRegistradosGlobalPorCodmod();
         $totalAlumnosPorCodmod = $this->obtenerTotalAlumnosPorCodmod();
 
@@ -343,6 +345,21 @@ class ReporteDiagnostico extends Controller
             ->table('iiee_a_evaluar_RIE')->where('estado', 1)
             ->distinct()->pluck('red');
 
+        $detalleSecciones = DB::connection('evaluacion_diagnostica')
+            ->table('app_matrix_evaluacion')
+            ->select('cod_grado', 'seccion', DB::raw('COUNT(*) as total'))
+            ->where('estado', 1)
+            ->groupBy('cod_grado', 'seccion')
+            ->get()
+            ->groupBy('cod_grado')
+            ->map(function ($items) {
+                return $items->map(function ($item) {
+                    return "{$item->seccion}: {$item->total}";
+                })->toArray();
+            })
+            ->toArray(); // <- Esto para pasar limpio al JS
+
+        
         return view('ReporteEvaluacionDiagnostica.reportediagnostica', compact(
             'session',
             'registros',
@@ -355,7 +372,8 @@ class ReporteDiagnostico extends Controller
             'total_registrados',
             'promedio_avance',
             'avancePorGrado',
-            'totalEsperado'
+            'totalEsperado',
+            'detalleSecciones' 
         ));
     }
 
