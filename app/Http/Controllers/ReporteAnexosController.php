@@ -92,8 +92,8 @@ class ReporteAnexosController extends Controller
         });
 
         // Listas para filtros (extraídas desde la tabla de instituciones)
-        $distritos = DB::table('iiee_a_evaluar_rie')->distinct()->pluck('distrito')->sort()->values();
-        $instituciones = DB::table('iiee_a_evaluar_rie')
+        $distritos = DB::table('iiee_a_evaluar_RIE')->distinct()->pluck('distrito')->sort()->values();
+        $instituciones = DB::table('iiee_a_evaluar_RIE')
             ->select('codmod', 'institucion')->distinct()->orderBy('institucion')->get();
         $niveles = DB::connection('siic_anexos')->table('anexo03')->distinct()->pluck('nivel')->sort()->values();
 
@@ -137,115 +137,115 @@ class ReporteAnexosController extends Controller
 
 
     public function mostrarReporteAnexos04(Request $request)
-    {
-        if (!session()->get('siic01_admin')) {
-            return response('Sesión terminada', 401);
-        }
-
-        $session = session()->get('siic01_admin');
-
-        $filtroDistrito = $request->input('distrito');
-        $filtroInstitucion = $request->input('institucion');
-        $filtroNivel = $request->input('nivel');
-
-        // Paso 1: Obtener reportes de anexo04 sin unión externa
-        $reportes = DB::connection('siic_anexos')->table('anexo04')
-            ->when($filtroNivel, fn($query) => $query->where('nivel', $filtroNivel))
-            ->select(
-                'id',
-                'id_contacto',
-                'fecha_creacion',
-                'codlocal',
-                'nivel'
-            )
-            ->get();
-
-        // Obtener codlocal y nivel únicos
-        $codlocalNivel = $reportes->map(fn($r) => [$r->codlocal, $r->nivel]);
-
-        // Paso 2: Obtener datos de iiee_a_evaluar_rie desde la base principal
-        $iiees = DB::table('iiee_a_evaluar_rie')
-            ->whereIn(DB::raw("CONCAT(codlocal,'-',nivel)"), $codlocalNivel->map(fn($c) => "{$c[0]}-{$c[1]}"))
-            ->get()
-            ->keyBy(fn($iiee) => "{$iiee->codlocal}-{$iiee->nivel}");
-
-        // Paso 3: Obtener contactos
-        $idsContacto = $reportes->pluck('id_contacto')->unique()->filter();
-        $contactos = DB::table('contacto')
-            ->whereIn('id_contacto', $idsContacto)
-            ->get()
-            ->keyBy('id_contacto');
-
-        // Paso 4: Armar datos finales y aplicar filtro de distrito después
-        $reportes = $reportes->map(function ($reporte) use ($iiees, $contactos) {
-            $key = "{$reporte->codlocal}-{$reporte->nivel}";
-            $iiee = $iiees[$key] ?? null;
-            $contacto = $contactos[$reporte->id_contacto] ?? null;
-
-            $reporte->institucion = $iiee->institucion ?? null;
-            $reporte->correo_inst = $iiee->correo_inst ?? null;
-            $reporte->distrito = $iiee->distrito ?? null;
-            $reporte->codmod = $iiee->codmod ?? null;
-
-            $reporte->dni = $contacto->dni ?? null;
-            $reporte->nombres = $contacto->nombres ?? null;
-            $reporte->apellipat = $contacto->apellipat ?? null;
-            $reporte->apellimat = $contacto->apellimat ?? null;
-            $reporte->celular_pers = $contacto->celular_pers ?? null;
-
-            return $reporte;
-        })->filter(function ($reporte) use ($filtroDistrito) {
-            if ($filtroDistrito) {
-                return $reporte->distrito === $filtroDistrito;
+        {
+            if (!session()->get('siic01_admin')) {
+                return response('Sesión terminada', 401);
             }
-            return true;
-        })->values();
 
-        // Datos para filtros
-        $distritos = DB::table('iiee_a_evaluar_rie')->distinct()->pluck('distrito')->sort()->values();
-        $instituciones = DB::table('iiee_a_evaluar_rie')
-            ->select('codmod', 'institucion')->distinct()->orderBy('institucion')->get();
-        $niveles = DB::connection('siic_anexos')->table('anexo04')->distinct()->pluck('nivel')->sort()->values();
+            $session = session()->get('siic01_admin');
 
-        // Subconsulta de directores con reporte anexo04
-        $anexo04Ids = DB::connection('siic_anexos')
-            ->table('anexo04')
-            ->select('id_contacto');
+            $filtroDistrito = $request->input('distrito');
+            $filtroInstitucion = $request->input('institucion');
+            $filtroNivel = $request->input('nivel');
 
-        // Directores sin anexo04
-        $directoresSinAnexo04 = DB::table('contacto as c')
-            ->select(
-                'c.dni',
-                'c.apellipat',
-                'c.apellimat',
-                'c.nombres',
-                'c.celular_pers',
-                'i.institucion as nombre_inst'
-            )
-            ->join('iiee_a_evaluar_rie as i', 'c.dni', '=', 'i.dni_director')
-            ->where('c.estado', 1)
-            ->where('c.cargo', 'LIKE', '%DIRECTOR%')
-            ->where('c.cargo', 'NOT LIKE', '%SUB-DIRECTOR%')
-            ->whereNotIn('c.id_contacto', $anexo04Ids)
-            ->groupBy(
-                'c.dni',
-                'c.apellipat',
-                'c.apellimat',
-                'c.nombres',
-                'c.celular_pers',
-                'i.institucion' 
-            )
-            ->orderBy('c.apellipat')
-            ->get();
+            // Paso 1: Obtener reportes de anexo04 sin unión externa
+            $reportes = DB::connection('siic_anexos')->table('anexo04')
+                ->when($filtroNivel, fn($query) => $query->where('nivel', $filtroNivel))
+                ->select(
+                    'id',
+                    'id_contacto',
+                    'fecha_creacion',
+                    'codlocal',
+                    'nivel'
+                )
+                ->get();
 
-        return view('reporteAnexos.reporteanexos04', compact(
-            'session',
-            'reportes',
-            'distritos',
-            'instituciones',
-            'niveles',
-            'directoresSinAnexo04'
-        ));
-    }
+            // Obtener codlocal y nivel únicos
+            $codlocalNivel = $reportes->map(fn($r) => [$r->codlocal, $r->nivel]);
+
+            // Paso 2: Obtener datos de iiee_a_evaluar_rie desde la base principal
+            $iiees = DB::table('iiee_a_evaluar_rie')
+                ->whereIn(DB::raw("CONCAT(codlocal,'-',nivel)"), $codlocalNivel->map(fn($c) => "{$c[0]}-{$c[1]}"))
+                ->get()
+                ->keyBy(fn($iiee) => "{$iiee->codlocal}-{$iiee->nivel}");
+
+            // Paso 3: Obtener contactos
+            $idsContacto = $reportes->pluck('id_contacto')->unique()->filter();
+            $contactos = DB::table('contacto')
+                ->whereIn('id_contacto', $idsContacto)
+                ->get()
+                ->keyBy('id_contacto');
+
+            // Paso 4: Armar datos finales y aplicar filtro de distrito después
+            $reportes = $reportes->map(function ($reporte) use ($iiees, $contactos) {
+                $key = "{$reporte->codlocal}-{$reporte->nivel}";
+                $iiee = $iiees[$key] ?? null;
+                $contacto = $contactos[$reporte->id_contacto] ?? null;
+
+                $reporte->institucion = $iiee->institucion ?? null;
+                $reporte->correo_inst = $iiee->correo_inst ?? null;
+                $reporte->distrito = $iiee->distrito ?? null;
+                $reporte->codmod = $iiee->codmod ?? null;
+
+                $reporte->dni = $contacto->dni ?? null;
+                $reporte->nombres = $contacto->nombres ?? null;
+                $reporte->apellipat = $contacto->apellipat ?? null;
+                $reporte->apellimat = $contacto->apellimat ?? null;
+                $reporte->celular_pers = $contacto->celular_pers ?? null;
+
+                return $reporte;
+            })->filter(function ($reporte) use ($filtroDistrito) {
+                if ($filtroDistrito) {
+                    return $reporte->distrito === $filtroDistrito;
+                }
+                return true;
+            })->values();
+
+            // Datos para filtros
+            $distritos = DB::table('iiee_a_evaluar_rie')->distinct()->pluck('distrito')->sort()->values();
+            $instituciones = DB::table('iiee_a_evaluar_rie')
+                ->select('codmod', 'institucion')->distinct()->orderBy('institucion')->get();
+            $niveles = DB::connection('siic_anexos')->table('anexo04')->distinct()->pluck('nivel')->sort()->values();
+
+            // Subconsulta de directores con reporte anexo04
+            $anexo04Ids = DB::connection('siic_anexos')
+                ->table('anexo04')
+                ->select('id_contacto');
+
+            // Directores sin anexo04
+            $directoresSinAnexo04 = DB::table('contacto as c')
+                ->select(
+                    'c.dni',
+                    'c.apellipat',
+                    'c.apellimat',
+                    'c.nombres',
+                    'c.celular_pers',
+                    'i.institucion as nombre_inst'
+                )
+                ->join('iiee_a_evaluar_rie as i', 'c.dni', '=', 'i.dni_director')
+                ->where('c.estado', 1)
+                ->where('c.cargo', 'LIKE', '%DIRECTOR%')
+                ->where('c.cargo', 'NOT LIKE', '%SUB-DIRECTOR%')
+                ->whereNotIn('c.id_contacto', $anexo04Ids)
+                ->groupBy(
+                    'c.dni',
+                    'c.apellipat',
+                    'c.apellimat',
+                    'c.nombres',
+                    'c.celular_pers',
+                    'i.institucion' 
+                )
+                ->orderBy('c.apellipat')
+                ->get();
+
+            return view('reporteAnexos.reporteanexos04', compact(
+                'session',
+                'reportes',
+                'distritos',
+                'instituciones',
+                'niveles',
+                'directoresSinAnexo04'
+            ));
+        }
 
 }

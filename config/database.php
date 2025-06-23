@@ -346,7 +346,6 @@ return [
             'schema' => 'public',
             'sslmode' => 'prefer',
         ],
-
         'sqlsrv' => [
             'driver' => 'sqlsrv',
             'url' => env('DATABASE_URL'),
@@ -359,7 +358,19 @@ return [
             'prefix' => '',
             'prefix_indexes' => true,
         ],
-
+        'evaluacion_diagnostica' => [
+            'driver' => 'mysql',
+            'host' => env('DB_HOST13', '127.0.0.1'),
+            'port' => env('DB_PORT13', '3306'),
+            'database' => env('DB_DATABASE13', 'docente_evaluacion2025'),
+            'username' => env('DB_USERNAME13', 'root'),
+            'password' => env('DB_PASSWORD13', ''),
+            'charset' => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+            'prefix' => '',
+            'strict' => true,
+            'engine' => null,
+        ],
 
     ],
 

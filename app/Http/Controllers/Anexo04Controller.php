@@ -114,8 +114,9 @@ class Anexo04Controller extends Controller
             return strcmp($a->nombres, $b->nombres);
         })->values();
 
-        $anio = 2025;
-        $mes = 5;
+            $fecha = new \DateTime('first day of last month');
+            $anio = (int) $fecha->format('Y');
+            $mes = (int) $fecha->format('n');
 
         // Obtener todos los registros anexo04 que coincidan con el filtro
         $anexos04 = DB::connection('siic_anexos')->table('anexo04')
@@ -157,7 +158,7 @@ class Anexo04Controller extends Controller
                 }
                 return [$item->id_persona => $decoded];
             });
-        
+
 
         $datosInasistenciaPorDni = [];
 
@@ -211,8 +212,8 @@ class Anexo04Controller extends Controller
                 'nivelSeleccionado' => $nivelSeleccionado,
                 'modalidad' => $institucion->modalidad ?? '',
                 'institucion' => $institucion->institucion ?? '',
-                'anio' => 2025,
-                'mes' => 5,
+                'anio' => $anio,
+                'mes' => $mes,
                 'configuraciones' => null,
                 'codlocal' => $codlocal,
                 'd_cod_tur' => $d_cod_tur,
@@ -247,6 +248,8 @@ class Anexo04Controller extends Controller
                 'nivel' => $request->nivel,
                 'mes' => $request->mes,
                 'anio' => $request->anio,
+                'oficio' => $request->numero_oficio,
+                'expediente' => $request->numero_expediente,
                 'fecha_creacion' => now(),
                 'fecha_actualizacion' => now(),
             ]);
@@ -386,40 +389,6 @@ class Anexo04Controller extends Controller
         }
     }
 
-
-    private function obtenerRegistrosInasistencia($id_contacto)
-    {
-            // Obtener los registros de contacto que estén asociados al id_contacto
-            $contactos = Contacto::where('id_contacto', $id_contacto)->get();
-            $registros = [];
-
-            foreach ($contactos as $contacto) {
-                // Obtener un único registro de inasistencia para este contacto (ajusta si puede haber varios)
-                $inasistencia = Anexo04Inasistencia::where('id_contacto', $contacto->id_contacto)->first();
-
-                // Decodificar el JSON del campo `inasistencia`
-                $inasistenciaResumen = json_decode($inasistencia->inasistencia ?? '{}', true);
-
-                // Agregar al array de registros
-                $registros[] = (object)[
-                    'dni' => $contacto->dni,
-                    'nombres' => $contacto->nombres,
-                    'cargo' => $contacto->cargo,
-                    'condicion' => $contacto->condicion,
-                    'jornada' => $contacto->jornada,
-                    'inasistencias_dias' => $inasistenciaResumen['inasistencia_total'] ?? '',
-                    'tardanzas_horas' => $inasistenciaResumen['tardanza_total']['horas'] ?? '',
-                    'tardanzas_minutos' => $inasistenciaResumen['tardanza_total']['minutos'] ?? '',
-                    'permisos_sg_horas' => $inasistenciaResumen['permiso_sg_total']['horas'] ?? '',
-                    'permisos_sg_minutos' => $inasistenciaResumen['permiso_sg_total']['minutos'] ?? '',
-                    'huelga_paro_dias' => $inasistenciaResumen['huelga_total'] ?? '',
-                    'observaciones' => $inasistencia->observacion ?? '',
-                ];
-            }
-        return $registros;
-    }
-
-
     public function exportarInasistenciaPDF(Request $request)
     {
             $director = session('siic01');
@@ -502,8 +471,8 @@ class Anexo04Controller extends Controller
                 
             //Obtener firma
             $firmaGuardada = DB::connection('siic_anexos')->table('anexo03')
-            ->where('id_contacto', $director['id_contacto'])
-            ->value('firma');
+                ->where('id_contacto', $director['id_contacto'])
+                ->value('firma');
 
             // Obtener docentes y personal
             $personal = DB::table('nexus')
@@ -525,18 +494,11 @@ class Anexo04Controller extends Controller
             
 
             $niveles = $personal->pluck('nivel')->unique()->sort()->values();
-
-            $configuraciones = \App\Models\ConfiguracionDiasAsistencia::whereIn('id_persona', $personal->pluck('dni'))
-                ->get()
-                ->keyBy('id_persona');
-
+            
+            
         // Nivel seleccionado
-            $nivelSeleccionado = $request->get('nivel');
-            if (!$nivelSeleccionado || !$niveles->contains($nivelSeleccionado)) {
-                $nivelSeleccionado = $niveles->first();
-            }
+            $nivelSeleccionado = $niveles;
                 
-
                 $filtrados = $personal->where('nivel', $nivelSeleccionado)->values();
 
                 $filtrados = $filtrados->sort(function ($a, $b) {
@@ -580,9 +542,9 @@ class Anexo04Controller extends Controller
                 // Finalmente, comparar por nombres
                 return strcmp($a->nombres, $b->nombres);
                 })->values();
-
-                    $anio = 2025;
-            $mes = 5;
+                    $fecha = new \DateTime('first day of last month');
+                    $anio = (int) $fecha->format('Y');
+                    $mes = (int) $fecha->format('n');
 
             // Obtener todos los registros anexo04 que coincidan con el filtro
             $anexos04 = DB::connection('siic_anexos')->table('anexo04')
@@ -593,7 +555,7 @@ class Anexo04Controller extends Controller
                 ->get();
 
             $idsAnexo04 = $anexos04->pluck('id')->all();
-
+            
             $personasAnexo04 = DB::connection('siic_anexos')->table('anexo04_persona')
                 ->whereIn('id_anexo04', $idsAnexo04)
                 ->get()
@@ -612,7 +574,7 @@ class Anexo04Controller extends Controller
 
                     return [$json->dni => $item->id];
                 });
-
+            
             $inasistencias = DB::connection('siic_anexos')->table('anexo04_inasistencia')
                 ->whereIn('id_persona', $personasAnexo04->values()->all())
                 ->get()
@@ -624,7 +586,7 @@ class Anexo04Controller extends Controller
                     }
                     return [$item->id_persona => $decoded];
                 });
-
+            
             $datosInasistenciaPorDni = [];
 
             foreach ($personasAnexo04 as $dni => $id_persona) {
@@ -654,33 +616,32 @@ class Anexo04Controller extends Controller
             }
             
             // Combinar con personas filtradas
-            $filtrados = $filtrados->map(function ($persona) use ($datosInasistenciaPorDni) {
-                $dni = $persona->dni;
-                $inasistencia = $datosInasistenciaPorDni[$dni] ?? null;
+            // $filtrados = $filtrados->map(function ($persona) use ($datosInasistenciaPorDni) {
+            //     $dni = $persona->dni;
+            //     $inasistencia = $datosInasistenciaPorDni[$dni] ?? null;
 
-                $persona->inasistencias_dias = $inasistencia['inasistencia_total'] ?? 0;
-                $persona->huelga_paro_dias = $inasistencia['huelga_total'] ?? 0;
+            //     $persona->inasistencias_dias = $inasistencia['inasistencia_total'] ?? 0;
+            //     $persona->huelga_paro_dias = $inasistencia['huelga_total'] ?? 0;
 
-                $persona->tardanzas_horas = $inasistencia['tardanza_total']['horas'] ?? 0;
-                $persona->tardanzas_minutos = $inasistencia['tardanza_total']['minutos'] ?? 0;
+            //     $persona->tardanzas_horas = $inasistencia['tardanza_total']['horas'] ?? 0;
+            //     $persona->tardanzas_minutos = $inasistencia['tardanza_total']['minutos'] ?? 0;
 
-                $persona->permisos_sg_horas = $inasistencia['permiso_sg_total']['horas'] ?? 0;
-                $persona->permisos_sg_minutos = $inasistencia['permiso_sg_total']['minutos'] ?? 0;
-
-                return $persona;
+            //     $persona->permisos_sg_horas = $inasistencia['permiso_sg_total']['horas'] ?? 0;
+            //     $persona->permisos_sg_minutos = $inasistencia['permiso_sg_total']['minutos'] ?? 0;
+               
+            //     return $persona;
                 
-            });
-
+            // });
+            
                 // Datos comunes para ambas vistas
                 $data = [
-                    'registros' => $filtrados,
+                    // 'registros' => $filtrados,
                     'niveles' => $niveles,
                     'nivelSeleccionado' => $nivelSeleccionado,
                     'modalidad' => $institucion->modalidad ?? '',
                     'institucion' => $institucion->institucion ?? '',
                     'anio' => $anio,
                     'mes' => $mes,
-                    'configuraciones' => $configuraciones,
                     'codlocal' => $codlocal,
                     'd_cod_tur' => $d_cod_tur,
                     'logo' => $logo,
@@ -691,6 +652,8 @@ class Anexo04Controller extends Controller
                     'resolucion' => $resolucion,
                     'codmodulares' => $codmodulares,
                     'resolucion' => $resolucion,
+                    'inasistencias' => $inasistencias,
+                    'datos_inasistencias'=>$datosInasistenciaPorDni,
                 ];
 
                 // Datos específicos para el oficio
@@ -737,48 +700,68 @@ class Anexo04Controller extends Controller
 
             // Definir encabezado vertical para las siguientes páginas
             $headerVertical = '
-            <div style="
-                position: fixed;
-                top: 24%;
-                right: 0;
-                transform: translateY(-50%) rotate(180deg);
-                writing-mode: vertical-rl;
-                text-orientation: mixed;
-                width: 40px;
-                font-weight: bold;
-                font-size: 23px;
-                line-height: 1.2;
-                color: #999;
-                text-align: center;
-            ">
-                3<br>2<br>6<br>-<br>2<br>0<br>1<br>7<br>-<br>M<br>I<br>N<br>E<br>D<br>U
-            </div>
-            ';
-            $nivelInput = $request->get('nivel');
-
-            if (!$nivelInput) {
-                // No seleccionaron ningún nivel -> usar todos los niveles
-                $nivelSeleccionado = $niveles->toArray(); // o (array) $niveles si ya es array
-            } elseif (is_string($nivelInput)) {
-                // Solo un nivel seleccionado, pasarlo a array para iterar
-                $nivelSeleccionado = [$nivelInput];
-            } elseif (is_array($nivelInput)) {
-                // Varios niveles seleccionados, filtrar los que existen en $niveles
-                $nivelSeleccionado = array_filter($nivelInput, fn($n) => $niveles->contains($n));
-                if (empty($nivelSeleccionado)) {
-                    $nivelSeleccionado = $niveles->toArray();
-                }
-            } else {
-                // Por si llega algo raro, también usar todos
-                $nivelSeleccionado = $niveles->toArray();
-            }
+                <div style="
+                    position: fixed;
+                    top: 24%;
+                    right: 0;
+                    transform: translateY(-50%) rotate(180deg);
+                    writing-mode: vertical-rl;
+                    text-orientation: mixed;
+                    width: 40px;
+                    font-weight: bold;
+                    font-size: 23px;
+                    line-height: 1.2;
+                    color: #999;
+                    text-align: center;
+                ">
+                    3<br>2<br>6<br>-<br>2<br>0<br>1<br>7<br>-<br>M<br>I<br>N<br>E<br>D<br>U
+                </div>
+                ';
 
             // Recorrer niveles seleccionados y generar páginas por nivel
             foreach ($nivelSeleccionado as $nivel) {
                 // Filtrar y ordenar datos del personal por nivel
                 $filtrados = $personal->where('nivel', $nivel)->values();
                 $filtrados = $filtrados->sort(function ($a, $b) {
-                    // (tu lógica de ordenamiento aquí)
+                    // Prioridad por jerarquía del cargo
+                $prioridadCargo = function ($cargo) {
+                    $cargo = strtoupper(trim($cargo));
+                    if (Str::startsWith($cargo, 'DIRECTOR')) return 1;
+                    if (Str::startsWith($cargo, 'SUB-DIRECTOR')) return 2;
+                    if (Str::startsWith($cargo, 'JEFE')) return 3;
+                    if (Str::startsWith($cargo, 'COORDINADOR')) return 4;
+                    if (Str::startsWith($cargo, 'PROFESOR')) return 5;
+                    if (Str::startsWith($cargo, 'AUXILIAR')) return 6;
+                    return 99; // Otros
+                };
+
+                // Prioridad por condición laboral
+                $prioridadCondicion = function ($condicion) {
+                    $condicion = strtoupper(trim($condicion));
+                    if ($condicion === 'NOMBRADO') return 1;
+                    if ($condicion === 'CONTRATADO') return 2;
+                    if (in_array($condicion, ['ASIGNADO', 'ASIGNADA'])) return 3;
+                    return 99;
+                };
+
+                $pa = $prioridadCargo($a->cargo);
+                $pb = $prioridadCargo($b->cargo);
+
+                if ($pa !== $pb) return $pa <=> $pb;
+
+                $ca = $prioridadCondicion($a->condicion);
+                $cb = $prioridadCondicion($b->condicion);
+
+                if ($ca !== $cb) return $ca <=> $cb;
+
+                // Comparar por jornada laboral (de mayor a menor)
+                $ja = $a->jornada ?? 0;
+                $jb = $b->jornada ?? 0;
+
+                if ($ja !== $jb) return $jb <=> $ja;
+
+                // Finalmente, comparar por nombres
+                return strcmp($a->nombres, $b->nombres);
                 })->values();
 
                 // Preparar datos para la vista del PDF
@@ -790,15 +773,14 @@ class Anexo04Controller extends Controller
                     'institucion' => $institucion->institucion ?? '',
                     'anio' => $anio,
                     'mes' => $mes,
-                    'configuraciones' => $configuraciones,
                     'codlocal' => $codlocal,
                     'd_cod_tur' => $d_cod_tur,
                     'logo' => $logo,
                     'firmaBase64' => $firmaBase64,
                     'firmaGuardada' => $firmaGuardada,
-
+                    'inasistencias'=> $inasistencias,
+                    'datos_inasistencias'=> $datosInasistenciaPorDni,
                 ];
-
                 // Renderizar vista del reporte horizontal
                 $htmlReporte = View::make('reporteAnexo04.formulario04_pdf', $data)->render();
 
@@ -807,13 +789,12 @@ class Anexo04Controller extends Controller
                 $mpdf->AddPage('L');
                 $mpdf->WriteHTML($htmlReporte);
             }
-
                 // Descargar el PDF generado
                 return response($mpdf->Output('reporte_inasistencia_con_oficio.pdf', 'I'), 200)
                 ->header('Content-Type', 'application/pdf');
     }
 
-        
+
     public function guardarFirma(Request $request)
     {
             $session = session('siic01');

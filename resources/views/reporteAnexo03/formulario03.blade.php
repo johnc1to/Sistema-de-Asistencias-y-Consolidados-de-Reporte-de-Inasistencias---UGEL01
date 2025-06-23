@@ -16,18 +16,21 @@
 
         <!-- Información de la institución y nivel -->
         <div class="mb-4 flex flex-wrap justify-between items-center gap-4">
-            <!-- Columna izquierda: UGEL, IE, Nivel -->
-    <div class="flex-1 min-w-[250px]">
-        <p class="text-sm font-medium">{{ $registros->first()->ugel ?? 'N/A' }}</p>
-        <p class="text-sm font-medium">I.E: {{ $institucion }}</p>
-        <p class="text-sm font-medium">
-            Nivel / Modalidad Educativa: {{ $nivelSeleccionado ?? 'No disponible' }} {{ $modalidad ?? 'No disponible' }}
-        </p>
-    </div>
+        <!-- Columna izquierda: UGEL, IE, Nivel -->
+        <div class="flex-1 min-w-[250px]">
+            <p class="text-sm font-medium">{{ $registros->first()->ugel ?? 'N/A' }}</p>
+            <p class="text-sm font-medium">I.E: {{ $institucion }}</p>
+            <p class="text-sm font-medium">
+                Nivel / Modalidad Educativa: {{ $nivelSeleccionado ?? 'No disponible' }} {{ $modalidad ?? 'No disponible' }}
+            </p>
+        </div>
 
     <!-- Columna derecha: Periodo y Turno -->
     <div class="flex-1 min-w-[200px]">
-        <p class="text-sm font-medium mt-[2px]">PERIODO: MAYO 2025</p>
+        <p class="text-sm font-medium mt-[2px]">
+            PERIODO: {{ mb_strtoupper(\Carbon\Carbon::now()->translatedFormat('F Y'), 'UTF-8') }}
+        </p>
+
         <p class="text-sm font-medium">Turno: {{ $d_cod_tur }}</p>
     </div>
 
@@ -93,74 +96,116 @@
                     </thead>
 
                     <tbody class="bg-white">
-                                @forelse ($registros as $index => $r)
+                        @forelse ($registros as $index => $r)
+                                @php
+                                    $asistenciaPersona = $asistencias[$r->dni] ?? null;
+                                @endphp
+                                    <tr class="hover:bg-gray-100"
+                                        data-dni="{{ $r->dni }}"
+                                        data-nombres="{{ $r->nombres }}"
+                                        data-cargo="{{ $r->cargo }}"
+                                        data-condicion="{{ $r->condicion }}"
+                                        data-jornada="{{ $r->jornada }}"
+                                        @if ($asistenciaPersona)
+                                            @if (!empty($asistenciaPersona['observacion']))
+                                                data-observacion="{{ $asistenciaPersona['observacion'] }}"
+                                            @endif
+                                            @if (!empty($asistenciaPersona['tipo_observacion']))
+                                                data-tipo-observacion="{{ $asistenciaPersona['tipo_observacion'] }}"
+                                            @endif
+                                        @endif
+                                    >
+                                        <td class="border px-2 py-1">{{ $index + 1 }}</td>
+                                        <td class="border px-2 py-1 cursor-pointer text-blue-500" onclick="openModal('{{ $r->dni }}', '{{ $r->nombres }}')">
+                                            {{ $r->dni }}
+                                        </td>
+                                        <td class="border px-2 py-1 text-left">{{ $r->nombres }}</td>
+                                        <td class="border px-2 py-1">{{ $r->cargo }}</td>
+                                        <td class="border px-2 py-1">{{ $r->condicion }}</td>
+                                        <td class="border px-2 py-1">{{ $r->jornada }}</td>
                                     @php
-                                $asistenciaPersona = $asistencias[$r->dni] ?? null;
-                                @endphp
-                                <tr class="hover:bg-gray-100"
-                                    data-dni="{{ $r->dni }}"
-                                    data-nombres="{{ $r->nombres }}"
-                                    data-cargo="{{ $r->cargo }}"
-                                    data-condicion="{{ $r->condicion }}"
-                                    data-jornada="{{ $r->jornada }}"
-                                    @if ($asistenciaPersona)
-                                        @if (!empty($asistenciaPersona['observacion']))
-                                            data-observacion="{{ $asistenciaPersona['observacion'] }}"
+                                        $dni = $r->dni;
+                                        $asistenciaPersona = $asistencias[$dni] ?? ['asistencia' => [], 'observacion' => null];
+                                        $observacion = $asistenciaPersona['observacion'] ?? null;
+                                    @endphp
+
+                                    @php
+                                        $tipoObservacion = $asistenciaPersona['tipo_observacion'] ?? null;
+                                        $observacion = $asistenciaPersona['observacion'] ?? null;
+
+                                        $d = 1;
+                                        $asistencia = $asistenciaPersona['asistencia'] ?? [];
+
+                                        $todoVacio = empty($asistencia) || collect($asistencia)->every(fn($v) => is_null($v) || $v === '');
+
+                                        if ($todoVacio) {
+                                            echo '<td colspan="' . $diasEnMes . '" style="text-align: center;
+                                                color: #dc2626;
+                                                font-weight: 600;
+                                                font-style: italic;
+                                                background-color: #fef2f2;
+                                                padding: 4px;
+                                                font-size: 0.875rem;">' . ($observacion ?? 'Sin asistencia registrada') . '</td>';
+                                            continue;
+                                        }
+                                    @endphp
+
+                                    @while ($d <= $diasEnMes)
+                                        @php
+                                            $valor = $asistencia[$d - 1] ?? null;
+                                        @endphp
+
+                                        {{-- Detectar inicio de bloque de licencia --}}
+                                        @if ($valor === 'L')
+                                            @php
+                                                $inicio = $d;
+                                                $fin = $d;
+
+                                                for ($j = $d + 1; $j <= $diasEnMes; $j++) {
+                                                    $valorJ = $asistencia[$j - 1] ?? null;
+
+                                                    if ($valorJ === 'L' || $valorJ === null) {
+                                                        $fin = $j;
+                                                    } else {
+                                                        break;
+                                                    }
+                                                }
+
+                                                $colspan = $fin - $inicio + 1;
+                                            @endphp
+
+                                            <td colspan="{{ $colspan }}"
+                                                class="text-center text-red-600 font-semibold italic bg-red-50 border px-1 py-1 text-sm">
+                                                {{ $observacion ?? 'Licencia' }}
+                                            </td>
+
+                                            @php
+                                                $d = $fin + 1; // saltamos al siguiente después del último combinado
+                                            @endphp
+                                            @continue
                                         @endif
-                                        @if (!empty($asistenciaPersona['tipo_observacion']))
-                                            data-tipo-observacion="{{ $asistenciaPersona['tipo_observacion'] }}"
-                                        @endif
-                                    @endif
-                                >
-                                <td class="border px-2 py-1">{{ $index + 1 }}</td>
-                                <td class="border px-2 py-1 cursor-pointer text-blue-500" onclick="openModal('{{ $r->dni }}', '{{ $r->nombres }}')">
-                                    {{ $r->dni }}
-                                </td>
-                                <td class="border px-2 py-1 text-left">{{ $r->nombres }}</td>
-                                <td class="border px-2 py-1">{{ $r->cargo }}</td>
-                                <td class="border px-2 py-1">{{ $r->condicion }}</td>
-                                <td class="border px-2 py-1">{{ $r->jornada }}</td>
 
-                                @php
-                                    $dni = $r->dni;
-                                    $asistenciaPersona = $asistencias[$dni] ?? ['asistencia' => [], 'observacion' => null];
-                                    $observacion = $asistenciaPersona['observacion'] ?? null;
-                                @endphp
+                                        {{-- Celda normal --}}
+                                        @php
+                                            $fecha = Carbon::create($anio, $mes, $d);
+                                            $nombreDia = $diasSemana[$fecha->dayOfWeek];
+                                            $claseFondo = match (true) {
+                                                $valor === 'F' => 'bg-red-100',
+                                                in_array($nombreDia, ['S', 'D']) => 'bg-gray-100',
+                                                default => '',
+                                            };
+                                            $codigosNegrita = ['I', '3T', 'J', 'L', 'P', 'T', 'H', 'F'];
+                                            $claseTexto = in_array(strtoupper($valor), $codigosNegrita) ? 'font-bold' : '';
+                                        @endphp
 
-                                @if ($observacion)
-                                <td class="text-center text-red-600 font-semibold italic bg-red-50" colspan="{{ $diasEnMes }}">
-                                    {{ $observacion }}
-                                </td>
-                            @else
-                                @for ($d = 1; $d <= $diasEnMes; $d++)
-                                @php
-                                    $fecha = Carbon::create($anio, $mes, $d);
-                                    $nombreDia = $diasSemana[$fecha->dayOfWeek];
-                                    $esFeriado = in_array($fecha->format('Y-m-d'), $feriados);
-
-                                    if (!empty($asistenciaPersona['asistencia'])) {
-                                        $valor = $asistenciaPersona['asistencia'][$d - 1] ?? '';
-                                    } else {
-                                        $valor = in_array($nombreDia, ['S', 'D']) ? '' : ($esFeriado ? 'F' : 'A');
-                                    }
-
-                                    $claseFondo = match (true) {
-                                        $valor === 'F' => 'bg-red-100',
-                                        in_array($nombreDia, ['S', 'D']) => 'bg-gray-100',
-                                        default => '',
-                                    };
-
-                                    // Códigos válidos que deben ir en negrita
-                                    $codigosNegrita = [ 'I', '3T', 'J', 'L', 'P', 'T', 'H', 'F'];
-                                    $claseTexto = in_array(strtoupper($valor), $codigosNegrita) ? 'font-bold' : '';
-                                @endphp
-                                <td class="border px-1 py-1 text-sm asistencia-celda text-center {{ $claseFondo }}" data-id="{{ $r->dni }}" data-dia="{{ $d }}">
-                                    <span class="asistencia-valor {{ $claseTexto }}">{{ $valor ?? '' }}</span>
-                                </td>
-                            @endfor
-                            @endif
-                            </tr>
-                        @empty
+                                        <td class="border px-1 py-1 text-sm asistencia-celda text-center {{ $claseFondo }}"
+                                            data-id="{{ $r->dni }}" data-dia="{{ $d }}">
+                                            <span class="asistencia-valor {{ $claseTexto }}">{{ $valor }}</span>
+                                        </td>
+                                        @php $d++; @endphp
+                                    @endwhile
+                                </tr>
+                            @empty
                             <tr>
                                 <td colspan="{{ 6 + $diasEnMes }}" class="text-center py-2">No hay registros disponibles.</td>
                             </tr>
@@ -170,7 +215,6 @@
             </div>
         </div>
     </div>
-
 
     <!-- Leyenda -->
     <div class="mb-4 text-sm bg-blue-50 p-4 rounded-lg">
@@ -193,85 +237,90 @@
     </div>
 
     <div class="flex items-start gap-4">
-    <!-- Botón ingresar oficio + vista previa -->
-    <div class="flex flex-col items-center">
-        <button id="btnOficio" onclick="openModal2()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-            Ingresar número de oficio
-        </button>
-        <p id="previewOficio" class="mt-2 font-bold text-blue-800"></p>
-    </div>
-    <!-- Firma: Botón y vista previa -->
-
-    <div class="flex flex-col items-center">
-        <button onclick="openFirmaModal()"
-            class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-700">
-            Ingresar firma
-        </button>
-
-        @if (!empty($firmaGuardada))
-            <img id="firmaPreview" src="{{ asset('storage/firmasdirector/' . $firmaGuardada) }}" alt="Firma"
-                class="mt-2" style="height: 80px;">
-        @else
-            <img id="firmaPreview" src="" alt="Firma temporal" class="hidden mt-2" style="height: 80px;">
-        @endif
-    </div>
-    {{-- Botón de exportar PDF --}}
-    <form id="exportarForm" method="POST" action="{{ route('asistencia.exportar.pdf', ['nivel' => $nivelSeleccionado]) }}" target="_blank">
-        @csrf
-        <input type="hidden" name="numero_oficio" id="campoNumeroOficio">
-        <input type="hidden" name="firma_base64" id="campoFirmaBase64">
-
+        <!-- Botón ingresar oficio + vista previa -->
         <div class="flex flex-col items-center">
-            <button type="submit"
-                onclick="antesDeExportar()"
-                class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">
-                Exportar en PDF
+            <button id="btnOficio" onclick="openModal2()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                Ingresar número de oficio
             </button>
+            <p id="previewOficio" class="mt-2 font-bold text-blue-800"></p>
+            <!-- Campo oculto con el número de oficio ya guardado -->
+            <input type="hidden" id="oficio_guardado" value="{{ $numeroOficio ?? '' }}">
         </div>
-    </form>
 
-    
+        <!-- Firma: Botón y vista previa -->
+        <div class="flex flex-col items-center">
+            <button onclick="openFirmaModal()" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-700">
+                Ingresar firma
+            </button>
 
-    
-</div>
+            @if (!empty($firmaGuardada))
+                <img id="firmaPreview" src="{{ asset('storage/firmasdirector/' . $firmaGuardada) }}" alt="Firma"
+                    class="mt-2" style="height: 80px;">
+            @else
+                <img id="firmaPreview" src="" alt="Firma temporal" class="hidden mt-2" style="height: 80px;">
+            @endif
+        </div>
+
+        <!-- Botón Exportar PDF -->
+        <form id="exportarForm" method="POST" action="{{ route('asistencia.exportar.pdf', ['nivel' => $nivelSeleccionado]) }}" target="_blank">
+            @csrf
+            <input type="hidden" name="numero_oficio" id="campoNumeroOficio">
+            <input type="hidden" name="numero_expediente" id="campoNumeroExpediente">
+            <input type="hidden" name="firma_base64" id="campoFirmaBase64">
+
+            <div class="flex flex-col items-center">
+                <button type="submit"
+                    onclick="antesDeExportar()"
+                    class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">
+                    Exportar en PDF
+                </button>
+            </div>
+        </form>
+        <!-- Botón ingresar expediente + vista previa -->
+        <div class="flex flex-col items-center">
+            <button id="btnExpediente" onclick="openExpedienteModal()" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">
+                Ingresar número de expediente
+            </button>
+            <p id="previewExpediente" class="mt-2 font-bold text-indigo-800"></p>
+        </div>
+    </div>
+
     <!-- CSRF para JS -->
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <!-- Campo oculto -->
     <input type="hidden" id="oficio_guardado">
 
     <!-- Modal para subir la firma -->
-<div id="modalFirma" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 hidden">
-    <div class="bg-white rounded-lg shadow-lg w-full max-w-md p-6 relative">
-        <h2 class="text-xl font-semibold mb-4 text-center">Subir firma</h2>
+    <div id="modalFirma" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 hidden">
+        <div class="bg-white rounded-lg shadow-lg w-full max-w-md p-6 relative">
+            <h2 class="text-xl font-semibold mb-4 text-center">Subir firma</h2>
 
-        <div class="mb-3 p-2 bg-yellow-100 text-yellow-800 text-sm rounded border border-yellow-300">
-            Si no marcas la opción de guardar firma, esta se usará solo de forma temporal en el presente documento y deberás volver a subirla cada vez antes de generar el reporte.
-        </div>
+            <div class="mb-3 p-2 bg-yellow-100 text-yellow-800 text-sm rounded border border-yellow-300">
+                Si no marcas la opción de guardar firma, esta se usará solo de forma temporal en el presente documento y deberás volver a subirla cada vez antes de generar el reporte.
+            </div>
 
-        <input type="file" id="firmaInput" accept="image/*"
-            class="w-full border border-gray-300 rounded px-3 py-2 mb-4">
+            <input type="file" id="firmaInput" accept="image/*"
+                class="w-full border border-gray-300 rounded px-3 py-2 mb-4">
 
-        <div class="mb-4">
-            <label class="flex items-start space-x-2">
-                <input type="checkbox" id="guardarFirmaCheck" class="mt-1">
-                <span class="text-sm text-gray-700">
-                    Deseo guardar esta firma para futuros usos.<br>
-                    <span class="text-xs text-gray-500 italic block mt-1">
-                        Al marcar esta opción y subir su firma, usted declara bajo su responsabilidad que la firma proporcionada le pertenece y autoriza su uso dentro de este sistema. La entidad no se hace responsable por el uso indebido, falsificación o suplantación de identidad derivada del mal uso de la imagen de la firma.
+            <div class="mb-4">
+                <label class="flex items-start space-x-2">
+                    <input type="checkbox" id="guardarFirmaCheck" class="mt-1">
+                    <span class="text-sm text-gray-700">
+                        Deseo guardar esta firma para futuros usos.<br>
+                        <span class="text-xs text-gray-500 italic block mt-1">
+                            Al marcar esta opción y subir su firma, usted declara bajo su responsabilidad que la firma proporcionada le pertenece y autoriza su uso dentro de este sistema. La entidad no se hace responsable por el uso indebido, falsificación o suplantación de identidad derivada del mal uso de la imagen de la firma.
+                        </span>
                     </span>
-                </span>
-            </label>
-        </div>
+                </label>
+            </div>
 
-        <div class="flex justify-end space-x-2">
-            <button onclick="closeFirmaModal()" class="bg-red-500 text-white hover:bg-red-600 px-4 py-2 rounded">Cancelar</button>
-            <button onclick="guardarFirma()" class="bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded">Guardar</button>
+            <div class="flex justify-end space-x-2">
+                <button onclick="closeFirmaModal()" class="bg-red-500 text-white hover:bg-red-600 px-4 py-2 rounded">Cancelar</button>
+                <button onclick="guardarFirma()" class="bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded">Guardar</button>
+            </div>
         </div>
     </div>
-</div>
-
-
-    <!-- Modal Oficio-->
+    <!-- Modal para ingresar el Oficio-->
     <div id="modalOficio" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 hidden">
         <div class="bg-white rounded-lg shadow-lg w-full max-w-md p-6 relative">
             <h2 class="text-xl font-semibold mb-4 text-center">Número de Oficio</h2>
@@ -287,6 +336,20 @@
             <div class="flex justify-end space-x-2">
                 <button onclick="closeModal()" class="bg-red-500 text-white hover:bg-red-600 px-4 py-2 rounded">Cancelar</button>
                 <button onclick="guardarOficio()" class="bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded">Guardar</button>
+            </div>
+        </div>
+    </div>
+    <!-- Modal para ingresar número de expediente -->
+    <div id="expedienteModal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 hidden">
+        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">Ingresar número de expediente</h2>
+            <input type="text" id="inputExpediente" placeholder="Ej. 123456"
+                class="w-full border rounded px-4 py-2 focus:outline-none focus:ring focus:border-blue-300">
+            <div class="flex justify-end gap-2 mt-4">
+                <button onclick="cerrarExpedienteModal()"
+                    class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">Cancelar</button>
+                <button onclick="guardarExpediente()"
+                    class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Guardar</button>
             </div>
         </div>
     </div>
@@ -350,6 +413,7 @@
                     <option value="Renuncia">Renuncia</option>
                     <option value="Licencia">Licencia</option>
                     <option value="Abandono de Cargo">Abandono de Cargo</option>
+                    <option value="Vacaciones">Vacaciones</option>
                 </select>
             </div>
 
@@ -403,99 +467,115 @@ const urlGuardarFirma = document.querySelector('meta[name="guardar-firma-url"]')
 
     let firmaBase64 = null;
 
-function openFirmaModal() {
-    document.getElementById('modalFirma').classList.remove('hidden');
-}
-
-function closeFirmaModal() {
-    document.getElementById('modalFirma').classList.add('hidden');
-}
-function guardarCambiosModal() {
-    const selects = document.querySelectorAll('.asistencia-input');
-
-    selects.forEach(select => {
-        const dia = select.dataset.dia;
-        const valor = select.value.trim();
-        const celda = document.querySelector(`.asistencia-celda[data-id="${dniActual}"][data-dia="${dia}"]`);
-
-        if (celda) {
-            // Limpiar contenido anterior
-            celda.innerHTML = '';
-
-            // Crear nuevo <span> con o sin negrita
-            const span = document.createElement('span');
-            span.classList.add('asistencia-valor');
-            span.textContent = valor;
-
-            // Aplicar negrita si NO es "A" y no está vacío
-            if (valor && valor !== 'A') {
-                span.classList.add('font-bold');
-            }
-
-            celda.appendChild(span);
-        }
-    });
-
-    // Cerrar el modal
-    document.getElementById('modalForm').classList.add('hidden');
-}
-
-function guardarFirma() {
-    const fileInput = document.getElementById('firmaInput');
-    const guardarCheck = document.getElementById('guardarFirmaCheck').checked;
-    const file = fileInput.files[0];
-
-    if (!file) {
-        alert("Seleccione una imagen.");
-        return;
+    function openFirmaModal() {
+        document.getElementById('modalFirma').classList.remove('hidden');
     }
 
-    const reader = new FileReader();
-    reader.onload = function (e) {
-        firmaBase64 = e.target.result; // guardo la firma temporal en esta variable global
+    function closeFirmaModal() {
+        document.getElementById('modalFirma').classList.add('hidden');
+    }
 
-        const preview = document.getElementById('firmaPreview');
-        preview.src = firmaBase64;
-        preview.classList.remove('hidden');
+    function guardarCambiosModal() {
+        const selects = document.querySelectorAll('.asistencia-input');
 
-        closeFirmaModal();
+        selects.forEach(select => {
+            const dia = select.dataset.dia;
+            const valor = select.value.trim();
+            const celda = document.querySelector(`.asistencia-celda[data-id="${dniActual}"][data-dia="${dia}"]`);
 
-        if (guardarCheck) {
-            const formData = new FormData();
-            formData.append('firma', file);
+            if (celda) {
+                // Limpiar contenido anterior
+                celda.innerHTML = '';
 
-            fetch(urlGuardarFirma, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                // Crear nuevo <span> con o sin negrita
+                const span = document.createElement('span');
+                span.classList.add('asistencia-valor');
+                span.textContent = valor;
+
+                // Aplicar negrita si NO es "A" y no está vacío
+                if (valor && valor !== 'A') {
+                    span.classList.add('font-bold');
                 }
-            })
 
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    alert("Firma guardada correctamente.");
-                } else {
-                    alert("Error al guardar la firma: " + (data.error ?? ''));
-                }
-            })
-            .catch(() => alert("Error en la comunicación con el servidor."));
-        } else {
-            alert("Firma cargada temporalmente.");
+                celda.appendChild(span);
+            }
+        });
+
+        // Cerrar el modal
+        document.getElementById('modalForm').classList.add('hidden');
+    }
+
+    function openExpedienteModal() {
+        document.getElementById('expedienteModal').classList.remove('hidden');
+        document.getElementById('inputExpediente').value = '';
+        document.getElementById('inputExpediente').focus();
+    }
+
+    function cerrarExpedienteModal() {
+        document.getElementById('expedienteModal').classList.add('hidden');
+    }
+
+    function guardarFirma() {
+        const fileInput = document.getElementById('firmaInput');
+        const guardarCheck = document.getElementById('guardarFirmaCheck').checked;
+        const file = fileInput.files[0];
+
+        if (!file) {
+            alert("Seleccione una imagen.");
+            return;
         }
-    };
 
-    reader.readAsDataURL(file);
-}
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            firmaBase64 = e.target.result; // guardo la firma temporal en esta variable global
+
+            const preview = document.getElementById('firmaPreview');
+            preview.src = firmaBase64;
+            preview.classList.remove('hidden');
+
+            closeFirmaModal();
+
+            if (guardarCheck) {
+                const formData = new FormData();
+                formData.append('firma', file);
+
+                fetch(urlGuardarFirma, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                    }
+                })
+
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        alert("Firma guardada correctamente.");
+                    } else {
+                        alert("Error al guardar la firma: " + (data.error ?? ''));
+                    }
+                })
+                .catch(() => alert("Error en la comunicación con el servidor."));
+            } else {
+                alert("Firma cargada temporalmente.");
+            }
+        };
+
+        reader.readAsDataURL(file);
+    }
 
 
+    document.addEventListener('DOMContentLoaded', function () {
+        const nroOficio = document.getElementById('oficio_guardado').value.trim();
+        if (nroOficio) {
+            document.getElementById('previewOficio').innerText = 'Oficio N° ' + nroOficio;
+            document.getElementById('btnOficio').innerText = 'Editar número de oficio';
+        }
+    });
     function openModal2() {
+        const currentNro = document.getElementById('oficio_guardado').value.trim();
+        document.getElementById('numeroOficio').value = currentNro;
         document.getElementById('modalOficio').classList.remove('hidden');
-        const current = document.getElementById('oficio_guardado').value;
-        if (current) {
-            document.getElementById('numeroOficio').value = current;
-        }
     }
 
     function closeModal() {
@@ -503,16 +583,25 @@ function guardarFirma() {
     }
 
     function guardarOficio() {
-        const nro = document.getElementById('numeroOficio').value.trim();
-        if (!nro) return;
+        const nuevoNro = document.getElementById('numeroOficio').value.trim();
+        if (!nuevoNro) return;
 
-        document.getElementById('oficio_guardado').value = nro;
-        document.getElementById('previewOficio').innerText = 'Oficio N° ' + nro;
-
-        // Cambiar texto del botón
+        document.getElementById('oficio_guardado').value = nuevoNro;
+        document.getElementById('previewOficio').innerText = 'Oficio N° ' + nuevoNro;
         document.getElementById('btnOficio').innerText = 'Editar número de oficio';
 
         closeModal();
+    }
+
+    function guardarExpediente() {
+        const numero = document.getElementById('inputExpediente').value.trim();
+        if (numero !== '') {
+            document.getElementById('campoNumeroExpediente').value = numero;
+            document.getElementById('previewExpediente').innerText = 'Expediente MPD2025-EXP-' +numero;
+            cerrarExpedienteModal();
+        } else {
+            alert('Por favor, ingrese un número de expediente válido.');
+        }
     }
 
     function antesDeExportar() {
@@ -522,137 +611,245 @@ function guardarFirma() {
 
 
 let dniActual = '';
-let mes = 5, anio = 2025;
+let fechaActual = new Date();
+let mes = fechaActual.getMonth() + 1;
+let anio = fechaActual.getFullYear();
+let numeroOficio = null;
+let numeroExpediente = null;
 
-function openModal(dni, nombres) {
-    dniActual = dni;
 
-    const title = document.getElementById('modalTitle');
-    const filaNumeros = document.getElementById('dias-numeros');
-    const filaLetras = document.getElementById('dias-letras');
-    const filaInputs = document.getElementById('fila-asistencia');
+    function openModal(dni, nombres) {
+        dniActual = dni;
 
-    title.textContent = `Modificar Asistencia de ${nombres}`;
-    document.getElementById('modalForm').classList.remove('hidden');
+        const title = document.getElementById('modalTitle');
+        const filaNumeros = document.getElementById('dias-numeros');
+        const filaLetras = document.getElementById('dias-letras');
+        const filaInputs = document.getElementById('fila-asistencia');
 
-    filaNumeros.innerHTML = '';
-    filaLetras.innerHTML = '';
-    filaInputs.innerHTML = '';
+        title.textContent = `Modificar Asistencia de ${nombres}`;
+        document.getElementById('modalForm').classList.remove('hidden');
 
-    const diasEnMes = new Date(anio, mes, 0).getDate();
+        filaNumeros.innerHTML = '';
+        filaLetras.innerHTML = '';
+        filaInputs.innerHTML = '';
 
-    for (let dia = 1; dia <= diasEnMes; dia++) {
-        const fecha = new Date(anio, mes - 1, dia);
-        const diaSemana = fecha.getDay();
-        const fechaStr = fecha.toISOString().slice(0, 10);
-        const esFeriado = feriados.includes(fechaStr);
-        const isFinSemana = (diaSemana === 0 || diaSemana === 6);
+        const diasEnMes = new Date(anio, mes, 0).getDate();
 
-        filaNumeros.innerHTML += `<th class="border px-1">${dia}</th>`;
-        filaLetras.innerHTML += `<th class="border px-1">${diasSemana[diaSemana]}</th>`;
+        for (let dia = 1; dia <= diasEnMes; dia++) {
+            const fecha = new Date(anio, mes - 1, dia);
+            const diaSemana = fecha.getDay();
+            const fechaStr = fecha.toISOString().slice(0, 10);
+            const esFeriado = feriados.includes(fechaStr);
+            const isFinSemana = (diaSemana === 0 || diaSemana === 6);
 
-        // 🔍 Buscar valor actual en la tabla principal
-        const selector = `.asistencia-celda[data-id="${dni}"][data-dia="${dia}"] .asistencia-valor`;
-        const celda = document.querySelector(selector);
-        let valor = celda ? celda.textContent.trim().toUpperCase() : '';
+            filaNumeros.innerHTML += `<th class="border px-1">${dia}</th>`;
+            filaLetras.innerHTML += `<th class="border px-1">${diasSemana[diaSemana]}</th>`;
 
-        // Si es feriado, forzar valor "F"
-        if (esFeriado) valor = 'F';
+            // Buscar valor actual en la tabla principal
+            const selector = `.asistencia-celda[data-id="${dni}"][data-dia="${dia}"] .asistencia-valor`;
+            const celda = document.querySelector(selector);
+            let valor = celda ? celda.textContent.trim().toUpperCase() : '';
 
-        if (isFinSemana) {
-            filaInputs.innerHTML += `
-                <td class="border px-1 bg-gray-100">
-                    <input 
-                        type="text" 
-                        class="w-10 text-center bg-transparent focus:outline-none" 
-                        readonly 
-                    />
-                </td>`;
-        } else {
-            filaInputs.innerHTML += `
-                <td class="border px-1">
-                    <select 
-                        class="asistencia-input w-12 text-center bg-white border rounded"
-                        data-dia="${dia}" 
-                        data-fecha="${fechaStr}"
-                        data-dia-semana="${diaSemana}"
-                        ${esFeriado ? 'disabled' : ''}>
-                        <option value="" ${valor === '' ? 'selected' : ''}></option>
-                        <option value="A" ${valor === 'A' ? 'selected' : ''}>A</option>
-                        <option value="I" ${valor === 'I' ? 'selected' : ''}>I</option>
-                        <option value="J" ${valor === 'J' ? 'selected' : ''}>J</option>
-                        <option value="L" ${valor === 'L' ? 'selected' : ''}>L</option>
-                        <option value="P" ${valor === 'P' ? 'selected' : ''}>P</option>
-                        <option value="T" ${valor === 'T' ? 'selected' : ''}>T</option>
-                        <option value="F" ${valor === 'F' ? 'selected' : ''}>F</option>
-                        <option value="H" ${valor === 'H' ? 'selected' : ''}>H</option>
-                    </select>
-                </td>`;
+            // Si es feriado, forzar valor "F"
+            if (esFeriado) valor = 'F';
+
+            if (isFinSemana) {
+                filaInputs.innerHTML += `
+                    <td class="border px-1 bg-gray-100">
+                        <input 
+                            type="text" 
+                            class="w-10 text-center bg-transparent focus:outline-none" 
+                            readonly 
+                        />
+                    </td>`;
+            } else {
+                filaInputs.innerHTML += `
+                    <td class="border px-1">
+                        <select 
+                            class="asistencia-input w-12 text-center bg-white border rounded"
+                            data-dia="${dia}" 
+                            data-fecha="${fechaStr}"
+                            data-dia-semana="${diaSemana}"
+                            ${esFeriado ? 'disabled' : ''}>
+                            <option value="" ${valor === '' ? 'selected' : ''}></option>
+                            <option value="A" ${valor === 'A' ? 'selected' : ''}>A</option>
+                            <option value="I" ${valor === 'I' ? 'selected' : ''}>I</option>
+                            <option value="J" ${valor === 'J' ? 'selected' : ''}>J</option>
+                            <option value="L" ${valor === 'L' ? 'selected' : ''}>L</option>
+                            <option value="P" ${valor === 'P' ? 'selected' : ''}>P</option>
+                            <option value="T" ${valor === 'T' ? 'selected' : ''}>T</option>
+                            <option value="F" ${valor === 'F' ? 'selected' : ''}>F</option>
+                            <option value="H" ${valor === 'H' ? 'selected' : ''}>H</option>
+                        </select>
+                    </td>`;
+            }
+        }
+
+        // Limpiar checkboxes de patrón
+        document.querySelectorAll('.dia-patron').forEach(cb => cb.checked = false);
+
+        // Recuperar observación y tipo de observación si existen en el <tr>
+        const fila = document.querySelector(`tr[data-dni="${dni}"]`);
+        if (fila) {
+            const obs = fila.getAttribute('data-observacion') || '';
+            const tipoObs = fila.getAttribute('data-tipo-observacion') || '';
+
+            document.getElementById('observacion').value = obs;
+            document.getElementById('tipo_observacion').value = tipoObs;
         }
     }
 
-    // Limpiar checkboxes de patrón
-    document.querySelectorAll('.dia-patron').forEach(cb => cb.checked = false);
 
-    // 🟨 Recuperar observación y tipo de observación si existen en el <tr>
-    const fila = document.querySelector(`tr[data-dni="${dni}"]`);
-    if (fila) {
-        const obs = fila.getAttribute('data-observacion') || '';
-        const tipoObs = fila.getAttribute('data-tipo-observacion') || '';
+    document.addEventListener('DOMContentLoaded', () => {
+        // Cerrar el modal
+        document.getElementById('closeModal').addEventListener('click', () => {
+            document.getElementById('modalForm').classList.add('hidden');
+        });
 
-        document.getElementById('observacion').value = obs;
-        document.getElementById('tipo_observacion').value = tipoObs;
-    }
-}
-
-
-
-document.addEventListener('DOMContentLoaded', () => {
-    // Cerrar el modal
-    document.getElementById('closeModal').addEventListener('click', () => {
-        document.getElementById('modalForm').classList.add('hidden');
     });
 
-});
+    // Aplicar patrón
+    document.getElementById('aplicar-patron').addEventListener('click', () => {
+        const seleccionados = Array.from(document.querySelectorAll('.dia-patron'))
+            .filter(cb => cb.checked)
+            .map(cb => parseInt(cb.value)); // [1, 2, 4] por ejemplo
 
+        const inputs = document.querySelectorAll('.asistencia-input');
 
-
-
-// Aplicar patrón
-document.getElementById('aplicar-patron').addEventListener('click', () => {
-    const seleccionados = Array.from(document.querySelectorAll('.dia-patron'))
-        .filter(cb => cb.checked)
-        .map(cb => parseInt(cb.value)); // [1, 2, 4]
-
-    const inputs = document.querySelectorAll('.asistencia-input');
-
-    inputs.forEach(input => {
-        const diaSemana = parseInt(input.dataset.diaSemana);
-        const fecha = input.dataset.fecha;
-        const esFeriado = feriados.includes(fecha);
-        const isFinSemana = (diaSemana === 0 || diaSemana === 6);
-
-        if (isFinSemana) return;
-        if (esFeriado) {
-            input.value = 'F';
-        } else if (seleccionados.includes(diaSemana)) {
-            input.value = 'A';
-        } else {
-            input.value = '';
-        }
-    });
-});
-
-document.getElementById('saveAsistencia').addEventListener('click', () => {
-    const observacion = document.getElementById('observacion')?.value.trim() || '';
-    const tipoObservacion = document.getElementById('tipo_observacion')?.value || '';
-    const fila = document.querySelector(`tr[data-dni="${dniActual}"]`);
-
-    if (fila) {
-        if (observacion !== '') {
+        // 1. Restaurar filas con celdas combinadas (observación o licencia)
+        // 1. Restaurar filas con celdas combinadas (solo la del dniActual)
+        document.querySelectorAll(`tr[data-dni="${dniActual}"]`).forEach(fila => {
+            const dni = fila.dataset.dni;
             const diasEnMes = new Date(anio, mes, 0).getDate();
+            const celdasDia = fila.querySelectorAll('td[data-dia]');
 
-            // Eliminar TODAS las celdas desde la 7ma (índice 6) en adelante
+            if (celdasDia.length < diasEnMes) {
+                // Eliminar todas las celdas que no tienen data-dia (es decir, las que vienen de licencias parciales u observaciones)
+                fila.querySelectorAll('td:not([data-dia]):not(:nth-child(-n+6))').forEach(td => td.remove());
+
+                // Regenerar solo los días faltantes
+                const existentes = new Set(Array.from(fila.querySelectorAll('td[data-dia]')).map(td => parseInt(td.dataset.dia)));
+
+                for (let d = 1; d <= diasEnMes; d++) {
+                    if (!existentes.has(d)) {
+                        const nuevaCelda = document.createElement('td');
+                        nuevaCelda.className = 'asistencia-celda text-center align-middle border px-1 py-0.5';
+                        nuevaCelda.setAttribute('data-id', dni);
+                        nuevaCelda.setAttribute('data-dia', d);
+
+                        const input = document.createElement('input');
+                        input.type = 'text';
+                        input.maxLength = 2;
+                        input.className = 'asistencia-input w-6 text-center bg-white border border-gray-300 rounded';
+                        input.setAttribute('data-dia', d);
+                        input.setAttribute('data-id', dni);
+                        const fecha = `${anio}-${String(mes).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                        input.setAttribute('data-fecha', fecha);
+                        const diaSemana = new Date(anio, mes - 1, d).getDay();
+                        input.setAttribute('data-dia-semana', diaSemana);
+
+                        nuevaCelda.appendChild(input);
+
+                        // Insertar en la posición correcta
+                        let insertBefore = Array.from(fila.children).find(td => {
+                            const dia = td.getAttribute('data-dia');
+                            return dia && parseInt(dia) > d;
+                        });
+
+                        fila.insertBefore(nuevaCelda, insertBefore || null);
+                    }
+                }
+
+                fila.removeAttribute('data-observacion');
+                fila.removeAttribute('data-tipo-observacion');
+            }
+        });
+
+
+        // 2. Aplicar el patrón a todos los inputs
+        inputs.forEach(input => {
+            const diaSemana = parseInt(input.dataset.diaSemana);
+            const fecha = input.dataset.fecha;
+            const esFeriado = feriados.includes(fecha);
+            const isFinSemana = (diaSemana === 0 || diaSemana === 6);
+
+            if (isFinSemana) return;
+            if (esFeriado) {
+                input.value = 'F';
+            } else if (seleccionados.includes(diaSemana)) {
+                input.value = 'A';
+            } else {
+                input.value = '';
+            }
+        });
+    });
+
+    // Guardar los datos para la tabla
+    document.getElementById('saveAsistencia').addEventListener('click', () => {
+        const observacion = document.getElementById('observacion')?.value.trim() || '';
+        const tipoObservacion = document.getElementById('tipo_observacion')?.value || '';
+        const fila = document.querySelector(`tr[data-dni="${dniActual}"]`);
+
+        if (!fila) return;
+
+        // Eliminar observación previa si existe
+        const celdaObservacion = fila.querySelector('td[colspan]');
+        if (celdaObservacion) celdaObservacion.remove();
+
+        fila.removeAttribute('data-observacion');
+        fila.removeAttribute('data-tipo-observacion');
+
+        const inputs = document.querySelectorAll('.asistencia-input');
+        const diasEnMes = new Date(anio, mes, 0).getDate();
+
+        if (tipoObservacion === 'Licencia') {
+            const fInicio = document.getElementById('fechaInicioLicencia').value;
+            const fFin = document.getElementById('fechaFinLicencia').value;
+
+            if (fInicio && fFin) {
+                const [anioI, mesI, diaI] = fInicio.split('-').map(Number);
+                const [anioF, mesF, diaF] = fFin.split('-').map(Number);
+
+                const inicio = new Date(anioI, mesI - 1, diaI);
+                const fin = new Date(anioF, mesF - 1, diaF);
+
+                fila.setAttribute('data-observacion', observacion);
+                fila.setAttribute('data-tipo-observacion', tipoObservacion);
+
+                const primerDia = inicio.getDate();
+                const ultimoDia = fin.getDate();
+                const colspan = (ultimoDia - primerDia + 1);
+
+                for (let d = primerDia; d <= ultimoDia; d++) {
+                    const celda = fila.querySelector(`.asistencia-celda[data-id="${dniActual}"][data-dia="${d}"]`);
+                    if (celda) celda.remove();
+                }
+
+                const celdaUnificada = document.createElement('td');
+                celdaUnificada.colSpan = colspan;
+                celdaUnificada.className = "text-center font-semibold text-red-600 italic bg-red-50 text-xs";
+                celdaUnificada.textContent = observacion;
+
+                const celdasRestantes = fila.querySelectorAll(`.asistencia-celda[data-id="${dniActual}"]`);
+                let insertado = false;
+                for (const celda of celdasRestantes) {
+                    const dia = parseInt(celda.dataset.dia);
+                    if (dia > primerDia) {
+                        celda.parentNode.insertBefore(celdaUnificada, celda);
+                        insertado = true;
+                        break;
+                    }
+                }
+                if (!insertado) {
+                    fila.appendChild(celdaUnificada);
+                }
+
+            } else {
+                alert("Debe indicar el rango de fechas para la licencia.");
+                return;
+            }
+
+        } else if (observacion !== '') {
             let celda = fila.children[6];
             while (celda) {
                 const siguiente = celda.nextSibling;
@@ -660,30 +857,17 @@ document.getElementById('saveAsistencia').addEventListener('click', () => {
                 celda = siguiente;
             }
 
-            // Insertar una sola celda con solo la observación (NO mostrar tipo)
             const td = document.createElement('td');
             td.colSpan = diasEnMes;
             td.className = "text-center text-red-600 font-semibold italic bg-red-50";
-            td.textContent = observacion; // ← solo la observación
+            td.textContent = observacion;
+
             fila.appendChild(td);
 
-            // Guardar también el tipo de observación como atributo en la fila
-            fila.setAttribute('data-tipo-observacion', tipoObservacion); // ← para el guardado
-            fila.setAttribute('data-observacion', observacion); // ← para el guardado
+            fila.setAttribute('data-tipo-observacion', tipoObservacion);
+            fila.setAttribute('data-observacion', observacion);
+
         } else {
-            // Procesar inputs normalmente
-            const inputs = document.querySelectorAll('.asistencia-input');
-
-            // Eliminar observación previa si existe
-            const celdaObservacion = fila.querySelector('td[colspan]');
-            if (celdaObservacion) {
-                celdaObservacion.remove();
-                // Aquí podrías regenerar las celdas de asistencia si necesitas
-            }
-
-            // Limpiar atributo de tipo observación si se eliminó
-            fila.removeAttribute('data-tipo-observacion');
-
             inputs.forEach(input => {
                 const dia = input.dataset.dia;
                 const valor = input.value.toUpperCase();
@@ -700,110 +884,151 @@ document.getElementById('saveAsistencia').addEventListener('click', () => {
                 }
             });
         }
-    }
 
-    // Limpiar y cerrar modal
-    document.getElementById('observacion').value = '';
-    document.getElementById('tipo_observacion').value = '';
-    document.getElementById('modalForm').classList.add('hidden');
-});
+        // Limpiar y cerrar modal
+        document.getElementById('observacion').value = '';
+        document.getElementById('tipo_observacion').value = '';
+        document.getElementById('fechaInicioLicencia').value = '';
+        document.getElementById('fechaFinLicencia').value = '';
+        document.getElementById('modalForm').classList.add('hidden');
+    });
 
+    // Guardar datos a la BD
+    document.getElementById('guardarTodo').addEventListener('click', function () {
+        const numeroOficio = document.getElementById('oficio_guardado').value.trim();
+        const numeroExpediente = document.getElementById('campoNumeroExpediente').value.trim();
 
-
-
-
-
-
-
-document.getElementById('guardarTodo').addEventListener('click', function () {
-    const filas = document.querySelectorAll('tr[data-dni]');
-    const docentes = [];
-
-    filas.forEach(fila => {
-        const dni = fila.getAttribute('data-dni');
-        const nombres = fila.getAttribute('data-nombres');
-        const cargo = fila.getAttribute('data-cargo');
-        const condicion = fila.getAttribute('data-condicion');
-        const jornada = fila.getAttribute('data-jornada');
-
-        let asistencia = [];
-        let observacion = null;
-        let tipo_observacion = null;
-
-        const celdaObservacion = fila.querySelector('td[colspan]');
-
-        if (celdaObservacion) {
-            observacion = celdaObservacion.textContent.trim();
-            tipo_observacion = fila.getAttribute('data-tipo-observacion') || null;
-        } else {
-            asistencia = Array.from(fila.querySelectorAll('.asistencia-valor'))
-                .map(cell => cell.textContent.trim());
+        if (!numeroOficio || !numeroExpediente) {
+            alert("Debe ingresar el número de oficio y expediente antes de guardar.");
+            return;
         }
 
-        docentes.push({
-            dni,
-            nombres,
-            cargo,
-            condicion,
-            jornada,
-            asistencia,
-            observacion,
-            tipo_observacion
+        const filas = document.querySelectorAll('tr[data-dni]');
+        const docentes = [];
+
+        filas.forEach(fila => {
+            const dni = fila.getAttribute('data-dni');
+            const nombres = fila.getAttribute('data-nombres');
+            const cargo = fila.getAttribute('data-cargo');
+            const condicion = fila.getAttribute('data-condicion');
+            const jornada = fila.getAttribute('data-jornada');
+
+            let asistencia = [];
+            let observacion = null;
+            let tipo_observacion = fila.getAttribute('data-tipo-observacion') || null;
+
+            const celdaObservacion = fila.querySelector('td[colspan]');
+            if (celdaObservacion) {
+                observacion = celdaObservacion.textContent.trim();
+            }
+
+            // Paso 1: Días con licencia
+            let diasLicencia = [];
+            if (tipo_observacion === "Licencia" && observacion) {
+                const match = observacion.match(/del\s+(\d{1,2})\s+al\s+(\d{1,2})/i);
+                if (match) {
+                    const inicio = parseInt(match[1], 10);
+                    const fin = parseInt(match[2], 10);
+                    for (let d = inicio; d <= fin; d++) {
+                        diasLicencia.push(d);
+                    }
+                }
+            }
+
+            // Paso 2: Obtener número de días del mes actual
+            const hoy = new Date();
+            const anio = hoy.getFullYear();
+            const mes = hoy.getMonth(); // Ej. 5 para junio
+
+            const diasEnMes = new Date(anio, mes + 1, 0).getDate(); // Ej. 30
+
+            // Leer asistencia directamente desde el DOM
+            for (let dia = 1; dia <= diasEnMes; dia++) {
+                const celda = fila.querySelector(`td[data-dia='${dia}']`);
+                const valorSpan = celda ? celda.querySelector('.asistencia-valor') : null;
+                let valor = valorSpan ? valorSpan.textContent.trim() : '';
+
+                if ((!valor || valor === '') && diasLicencia.includes(dia)) {
+                    valor = 'L'; // Forzar valor 'L' si está dentro del rango de licencia
+                }
+
+                asistencia.push(valor || null);
+
+            }
+
+            docentes.push({
+                dni,
+                nombres,
+                cargo,
+                condicion,
+                jornada,
+                asistencia,
+                observacion,
+                tipo_observacion
+            });
+        });
+
+        const payload = {
+            id_contacto: {{ session('siic01.id_contacto') }},
+            codlocal: "{{ session('siic01.conf_permisos')[0]['codlocal'] ?? '000000' }}",
+            nivel: document.getElementById('nivel').value,
+            numero_oficio: document.getElementById('oficio_guardado').value.trim(),
+            numero_expediente: document.getElementById('campoNumeroExpediente').value.trim(),
+            docentes: docentes
+        };
+
+        fetch('{{ route("guardar.reporte.masivo") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(async response => {
+            const text = await response.text();
+
+            if (!response.ok) {
+                console.error("Error HTTP:", response.status, text);
+                alert("Error del servidor (" + response.status + "). Ver consola para detalles.");
+                location.reload();
+                return;
+            }
+
+            try {
+                const data = JSON.parse(text);
+                if (data.success) {
+                    alert("Guardado exitoso.");
+                } else {
+                    console.warn("Guardado con advertencias:", data);
+                    alert("Guardado con observaciones. Ver consola.");
+                }
+            } catch (e) {
+                console.error("No se pudo parsear JSON:", text);
+                alert("Guardado completado, pero la respuesta del servidor no fue JSON válido.");
+            }
+            location.reload();
+        })
+        .catch(error => {
+            console.error("Error de red o excepción del fetch:", error);
+            alert("Guardado exitoso");
+            location.reload();
         });
     });
 
-    const payload = {
-        id_contacto: {{ session('siic01.id_contacto') }},
-        codlocal: "{{ session('siic01.conf_permisos')[0]['codlocal'] ?? '000000' }}",
-        nivel: document.getElementById('nivel').value,
-        docentes: docentes
-    };
+    // guardar el tipo de observacion
+    document.getElementById('tipo_observacion').addEventListener('change', function () {
+        const esLicencia = this.value === 'Licencia';
+        const contenedor = document.getElementById('rangoFechasLicencia');
 
-    fetch('{{ route("guardar.reporte.masivo") }}', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': '{{ csrf_token() }}'
-        },
-        body: JSON.stringify(payload)
-    })
-    .then(response => {
-        if (!response.ok) throw new Error("Error al guardar");
-        return response.json();
-    })
-    .then(data => {
-        alert("Guardado exitoso.");
-    })
-    .catch(async error => {
-    if (error.response) {
-        // Error de servidor con respuesta
-        try {
-            const errorText = await error.response.text();
-            console.error("Error de servidor:", errorText);
-        } catch (e) {
-            console.error("Error al leer respuesta del servidor:", e);
+        if (esLicencia) {
+            contenedor.classList.remove('hidden');
+        } else {
+            contenedor.classList.add('hidden');
+            document.getElementById('fechaInicioLicencia').value = '';
+            document.getElementById('fechaFinLicencia').value = '';
         }
-    } else {
-        // Error de red o excepción en JavaScript
-        console.error("Error de red o JS:", error);
-    }
-});
-
-});
-
-
-document.getElementById('tipo_observacion').addEventListener('change', function () {
-    const esLicencia = this.value === 'Licencia';
-    const contenedor = document.getElementById('rangoFechasLicencia');
-
-    if (esLicencia) {
-        contenedor.classList.remove('hidden');
-    } else {
-        contenedor.classList.add('hidden');
-        document.getElementById('fechaInicioLicencia').value = '';
-        document.getElementById('fechaFinLicencia').value = '';
-    }
-});
+    });
 
 
 const tipoObservacion = document.getElementById('tipo_observacion');
@@ -812,45 +1037,46 @@ const fechaFin = document.getElementById('fechaFinLicencia');
 const observacionTextarea = document.getElementById('observacion');
 const contenedorFechas = document.getElementById('rangoFechasLicencia');
 
-tipoObservacion.addEventListener('change', function () {
-    const isLicencia = this.value === 'Licencia';
-    contenedorFechas.classList.toggle('hidden', !isLicencia);
 
-    if (!isLicencia) {
-        fechaInicio.value = '';
-        fechaFin.value = '';
-        limpiarFechasEnObservacion();
-    }
-});
+    tipoObservacion.addEventListener('change', function () {
+        const isLicencia = this.value === 'Licencia';
+        contenedorFechas.classList.toggle('hidden', !isLicencia);
 
-[fechaInicio, fechaFin].forEach(input => {
-    input.addEventListener('change', function () {
-        if (fechaInicio.value && fechaFin.value) {
-            insertarFechasEnObservacion();
+        if (!isLicencia) {
+            fechaInicio.value = '';
+            fechaFin.value = '';
+            limpiarFechasEnObservacion();
         }
-    });
-});
+        });
 
-function insertarFechasEnObservacion() {
-    const inicio = formatFecha(fechaInicio.value);
-    const fin = formatFecha(fechaFin.value);
+        [fechaInicio, fechaFin].forEach(input => {
+            input.addEventListener('change', function () {
+                if (fechaInicio.value && fechaFin.value) {
+                    insertarFechasEnObservacion();
+                }
+            });
+        });
 
-    limpiarFechasEnObservacion();
 
-    if (inicio && fin) {
-        observacionTextarea.value = observacionTextarea.value.trim() + ` Licencia del ${inicio} al ${fin}`;
+        function insertarFechasEnObservacion() {
+        const inicio = formatFecha(fechaInicio.value);
+        const fin = formatFecha(fechaFin.value);
+
+        limpiarFechasEnObservacion();
+
+        if (inicio && fin) {
+            observacionTextarea.value = observacionTextarea.value.trim() + ` L del ${inicio} al ${fin}`;
+        }
     }
-}
 
-function limpiarFechasEnObservacion() {
-    observacionTextarea.value = observacionTextarea.value.replace(/\[Licencia del .*? al .*?\]/g, '').trim();
-}
+    function limpiarFechasEnObservacion() {
+        observacionTextarea.value = observacionTextarea.value.replace(/\[Licencia del .*? al .*?\]/g, '').trim();
+    }
 
-function formatFecha(fechaStr) {
-    const [a, m, d] = fechaStr.split('-');
-    return `${d}-${m}-${a}`;
-}
-
+    function formatFecha(fechaStr) {
+        const [a, m, d] = fechaStr.split('-');
+        return `${d}`;
+    }
 
 </script>
 

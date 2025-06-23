@@ -42,6 +42,8 @@ use App\Http\Controllers\asistencia\AsistenciaTeletrabajo;
 use App\Http\Controllers\Anexo03Controller;
 use App\Http\Controllers\Anexo04Controller;
 use App\Http\Controllers\ReporteAnexosController;
+
+use App\Http\Controllers\ReporteDiagnostico;
 use App\Http\Controllers\Restablecer_correo;
 /*
 |--------------------------------------------------------------------------
@@ -437,10 +439,10 @@ Route::get('/test-db', function () {
     }
 });
 
+//Route::get('/reporte_anexo03', [Anexo03Controller::class, 'obtenerPersonalSesion']);
+
 
 //Anexo 03 
-
-//Route::get('/reporte_anexo03', [Anexo03Controller::class, 'obtenerPersonalSesion']);
 
 Route::get('/reporte_anexo03', [Anexo03Controller::class, 'mostrarAsistenciaDetallada']);
 
@@ -461,9 +463,16 @@ Route::post('/guardar-firma-director', [Anexo04Controller::class, 'guardarFirma'
 Route::POST('/inasistencia/pdf', [Anexo04Controller::class, 'exportarInasistenciaPDF'])->name('inasistencia.exportar.pdf');
 
 
-//Vista administrador
+
+//Vista ESP - ANEXOS
 
 Route::get('/reportes_anexo03',[ReporteAnexosController::class,'mostrarReporteAnexos03'])->name('reporte.anexos03');
 
 Route::get('/reportes_anexo04',[ReporteAnexosController::class,'mostrarReporteAnexos04'])->name('reporte.anexos04');
+
+
+
+//Vista ESP - EVALUACION DIAGNOSTICA
+
+Route::get('/reporte_eval_diag',[ReporteDiagnostico::class,'mostrarReporteUnificado'])->name('reporte.unificado');
 

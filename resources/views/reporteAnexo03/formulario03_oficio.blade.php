@@ -30,24 +30,24 @@
 </head>
 <body>
         @php
-    $partes = explode(' ', $institucion);
-    $primerElemento = $partes[0];
+            $partes = explode(' ', $institucion);
+            $primerElemento = $partes[0];
 
-    if (is_numeric($primerElemento)) {
-        // Si comienza con un número
-        $codigo = $primerElemento;
-        $iniciales = collect(array_slice($partes, 1))
-                        ->map(fn($palabra) => Str::substr(Str::upper($palabra), 0, 1))
-                        ->implode('');
-        $resultado = $codigo . ' ' . $iniciales;
-    } else {
-        // Si no comienza con número
-        $iniciales = collect($partes)
-                        ->map(fn($palabra) => Str::substr(Str::upper($palabra), 0, 1))
-                        ->implode('');
-        $resultado = $iniciales;
-    }
-@endphp
+            if (is_numeric($primerElemento)) {
+                // Si comienza con un número
+                $codigo = $primerElemento;
+                $iniciales = collect(array_slice($partes, 1))
+                                ->map(fn($palabra) => Str::substr(Str::upper($palabra), 0, 1))
+                                ->implode('');
+                $resultado = $codigo . ' ' . $iniciales;
+            } else {
+                // Si no comienza con número
+                $iniciales = collect($partes)
+                                ->map(fn($palabra) => Str::substr(Str::upper($palabra), 0, 1))
+                                ->implode('');
+                $resultado = $iniciales;
+            }
+        @endphp
     <table style="width: 100%;">
         <tr>
             <!-- Logo -->
@@ -103,6 +103,7 @@
                         @endif
 
                         <p> <strong>C.L. </strong>{{ $codlocal }} - <strong>RD Creación: </strong>{{ $resolucion }}</p>
+                        <strong>{{$correo_inst}}</strong>
                     </div>
                 </div>
             </td>

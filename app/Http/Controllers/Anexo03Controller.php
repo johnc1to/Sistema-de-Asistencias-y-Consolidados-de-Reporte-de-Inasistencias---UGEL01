@@ -43,12 +43,22 @@ class Anexo03Controller extends Controller
             ->select('d_cod_tur')
             ->where('codlocal', $codlocal)
             ->value('tud_cod_turrno');  
-            
+        
         //Obtener firma
             $firmaGuardada = DB::connection('siic_anexos')->table('anexo03')
             ->where('id_contacto', $director['id_contacto'])
             ->value('firma');
 
+        //Obtener oficio
+            $oficioguardado = DB::connection('siic_anexos')->table('anexo03')
+            ->where('id_contacto', $director['id_contacto'])
+            ->value('oficio');
+        
+        //Obtener expediente
+            $expedienteguardado = DB::connection('siic_anexos')->table('anexo03')
+            ->where('id_contacto', $director['id_contacto'])
+            ->value('expediente');
+            
         // Lista de docentes desde nexus (para control de acceso)
         $personal = DB::table('nexus')
             ->select(
@@ -156,16 +166,17 @@ class Anexo03Controller extends Controller
             'nivelSeleccionado' => $nivelSeleccionado,
             'modalidad' => $institucion->modalidad ?? '',
             'institucion' => $institucion->institucion ?? '',
-            'anio' => 2025,
-            'mes' => 5,
-            'configuraciones' => null, // O si ya tienes algo que pase la config de días laborables
+            'anio' => now()->year,
+            'mes' => now()->month,
             'codlocal' => $codlocal,
             'asistencias' => $datosAsistenciaPorDni,
             'd_cod_tur' => $d_cod_tur,
             'firmaGuardada' => $firmaGuardada,
+            'oficio'=>$oficioguardado,
+            'expediente'=>$expedienteguardado,
         ]);
     }
-  
+
 
     public function guardarReporteMasivo(Request $request)
     {
@@ -176,12 +187,14 @@ class Anexo03Controller extends Controller
                 'id_contacto' => $request->id_contacto,
                 'codlocal' => $request->codlocal,
                 'nivel' => $request->nivel,
+                'oficio' => $request->numero_oficio,
+                'expediente' => $request->numero_expediente,
                 'fecha_creacion' => now(),
             ]);
 
             foreach ($request->docentes as $docente) {
                 // REGISTRA EN LOGS EL DOCENTE ACTUAL
-                \Log::info('Procesando docente:', $docente);
+                // \Log::info('Procesando docente:', $docente);
 
                 // VALIDACIÓN BÁSICA
                 if (!isset($docente['dni']) || !isset($docente['asistencia'])) {
@@ -207,14 +220,13 @@ class Anexo03Controller extends Controller
                     'observacion' => $docente['observacion'] ?? null, // puede ser texto o null
                     'tipo_observacion' => $docente['tipo_observacion'] ?? null, // nuevo campo, puede ser null si no viene
                 ]);
-
             }
 
             DB::commit();
             return response()->json(['success' => true]);
         } catch (\Exception $e) {
             DB::rollBack();
-            \Log::error('Error al guardar reporte masivo: ' . $e->getMessage());
+           // \Log::error('Error al guardar reporte masivo: ' . $e->getMessage());
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
@@ -322,38 +334,42 @@ class Anexo03Controller extends Controller
             ->where('descargo', 'DIRECTOR DE UNIDAD DE GESTIÓN EDUCATIVA LOCAL')
             ->first();
 
-        // Obetenr localidad 
+        // Obtener localidad 
         $localidad= DB::table('escale')
             ->select('localidad')
             ->where('codlocal', $codlocal)
             ->value('localidad');
 
-        // Obetenr turno 
+        // Obtener turno 
         $d_cod_tur= DB::table('escale')
             ->select('d_cod_tur')
             ->where('codlocal', $codlocal)
             ->value('d_cod_tur');
 
-        // Obetenr nombre_anio 
+        // Obtener nombre_anio 
         $anioActual = now()->year;
 
         $nombreAnio = DB::table('nombre_anio')
             ->where('anio',$anioActual)
             ->value('nombre');
 
-        //obtener resolucion
+        // Obtener resolucion
         $resolucion = DB::table('iiee_a_evaluar_rie')
             ->select('nro_rdcreacion')
             ->where('codlocal', $codlocal)
             ->value('resolucion');
-        //obtener codmods
+        //Bbtener codmods
         $codmodulares = DB::table('iiee_a_evaluar_rie')
             ->select('nivel', 'codmod')
             ->where('codlocal', $codlocal)
             ->get();
+        //correo institucional
+        $correo_inst = DB::table('iiee_a_evaluar_rie')
+            ->select('correo_inst')
+            ->where('codlocal', $codlocal)
+            ->value('correo_inst');
 
-
-        // Obetenr logo 
+        // Obtener logo 
         $logo= DB::table('iiee_a_evaluar_rie')
             ->select('logo')
             ->where('codlocal', $codlocal)
@@ -366,7 +382,7 @@ class Anexo03Controller extends Controller
         $nombreLogo = $logoBD ? basename($logoBD) : null;
         $rutaLogoWeb = $nombreLogo ? 'storage/logoie/' . $nombreLogo : null;
 
-            
+
         //Obtener firma
         $firmaGuardada = DB::connection('siic_anexos')->table('anexo03')
         ->where('id_contacto', $director['id_contacto'])
@@ -391,9 +407,6 @@ class Anexo03Controller extends Controller
 
         $niveles = $personal->pluck('nivel')->unique()->sort()->values();
 
-        $configuraciones = \App\Models\ConfiguracionDiasAsistencia::whereIn('id_persona', $personal->pluck('dni'))
-            ->get()
-            ->keyBy('id_persona');
 
         $nivelSeleccionado = $niveles;
         // Obtener personas con id_persona en anexo03_persona para este codlocal (igual que en mostrarAsistenciaDetallada)
@@ -469,8 +482,8 @@ class Anexo03Controller extends Controller
         return strcmp($a->nombres, $b->nombres);
         })->values();
 
-        $mes = 5;
-        $anio = 2025;
+        $mes = now()->month;
+        $anio = now()->year;
 
         // Datos comunes para ambas vistas
         $data = [
@@ -481,7 +494,6 @@ class Anexo03Controller extends Controller
             'institucion' => $institucion->institucion ?? '',
             'anio' => $anio,
             'mes' => $mes,
-            'configuraciones' => $configuraciones,
             'codlocal' => $codlocal,
             'd_cod_tur' => $d_cod_tur,
             'logo' => $logo,
@@ -491,6 +503,7 @@ class Anexo03Controller extends Controller
             'logo' => $rutaLogoWeb,
             'codmodulares' => $codmodulares,
             'resolucion' => $resolucion,
+            'correo_inst' =>$correo_inst,
         ];
 
         // Datos específicos para el oficio
@@ -511,6 +524,7 @@ class Anexo03Controller extends Controller
             'logo' => $rutaLogoWeb,
             'codmodulares' => $codmodulares,
             'resolucion' => $resolucion,
+            'correo_inst' =>$correo_inst,
         ];
 
         // Renderizar vista del Oficio (primera página vertical)
@@ -558,7 +572,45 @@ class Anexo03Controller extends Controller
             // Filtrar y ordenar datos del personal por nivel
             $filtrados = $personal->where('nivel', $nivel)->values();
             $filtrados = $filtrados->sort(function ($a, $b) {
-                // (tu lógica de ordenamiento aquí)
+                // Prioridad por jerarquía del cargo
+                $prioridadCargo = function ($cargo) {
+                    $cargo = strtoupper(trim($cargo));
+                    if (Str::startsWith($cargo, 'DIRECTOR')) return 1;
+                    if (Str::startsWith($cargo, 'SUB-DIRECTOR')) return 2;
+                    if (Str::startsWith($cargo, 'JEFE')) return 3;
+                    if (Str::startsWith($cargo, 'COORDINADOR')) return 4;
+                    if (Str::startsWith($cargo, 'PROFESOR')) return 5;
+                    if (Str::startsWith($cargo, 'AUXILIAR')) return 6;
+                    return 99; // Otros
+                };
+
+                // Prioridad por condición laboral
+                $prioridadCondicion = function ($condicion) {
+                    $condicion = strtoupper(trim($condicion));
+                    if ($condicion === 'NOMBRADO') return 1;
+                    if ($condicion === 'CONTRATADO') return 2;
+                    if (in_array($condicion, ['ASIGNADO', 'ASIGNADA'])) return 3;
+                    return 99;
+                };
+
+                $pa = $prioridadCargo($a->cargo);
+                $pb = $prioridadCargo($b->cargo);
+
+                if ($pa !== $pb) return $pa <=> $pb;
+
+                $ca = $prioridadCondicion($a->condicion);
+                $cb = $prioridadCondicion($b->condicion);
+
+                if ($ca !== $cb) return $ca <=> $cb;
+
+                // Comparar por jornada laboral (de mayor a menor)
+                $ja = $a->jornada ?? 0;
+                $jb = $b->jornada ?? 0;
+
+                if ($ja !== $jb) return $jb <=> $ja;
+
+                // Finalmente, comparar por nombres
+                return strcmp($a->nombres, $b->nombres);
             })->values();
 
             // Preparar datos para la vista del PDF
@@ -570,7 +622,6 @@ class Anexo03Controller extends Controller
                 'institucion' => $institucion->institucion ?? '',
                 'anio' => $anio,
                 'mes' => $mes,
-                'configuraciones' => $configuraciones,
                 'codlocal' => $codlocal,
                 'd_cod_tur' => $d_cod_tur,
                 'logo' => $logo,

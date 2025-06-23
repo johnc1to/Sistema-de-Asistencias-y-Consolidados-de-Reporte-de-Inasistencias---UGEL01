@@ -99,41 +99,75 @@
     </thead>
     <tbody>
         @foreach ($registros as $index => $r)
-    @php
-        $dni = $r->dni;
-        $asistencia = $asistencias[$dni]['asistencia'] ?? [];
-        $observacion = $asistencias[$dni]['observacion'] ?? null;
+            @php
+                $dni = $r->dni;
+                $asistencia = $asistencias[$dni]['asistencia'] ?? [];
+                $observacion = $asistencias[$dni]['observacion'] ?? null;
 
-        // Verificamos si toda la asistencia está vacía (solo blancos o vacíos)
-        $asistenciaVacia = collect($asistencia)->filter(function($val) {
-            return trim($val) !== '';
-        })->isEmpty();
-    @endphp
-    <tr>
-        <td>{{ $index + 1 }}</td>
-        <td>{{ $dni }}</td>
-        <td style="text-align: left;">{{ $r->nombres }}</td>
-        <td>{{ $r->cargo }}</td>
-        <td>{{ $r->condicion }}</td>
-        <td>{{ $r->jornada }}</td>
+                // Verificamos si toda la asistencia está vacía (solo blancos o vacíos)
+                $asistenciaVacia = collect($asistencia)->filter(function($val) {
+                    return trim($val) !== '';
+                })->isEmpty();
+            @endphp
+            <tr>
+                <td>{{ $index + 1 }}</td>
+                <td>{{ $dni }}</td>
+                <td style="text-align: left;">{{ $r->nombres }}</td>
+                <td>{{ $r->cargo }}</td>
+                <td>{{ $r->condicion }}</td>
+                <td>{{ $r->jornada }}</td>
 
-        @if ($asistenciaVacia)
-            {{-- Mostrar observación centrada si no hay asistencia --}}
-            <td colspan="{{ $diasEnMes }}" style="text-align: center; font-style: italic;">
-                {{ $observacion }}
-            </td>
-        @else
-            {{-- Mostrar la asistencia día por día --}}
-            @for ($d = 1; $d <= $diasEnMes; $d++)
-                @php
-                    $valor = $asistencia[$d - 1] ?? '';
-                @endphp
-                <td>{{ $valor }}</td>
-            @endfor
-        @endif
-    </tr>
-@endforeach
+                @if ($asistenciaVacia)
+                    {{-- Mostrar observación centrada si no hay asistencia --}}
+                    <td colspan="{{ $diasEnMes }}" style="text-align: center; font-style: italic;">
 
+                        {{ $observacion }}
+                    </td>
+                @else
+                    {{-- Mostrar la asistencia día por día --}}
+                    @php
+                        $d = 1;
+                    @endphp
+
+                    @while ($d <= $diasEnMes)
+                        @php
+                            $valor = $asistencia[$d - 1] ?? '';
+
+                            // Detectar inicio de bloque "L"
+                            if ($valor === 'L') {
+                                $inicio = $d;
+                                $fin = $d;
+
+                                // Buscar el rango continuo de 'L'
+                                for ($j = $d + 1; $j <= $diasEnMes; $j++) {
+                                    $valorSiguiente = $asistencia[$j - 1] ?? '';
+                                    if ($valorSiguiente === 'L' || $valorSiguiente === null || trim($valorSiguiente) === '') {
+                                        $fin = $j;
+                                    } else {
+                                        break;
+                                    }
+                                }
+                                $colspan = $fin - $inicio + 1;
+                        @endphp
+                            <td colspan="{{ $colspan }}" style="text-align: center; font-style: italic;">
+                        {{ $observacion ?? 'Licencia' }}
+                        </td>
+                            @php
+                                $d = $fin + 1;
+                                continue;
+                            @endphp
+                            @php
+                                } else {
+                            @endphp
+                                <td style="text-align: center;">{{ $valor }}</td>
+                            @php
+                                $d++;
+                                }
+                            @endphp
+                    @endwhile
+                @endif
+            </tr>
+        @endforeach
     </tbody>
 </table>
 <!-- Firma, Lugar/Fecha y Leyenda en la misma línea -->
@@ -175,8 +209,6 @@
   
     </tr>
 </table>
-
-
 
 </body>
 </html>

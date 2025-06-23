@@ -137,8 +137,8 @@
                 <thead class="bg-gray-100 text-gray-700 uppercase text-xs text-center">
                     <tr>
                         <th class="px-2 py-1 border whitespace-nowrap">N°</th>
-                        <th class="px-2 py-1 border whitespace-nowrap">ID Anexo 03</th>
-                        <th class="px-2 py-1 border whitespace-nowrap">ID Contacto</th>
+                        <th class="px-2 py-1 border whitespace-nowrap">Número Oficio</th>
+                        <th class="px-2 py-1 border whitespace-nowrap">Expediente</th>
                         <th class="px-2 py-1 border whitespace-nowrap">DNI</th>
                         <th class="px-2 py-1 border whitespace-nowrap">Nombre Completo</th>
                         <th class="px-2 py-1 border whitespace-nowrap">Celular</th>
@@ -155,8 +155,8 @@
                     @foreach($reportes as $index => $reporte)
                         <tr class="hover:bg-gray-50">
                             <td class="px-2 py-1 border">{{ $index + 1 }}</td>
-                            <td class="px-2 py-1 border">{{ $reporte->id_anexo03 }}</td>
-                            <td class="px-2 py-1 border">{{ $reporte->id_contacto }}</td>
+                            <td class="px-2 py-1 border">{{ $reporte->oficio }}</td>
+                            <td class="px-2 py-1 border">{{ $reporte->expediente }}</td>
                             <td class="px-2 py-1 border">{{ $reporte->dni }}</td>
                             <td class="px-2 py-1 border whitespace-nowrap">{{ $reporte->nombres }} {{ $reporte->apellipat }} {{ $reporte->apellimat }}</td>
                             <td class="px-2 py-1 border">{{ $reporte->celular_pers }}</td>

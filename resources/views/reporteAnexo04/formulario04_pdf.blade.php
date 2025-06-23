@@ -1,8 +1,5 @@
 @php
     use Carbon\Carbon;
-    $diasEnMes = Carbon::create($anio, $mes, 1)->daysInMonth;
-    $diasSemana = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
-    $feriados = ['2025-05-01'];
     $fechaHoy = Carbon::now()->translatedFormat('d \d\e F \d\e Y');
 @endphp
 
@@ -68,6 +65,7 @@
         <td style="text-align: left; vertical-align: top; width: 40%; border: none;">
             <p style="margin: 2px 0;"><strong>PERIODO:</strong> {{ strtoupper(Carbon::create($anio, $mes, 1)->translatedFormat('F Y')) }}</p>
             <p style="margin: 2px 0;"><strong>Turno:</strong> {{ $d_cod_tur }}</p>
+            <p><strong>Total registros:</strong> {{ count($registros) }}</p>
         </td>
     </tr>
 </table>
@@ -130,12 +128,12 @@
                                 </div>
                             </th>
                         </tr>
-    </thead>
-    <tbody>
+        </thead>
+        <tbody>
         @foreach ($registros as $index => $r)
             @php
                 $dni = $r->dni;
-                $inasistencia = $inasistencias[$dni]['inasistencia'] ?? [];
+                $datos = $datos_inasistencias[$dni] ?? [];
             @endphp
             <tr>
                 <td>{{ $index + 1 }}</td>
@@ -144,16 +142,19 @@
                 <td>{{ $r->cargo }}</td>
                 <td>{{ $r->condicion }}</td>
                 <td>{{ $r->jornada }}</td>
-                    <td class="border px-2 py-1 text-center" data-tipo="inasistencias_dias">{{ $r->inasistencias_dias ?? '' }}</td>
-                    <td class="border px-2 py-1 text-center" data-tipo="tardanzas_horas">{{ $r->tardanzas_horas ?? '' }}</td>
-                    <td class="border px-2 py-1 text-center" data-tipo="tardanzas_minutos">{{ $r->tardanzas_minutos ?? '' }}</td>
-                    <td class="border px-2 py-1 text-center" data-tipo="permisos_sg_horas">{{ $r->permisos_sg_horas ?? '' }}</td>
-                    <td class="border px-2 py-1 text-center" data-tipo="permisos_sg_minutos">{{ $r->permisos_sg_minutos ?? '' }}</td>
-                    <td class="border px-2 py-1 text-center" data-tipo="huelga_paro_dias">{{ $r->huelga_paro_dias ?? '' }}</td>
-                    <td class="border px-2 py-1" data-tipo="observaciones">{{ e($r->observaciones ?? '') }}</td>
+
+                {{-- Valores desde datos_inasistencias --}}
+                <td class="border px-2 py-1 text-center">{{ $datos['inasistencia_total'] ?? '' }}</td>
+                <td class="border px-2 py-1 text-center">{{ $datos['tardanza_total']['horas'] ?? '' }}</td>
+                <td class="border px-2 py-1 text-center">{{ $datos['tardanza_total']['minutos'] ?? '' }}</td>
+                <td class="border px-2 py-1 text-center">{{ $datos['permiso_sg_total']['horas'] ?? '' }}</td>
+                <td class="border px-2 py-1 text-center">{{ $datos['permiso_sg_total']['minutos'] ?? '' }}</td>
+                <td class="border px-2 py-1 text-center">{{ $datos['huelga_total'] ?? '' }}</td>
+                <td class="border px-2 py-1">{{ e($r->observaciones ?? '') }}</td>
             </tr>
         @endforeach
     </tbody>
+
 </table>
 
 <!-- Firma, Lugar/Fecha y Hora/Minuto en la misma línea -->

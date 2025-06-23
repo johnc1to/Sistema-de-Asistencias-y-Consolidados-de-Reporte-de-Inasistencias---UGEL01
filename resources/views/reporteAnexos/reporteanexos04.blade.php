@@ -136,8 +136,8 @@
                 <thead class="bg-gray-100 text-gray-700 uppercase text-xs text-center">
                     <tr>
                         <th class="px-2 py-1 border whitespace-nowrap">N°</th>
-                        <th class="px-2 py-1 border whitespace-nowrap">ID Anexo 04</th>
-                        <th class="px-2 py-1 border whitespace-nowrap">ID Contacto</th>
+                        <th class="px-2 py-1 border whitespace-nowrap">Número de Oficio</th>
+                        <th class="px-2 py-1 border whitespace-nowrap">Expediente</th>
                         <th class="px-2 py-1 border whitespace-nowrap">DNI</th>
                         <th class="px-2 py-1 border whitespace-nowrap">Nombre Completo</th>
                         <th class="px-2 py-1 border whitespace-nowrap">Celular</th>
