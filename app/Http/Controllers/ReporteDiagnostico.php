@@ -191,6 +191,49 @@ class ReporteDiagnostico extends Controller
         
         return $resultados;
     }
+    private function obtenerDetalleSeccionesPorGrado()
+{
+    $tablas = [
+        'app_matrix_evaluacion_respuesta_1pri' => '1° Primaria',
+        'app_matrix_evaluacion_respuesta_2pri' => '2° Primaria',
+        'app_matrix_evaluacion_respuesta_3pri' => '3° Primaria',
+        'app_matrix_evaluacion_respuesta_4pri' => '4° Primaria',
+        'app_matrix_evaluacion_respuesta_5pri' => '5° Primaria',
+        'app_matrix_evaluacion_respuesta_6pri' => '6° Primaria',
+        'app_matrix_evaluacion_respuesta_1sec' => '1° Secundaria',
+        'app_matrix_evaluacion_respuesta_2sec' => '2° Secundaria',
+        'app_matrix_evaluacion_respuesta_3sec' => '3° Secundaria',
+        'app_matrix_evaluacion_respuesta_4sec' => '4° Secundaria',
+        'app_matrix_evaluacion_respuesta_5sec' => '5° Secundaria',
+        'app_matrix_evaluacion_respuesta_1baa' => '1° BAA',
+        'app_matrix_evaluacion_respuesta_2baa' => '2° BAA',
+        'app_matrix_evaluacion_respuesta_3baa' => '3° BAA',
+        'app_matrix_evaluacion_respuesta_3bai' => '3° BAI',
+        'app_matrix_evaluacion_respuesta_4baa' => '4° BAA',
+    ];
+
+    $detalle = [];
+
+    foreach ($tablas as $tabla => $nombreGrado) {
+        $resultados = DB::connection('evaluacion_diagnostica')
+            ->table("$tabla as R")
+            ->join('app_matrix_detalle as D', 'D.id_matrix_detalle', '=', 'R.id_matrix_detalle')
+            ->join('app_matrix_evaluacion_alumno as A', 'A.id_detalle_alumno', '=', 'R.id_detalle_alumno')
+            ->join('app_matrix_evaluacion as E', 'E.id_evaluacion', '=', 'A.id_evaluacion')
+            ->where('D.estado', 1)
+            ->where('A.estado', 1)
+            ->whereNotIn('A.EstadoMatricula', ['trasladado', '', '8', '12'])
+            ->select('E.seccion', DB::raw('COUNT(DISTINCT R.id_detalle_alumno) as total'))
+            ->groupBy('E.seccion')
+            ->get();
+
+        $detalle[$nombreGrado] = $resultados->map(function ($item) {
+            return "{$item->seccion}: {$item->total}";
+        })->toArray();
+    }
+
+    return $detalle;
+}
 
     public function mostrarReporteUnificado(Request $request)
     {
@@ -344,21 +387,6 @@ class ReporteDiagnostico extends Controller
         $redes = DB::connection('evaluacion_diagnostica')
             ->table('iiee_a_evaluar_RIE')->where('estado', 1)
             ->distinct()->pluck('red');
-
-        $detalleSecciones = DB::connection('evaluacion_diagnostica')
-            ->table('app_matrix_evaluacion')
-            ->select('cod_grado', 'seccion', DB::raw('COUNT(*) as total'))
-            ->where('estado', 1)
-            ->groupBy('cod_grado', 'seccion')
-            ->get()
-            ->groupBy('cod_grado')
-            ->map(function ($items) {
-                return $items->map(function ($item) {
-                    return "{$item->seccion}: {$item->total}";
-                })->toArray();
-            })
-            ->toArray(); // <- Esto para pasar limpio al JS
-
         
         return view('ReporteEvaluacionDiagnostica.reportediagnostica', compact(
             'session',
@@ -372,8 +400,7 @@ class ReporteDiagnostico extends Controller
             'total_registrados',
             'promedio_avance',
             'avancePorGrado',
-            'totalEsperado',
-            'detalleSecciones' 
+            'totalEsperado'
         ));
     }
 

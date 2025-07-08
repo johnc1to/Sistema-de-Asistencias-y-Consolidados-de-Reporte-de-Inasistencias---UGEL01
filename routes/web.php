@@ -39,12 +39,16 @@ use App\Http\Controllers\Tipodocumentos;
 use App\Http\Controllers\Webservices;
 use App\Http\Controllers\Receptores;
 use App\Http\Controllers\asistencia\AsistenciaTeletrabajo;
+use App\Http\Controllers\bienes\RefirmaInvokerNoPatrimonialController;
+use App\Http\Controllers\bienes\BienesUserNoPatrimonial;
+use App\Http\Controllers\DocumentosRemitidos;
+use App\Http\Controllers\Siseaprende2025;
+use App\Http\Controllers\Restablecer_correo;
 use App\Http\Controllers\Anexo03Controller;
 use App\Http\Controllers\Anexo04Controller;
 use App\Http\Controllers\ReporteAnexosController;
-
-use App\Http\Controllers\ReporteDiagnostico;
-use App\Http\Controllers\Restablecer_correo;
+use App\Http\Controllers\PlantillaReporte;
+use App\Http\Controllers\Plataforma;
 /*
 |--------------------------------------------------------------------------
 | Web Routes
@@ -64,6 +68,10 @@ Route::get('sin_permisos_modulo', function () {
     return view('login/sin_permisos_modulo');
 });
 
+
+
+Route::get('listar_logosie',[DocumentosRemitidos::class,'listar_logosie'])->name('listar_logosie');
+
 Route::get('listar_qr',[Qr::class,'listar_qr'])->name('listar_qr');
 
 Route::get('epps_coodinador',[Epps::class,'epps_coodinador'])->name('epps_coodinador');
@@ -74,6 +82,7 @@ Route::post('guardar_epps',[Epps::class,'guardar_epps'])->name('guardar_epps');
 Route::get('epps_resumen',[Epps::class,'epps_resumen'])->name('epps_resumen');
 Route::post('get_resumen',[Epps::class,'get_resumen'])->name('get_resumen');
 Route::get('excel_epps',[Excel::class,'excel_epps'])->name('excel_epps');
+Route::get('fecha',[Excel::class,'fecha'])->name('fecha');
 
 Route::get('excel_ie_que_faltan_evaluacion_primaria',[Excel2::class,'excel_ie_que_faltan_evaluacion_primaria'])->name('excel_ie_que_faltan_evaluacion_primaria');
 Route::get('excel_ie_que_faltan_evaluacion_primaria_4_5_6',[Excel2::class,'excel_ie_que_faltan_evaluacion_primaria_4_5_6'])->name('excel_ie_que_faltan_evaluacion_primaria_4_5_6');
@@ -146,6 +155,8 @@ Route::get('verreqseccincrementosecciones',[Racio::class,'verreqseccincrementose
 Route::get('anexo_racio_reqseccincrementosecciones',[Excel::class,'anexo_racio_reqseccincrementosecciones'])->name('anexo_racio_reqseccincrementosecciones');
 Route::get('excel_postulantes',[Excel::class,'excel_postulantes'])->name('excel_postulantes');
 Route::get('excel_registro_matricula_cetpro',[Excel::class,'excel_registro_matricula_cetpro'])->name('excel_registro_matricula_cetpro');
+Route::get('excel_registro_matricula_modulos_cetpro',[Excel::class,'excel_registro_matricula_modulos_cetpro'])->name('excel_registro_matricula_modulos_cetpro');
+Route::get('excel_registro_titulados_cetpro',[Excel::class,'excel_registro_titulados_cetpro'])->name('excel_registro_titulados_cetpro');
 
 Route::get('anexo05director',[Excel::class,'anexo05director'])->name('anexo05director');
 Route::get('anexo06docentes',[Excel::class,'anexo06docentes'])->name('anexo06docentes');
@@ -259,12 +270,17 @@ Route::get('completar_nro_recurso',[Fichamonitoreo::class,'completar_nro_recurso
 
 Route::post('guardar_docente',[Fichamonitoreo::class,'guardar_docente'])->name('guardar_docente');
 Route::post('guardar_receptores',[Fichamonitoreo::class,'guardar_receptores'])->name('guardar_receptores');
+Route::post('guardar_solo_receptores',[Fichamonitoreo::class,'guardar_solo_receptores'])->name('guardar_solo_receptores');
+Route::post('guardar_observaciones',[Fichamonitoreo::class,'guardar_observaciones'])->name('guardar_observaciones');
 Route::get('popup_anadirfichadirector',[Fichamonitoreo::class,'popup_anadirfichadirector'])->name('popup_anadirfichadirector');
 Route::post('anadirfichadirector',[Fichamonitoreo::class,'anadirfichadirector'])->name('anadirfichadirector');
 Route::get('popup_anadirfichaesp',[Fichamonitoreo::class,'popup_anadirfichaesp'])->name('popup_anadirfichaesp');
 Route::post('anadirfichaespecialista',[Fichamonitoreo::class,'anadirfichaespecialista'])->name('anadirfichaespecialista');
 Route::get('docentevalidar_dni',[Fichamonitoreo::class,'docentevalidar_dni'])->name('docentevalidar_dni');
 Route::get('exportar_respuestas_ficha',[Excel::class,'exportar_respuestas_ficha'])->name('exportar_respuestas_ficha');
+
+Route::get('popup_anadirfichaesp_iiee',[Fichamonitoreo::class,'popup_anadirfichaesp_iiee'])->name('popup_anadirfichaesp_iiee');
+Route::post('anadirfichaespecialista_iiee',[Fichamonitoreo::class,'anadirfichaespecialista_iiee'])->name('anadirfichaespecialista_iiee');
 
 Route::get('vacacionesdirector',[Vacacionesie::class,'director'])->name('vacacionesdirector');
 Route::get('eliminarVacaciondirector',[Vacacionesie::class,'eliminarVacaciondirector'])->name('eliminarVacaciondirector');
@@ -373,6 +389,7 @@ Route::get('excel_reportecorreos',[Excel::class,'excel_reportecorreos'])->name('
 Route::post('consulta_app_modulos',[Webservices::class,'consulta_app_modulos'])->name('consulta_app_modulos');
 Route::post('consulta_especialistas',[Webservices::class,'consulta_especialistas'])->name('consulta_especialistas');
 Route::get('nexus_dir',[Webservices::class,'nexus_dir'])->name('nexus_dir');
+Route::get('url',[Webservices::class,'url'])->name('url');
 
 Route::get('listar_receptor',[Receptores::class,'listar_receptor'])->name('listar_receptor');
 Route::get('tabla_receptor',[Receptores::class,'tabla_receptor'])->name('tabla_receptor');
@@ -381,6 +398,32 @@ Route::get('eliminar_receptor',[Receptores::class,'eliminar_receptor'])->name('e
 Route::get('ver_editar_receptor',[Receptores::class,'ver_editar_receptor'])->name('ver_editar_receptor');
 Route::get('cambiar_clave',[Receptores::class,'cambiar_clave'])->name('cambiar_clave');
 
+Route::get('dar_acceso_a_docente',[Siseaprende2025::class,'dar_acceso_a_docente'])->name('dar_acceso_a_docente');
+Route::get('tabla_reporte_nexus',[Siseaprende2025::class,'tabla_reporte_nexus'])->name('tabla_reporte_nexus');
+Route::get('get_cantidad_alumnos_importados_x_seccion',[Siseaprende2025::class,'get_cantidad_alumnos_importados_x_seccion'])->name('get_cantidad_alumnos_importados_x_seccion');
+Route::get('nivel_x_grado',[Siseaprende2025::class,'nivel_x_grado'])->name('nivel_x_grado');
+Route::post('subir_archivo_siagie',[Siseaprende2025::class,'subir_archivo_siagie'])->name('subir_archivo_siagie');
+Route::get('procesar_archivo_siagie',[Siseaprende2025::class,'procesar_archivo_siagie'])->name('procesar_archivo_siagie');
+Route::get('eliminar_alumnos',[Siseaprende2025::class,'eliminar_alumnos'])->name('eliminar_alumnos');
+Route::get('get_anadir_estudiantes',[Siseaprende2025::class,'get_anadir_estudiantes'])->name('get_anadir_estudiantes');
+Route::POST('generar_enlace_nuevo_docente',[Siseaprende2025::class,'generar_enlace_nuevo_docente'])->name('generar_enlace_nuevo_docente');
+
+Route::get('listar_PlantillaReporte',[PlantillaReporte::class,'listar_PlantillaReporte'])->name('listar_PlantillaReporte');
+Route::get('tabla_PlantillaReporte',[PlantillaReporte::class,'tabla_PlantillaReporte'])->name('tabla_PlantillaReporte');
+Route::post('guardar_PlantillaReporte',[PlantillaReporte::class,'guardar_PlantillaReporte'])->name('guardar_PlantillaReporte');
+Route::get('eliminar_PlantillaReporte',[PlantillaReporte::class,'eliminar_PlantillaReporte'])->name('eliminar_PlantillaReporte');
+
+Route::get('listar_PlantilaVariables',[PlantillaReporte::class,'listar_PlantilaVariables'])->name('listar_PlantilaVariables');
+Route::get('tabla_PlantilaVariables',[PlantillaReporte::class,'tabla_PlantilaVariables'])->name('tabla_PlantilaVariables');
+Route::post('guardar_PlantilaVariables',[PlantillaReporte::class,'guardar_PlantilaVariables'])->name('guardar_PlantilaVariables');
+Route::get('verreportegenerado',[PlantillaReporte::class,'verreportegenerado'])->name('verreportegenerado');
+Route::get('tabla_verreportegenerado',[PlantillaReporte::class,'tabla_verreportegenerado'])->name('tabla_verreportegenerado');
+Route::get('pruebareporte',[PlantillaReporte::class,'pruebareporte'])->name('pruebareporte');
+
+Route::get('listar_Plataforma',[Plataforma::class,'listar_Plataforma'])->name('listar_Plataforma');
+Route::get('tabla_Plataforma',[Plataforma::class,'tabla_Plataforma'])->name('tabla_Plataforma');
+Route::post('guardar_Plataforma',[Plataforma::class,'guardar_Plataforma'])->name('guardar_Plataforma');
+Route::get('eliminar_Plataforma',[Plataforma::class,'eliminar_Plataforma'])->name('eliminar_Plataforma');
 
 Route::get('contactanos',function(){
     $correo = new Notificarcorreo;
@@ -429,50 +472,40 @@ Route::get('/actividades-teletrabajo-respuesta',[AsistenciaTeletrabajo::class,'a
 Route::post('/guardar-actividades-respuesta',[AsistenciaTeletrabajo::class,'guardar_actividades_respuesta'])->name('guardar-actividades-respuesta');
 Route::get('/data-actividad-teletrabajo-respuesta',[AsistenciaTeletrabajo::class,'data_actividad_teletrabajo_respuesta'])->name('data-actividad-teletrabajo-respuesta');
 
-//test-bd
-Route::get('/test-db', function () {
-    try {
-        DB::connection()->getPdo();
-        return 'Conexión exitosa a la base de datos.';
-    } catch (\Exception $e) {
-        return 'Error de conexión: ' . $e->getMessage();
-    }
-});
+Route::get('/data-monitoreo-asistencia1',[AsistenciaTeletrabajo::class,'data_monitoreo_asistencia1'])->name('data-monitoreo-asistencia1');
 
-//Route::get('/reporte_anexo03', [Anexo03Controller::class, 'obtenerPersonalSesion']);
+//jmmj 21-05-2025 inicio
+Route::post('refirma-no-patrimonial', [RefirmaInvokerNoPatrimonialController::class,"index"])->name("refirma-no-patrimonial");
+Route::post('update-firmas-no-patrimonial', [RefirmaInvokerNoPatrimonialController::class,"update_firmas"])->name("update-firmas-no-patrimonial");
+Route::get('bienes-transferidos-no-patrimonial',[BienesUserNoPatrimonial::class,'transferido'])->name('bienes-transferidos-no-patrimonial');
+
+//jmmj 21-05-2025 fin
 
 
-//Anexo 03 
 
+//jmmj 30-05-2025 inicio
+Route::post('guardar-cumplimiento',[AsistenciaTeletrabajo::class,'cumplimiento'])->name('guardar-cumplimiento');
+
+Route::get('/reporte-actividades-teletrabajo-pdf/{fecha_inicio}/{fecha_fin}', [AsistenciaTeletrabajo::class, 'exportarActividadesPDF'])->name('reporte.actividades.pdf');
+Route::get('/reporte-actividades-teletrabajo-pdf1/{fecha_inicio}/{fecha_fin}/{salto_linea}', [AsistenciaTeletrabajo::class, 'exportarActividadesPDF1'])->name('reporte.actividades.pdf1');
+//jmmj 30-05-2025 fin
+
+Route::post('guardar-observacion',[AsistenciaTeletrabajo::class,'guardar_observacion'])->name('guardar-observacion');
+
+//Anexo 03 - 13-06-2025
 Route::get('/reporte_anexo03', [Anexo03Controller::class, 'mostrarAsistenciaDetallada']);
-
 Route::post('/guardar-reporte-masivo', [Anexo03Controller::class, 'guardarReporteMasivo'])->name('guardar.reporte.masivo');
-
 Route::POST('/asistencia/pdf', [Anexo03Controller::class, 'exportarAsistenciaPDF'])->name('asistencia.exportar.pdf');
-
 Route::post('/guardar-firma-director', [Anexo03Controller::class, 'guardarFirma'])->name('guardar.firma.director');
-
-//Anexo 04
-
+//Anexo 04 - 13-06-2025
 Route::get('/reporte_anexo04', [Anexo04Controller::class, 'mostrarInasistenciaDetallada']);
-
 Route::post('/guardar-reporte-consolidado-masivo', [Anexo04Controller::class, 'storeMasivo'])->name('anexo04.storeMasivo');
-
 Route::post('/guardar-firma-director', [Anexo04Controller::class, 'guardarFirma'])->name('guardar.firma.director');
-
 Route::POST('/inasistencia/pdf', [Anexo04Controller::class, 'exportarInasistenciaPDF'])->name('inasistencia.exportar.pdf');
-
-
-
-//Vista ESP - ANEXOS
-
+//Vista ESP - ANEXOS - 13-06-2025
 Route::get('/reportes_anexo03',[ReporteAnexosController::class,'mostrarReporteAnexos03'])->name('reporte.anexos03');
-
 Route::get('/reportes_anexo04',[ReporteAnexosController::class,'mostrarReporteAnexos04'])->name('reporte.anexos04');
 
 
 
-//Vista ESP - EVALUACION DIAGNOSTICA
-
-Route::get('/reporte_eval_diag',[ReporteDiagnostico::class,'mostrarReporteUnificado'])->name('reporte.unificado');
 

@@ -58,7 +58,7 @@
 
 <div class="main-card mb-12 card">
     <div class="card-body">
-        <h5 class="card-title" style="font-size:20px;"><b>AGEBRE 23</b></h5>
+        <h5 class="card-title" style="font-size:20px;"><b>FICHAS - MONITOREO</b></h5>
         
         
         <div class="col-xs-12" style="color:#000;font-size:10px;">
@@ -209,8 +209,32 @@
                     <div class="col-sm-12">
                         <b style="color:#000;">TEXTO</b>
                         <textarea id="text_adicional" class="form-control" style="height:300px;" onkeyup="$('#html_adicional').html($('#text_adicional').val());"></textarea>
-                    </div>                    
-                    <div class="col-sm-12"><br><br><br><br><br><br><br><br><br><br><br><br><br></div>                        
+                    </div>     
+                    <div class="col-sm-12"><br></div>
+                    <div class="col-sm-12">
+                        <b style="color:#000;">NOTA:</b>
+                        <p><b>Cuando se requiere colocar check se debe utilizar el siguiente código HTML</b></p>
+                        <p>Ejemplo:</p>
+                        <p>
+                           WhatsApp (<input class="marcarx" type="text" name="" value="" title="WhatsApp" onclick="marcarx(this);" readonly="">)    
+                            Zoom (<input class="marcarx" type="text" name="" value="" title="Zoom" onclick="marcarx(this);" readonly="">)       
+                            Meet (<input class="marcarx" type="text" name="" value="" title="Meet" onclick="marcarx(this);" readonly="">) 
+                            Correo (<input class="marcarx" type="text" name="" value="" title="Correo" onclick="marcarx(this);" readonly="">)   
+                            Presencial (<input class="marcarx" type="text" name="" value="" title="Presencial" onclick="marcarx(this);" readonly="">)  
+                        </p>
+                        <input style="width:100%" value='<input class="marcarx" type="text" name="" value="" title="WhatsApp" onclick="marcarx(this);" readonly="">'></input>
+                    </div>
+                    <div class="col-sm-12"><br></div>
+                    <div class="col-sm-12">
+                        <p><b>Cuando se requiere colocar check excluyentes se debe utilizar el siguiente código HTML</b></p>
+                        <p>Ejemplo:</p>
+                        <p>
+                           Presencial (<input class="marcarx formaatencion" type="text" name="" value="" title="Presencial" onclick="marcarx(this,'formaatencion');selhibrido();" readonly="">) 
+                           Otros(<input class="marcarx formaatencion" type="text" name="" value="" title="Otros" onclick="marcarx(this,'formaatencion');selhibrido();" readonly="">)
+                        </p>
+                        <input style="width:100%" value='Presencial (<input class="marcarx formaatencion" type="text" name="" value="" title="Presencial" onclick="marcarx(this,formaatencion);" readonly="">)<br>Otros(<input class="marcarx formaatencion" type="text" name="" value="" title="Otros" onclick="marcarx(this,formaatencion);" readonly="">)'></input>
+                    </div>
+                    <div class="col-sm-12"><br><br><br><br><br><br><br><br><br><br><br><br><br></div>
                 </div>
             </form> 
         </div>
@@ -219,6 +243,15 @@
 
 <script type="text/javascript">
 
+function marcarx(athis,clase=false){
+			if(clase) $("."+clase).val('');
+			if($(athis).val()=='X'){
+				$(athis).val('');
+			}else{
+				$(athis).val('X')
+			}
+	}
+		
 function selecanio(){
     var anio = $("#anio").val();
     var area = $("#area").val();
@@ -423,6 +456,7 @@ function opciones_respuesta(){
         opt += '</div>';
         opt += '<div class="col-sm-4">';
         opt += '<span class="btn btn-success" onclick="ver_ficha_ie();">Consultar</span>';
+        opt += '<span id="btnpbi"></span>';
         opt += '</div>';
         opt += '</div>';
         
@@ -441,6 +475,11 @@ function opciones_respuesta(){
 
 function anadirficha(idFic){
   $("#popup01 .modal-content").load('{{route('popup_anadirfichaesp')}}?idFic='+idFic);
+  $("#fc_popup").click();
+}
+
+function anadirfichaiiee(idFic){
+  $("#popup01 .modal-content").load('{{route('popup_anadirfichaesp_iiee')}}?idFic='+idFic);
   $("#fc_popup").click();
 }
 
@@ -476,7 +515,15 @@ function ver_ficha_ie(){
                         if(ficha['tipFic']=='AL DIRECTIVO'){
                         $("#btn_anadirficha").css('display','');
                         $("#btn_anadirficha").attr('onclick','anadirficha('+$("#idficha").val()+');');
+                        $("#btn_anadirficha").html('PROGRAMAR ASISTENCIA TECNICA');
+                        
                         }
+                        if(ficha['tipFic']=='A LA IIEE'){
+                             $("#btn_anadirficha").css('display','');
+                             $("#btn_anadirficha").attr('onclick','anadirfichaiiee('+$("#idficha").val()+');');
+                             $("#btn_anadirficha").html('CREAR FICHA DE MONITOREO');
+                        }
+                        
                         $("#btn_exportar_respuestas_ficha").prop('href','{{route('exportar_respuestas_ficha')}}?idficha='+$("#idficha").val());
                         //$("#btn_exportar_sustento_ficha")  .prop('href','exportar_sustento_ficha?idficha='+$("#idficha").val());
                         $("#link_fichapdf").prop('href','mostrar_pdf_ficha?idficha='+$("#idficha").val());
@@ -512,6 +559,7 @@ function ver_ficha_ie(){
                         $("#avance").html('');
                         }
                         $("#t_resumen tr td").css({'padding-top':'2px','padding-bottom':'2px','padding-right':'2px','padding-left':'2px',});
+                        $("#btnpbi").html((ficha['pbiFic'])?'&nbsp;&nbsp;&nbsp;<a class="btn btn btn-warning" target="_blank" href="'+ficha['pbiFic']+'"><img src="assets/images/icopbi.png" width="30px"> Ver reporte</<a>':'');
                   }
           });
     }else{
@@ -600,6 +648,7 @@ function link_generar_masa_pdf_ficha(){
 
 var g_competencias = [];
 function listar_pregunta(){
+    g_row_modificado = [];
     ajax_data = {
       "idficha" : $("#idficha").val(),
       "alt"   : Math.random()
@@ -642,6 +691,7 @@ function listar_pregunta(){
                             	key.push(competencia[i]['adjArcPre']);
                             	key.push(competencia[i]['camOblPre']);
                             	key.push(competencia[i]['obsPre']);
+                            	key.push(competencia[i]['nroPreConPre']);
                             	//key.push(competencia[i]['htmlPre']);
                             	opt += (['TABLA','SI/NO','HTML'].indexOf(competencia[i]['tipPre'])>-1)?'<option style="'+((competencia[i]['varHtmlPre'])?'font-weight:bolder;':'')+'" value="'+competencia[i]['idPre']+'" opt="'+competencia[i]['tipPre']+'">'+competencia[i]['ordPre']+') '+competencia[i]['gruPre']+': '+competencia[i]['textPre']+'</option>':'';
                             	reporte_catalogo.push(key);
@@ -655,6 +705,7 @@ function listar_pregunta(){
                             $("#competencias").html('');
                             g_competencias = jexcel(document.getElementById('competencias'), {
                             data:reporte_catalogo,
+                            onchange:handler,
                             columns: [
                                 {
                                     type: 'text',
@@ -702,8 +753,10 @@ function listar_pregunta(){
                                     source:[
                                         "SI/NO/NOAPLICA",
                                         "SI/NO",
+                                        "SI/NO SIMPLE",
                                         "INICIO/PROCESO/LOGRADO",
                                         "NOAPLICA/INICIO/PROCESO/LOGRADO",
+                                        "UNO O NINGUNO/POCOS/LA MAYORIA/TODOS",
                                         "INICIO/LOGRADO",
                                         "BUENO/REGULAR/MALO",
                                         "0/1/2/3/4",
@@ -717,6 +770,7 @@ function listar_pregunta(){
                                         "ARCHIVO",
                                         "HTML",
                                         "HTML CORTO",
+                                        "ENCABEZADO",
                                       ]
                                 },
                                 {
@@ -739,6 +793,11 @@ function listar_pregunta(){
                                     title:'observación',
                                     width:100
                                 },
+                                {
+                                    type: 'text',
+                                    title:'Nro de Preguntas condicionadas',
+                                    width:100
+                                },
                                 /*{
                                     type: 'text',
                                     title:'html <br>(solo utilizar variables var1,var2,var3,var4,var5,var6 para input)',
@@ -749,6 +808,7 @@ function listar_pregunta(){
                         //-------jexcel-------------------
                   }
             });
+            setTimeout(ordenarjexcel, 3000);
     }else{
         $("#competencias").html('');
         $("#btn_pregunta").css('display','none');
@@ -757,14 +817,28 @@ function listar_pregunta(){
     
 }
 
+   var g_row_modificado = [];
+   handler = function(obj, cell, col, row, val) {
+    if(g_row_modificado.indexOf(parseInt(row))==-1){ g_row_modificado.push(parseInt(row)); }
+    }
+
+function ordenarjexcel(){
+$(".jexcel tbody tr td").css('white-space','nowrap');    
+}
+
 function guardar_pregunta(){
     
-    if( $("#idficha").val() ){
     var datos = [];
     var mdata = g_competencias.getData();
     for (var i = 0; i < mdata.length; i++) {
-            datos.push(mdata[i].join('||'));
+        if(g_row_modificado.indexOf(i)>-1){
+        datos.push(mdata[i].join('||'));
+        }
     };
+    
+    if(datos.length==0){ alert('No hay ninguna modificación'); return false; }
+    
+    if( $("#idficha").val() ){
     ajax_data = {
       "idficha" : $("#idficha").val(),
       "datos"   : datos.join('&&'),
@@ -973,6 +1047,7 @@ function listar_ficha(){
                                  "ACOMPAÑAMIENTO",
                                 "DIRECTIVO AL DOCENTE",
                                 "AL DIRECTIVO",
+                                "A LA IIEE",
                               ]
                         },
                         {

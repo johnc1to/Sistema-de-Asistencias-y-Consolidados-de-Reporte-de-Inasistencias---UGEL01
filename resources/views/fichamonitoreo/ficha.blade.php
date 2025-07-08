@@ -38,11 +38,13 @@
 .negritacentrado { font-weight: bold;text-align:center; }
 .gris { background-color:rgb(217,217,217); }
 .centro { text-align:center;  }
+.ctexto{ width:100%; }
 </style>
 
 <?php
 	$aldirectivo = ($ficha['tipFic']=='AL DIRECTIVO')?true:false;
 	$aldocente   = ($ficha['tipFic']=='DIRECTIVO AL DOCENTE')?true:false;
+	$alaie       = ($ficha['tipFic']=='A LA IIEE')?true:false;
 	$romano = array('I','II','III','IV','V','VI','VII','VIII','XI','X');
 	$nro=2;
 ?>
@@ -65,6 +67,71 @@
 							$cambiar = array("","","","","","","");
 							?>
 						</div>
+						
+						<?php
+						if($ficha['htmlDatGenFic']){ //$alaie
+						?>
+						<div class="card">
+							<div id="headingOne" class="card-header">
+								<button type="button" data-toggle="collapse" data-target="#collapseiiee" aria-expanded="true" aria-controls="collapseOne" class="text-left m-0 p-0 btn btn-link btn-block">
+									<h5 class="m-0 p-0">I. DATOS GENERALES DE LA INSTITUCIÓN
+										<span style="color:green;" class="pe-7s-check"></span>
+									    <span style="padding:2px;float:right;" class="btn btn-danger">Despegar <span class="pe-7s-angle-down-circle"></span></span>
+									</h5>
+								</button>
+							</div>
+							<div data-parent="#accordion" id="collapseiiee" aria-labelledby="headingOne" class="collapse">
+								<div class="card-body table-responsive table-responsive" style="padding:0px;">
+									<!--Cuerpo del formulario-->
+									<form enctype="multipart/form-data" id="formRec" method="post" style="width:100%;" onsubmit="guardar_solo_receptores('formRec');return false;">
+										@csrf
+										<input type="hidden" name="idRec" value="<?=($registro)?$registro['idRec']:''?>">
+										<br>
+										<div class="row">
+											<div class="col-xs-12 col-sm-12 col-md-12 col-lg-12"><br></div>
+											<div class="col-xs-12 col-sm-12 col-md-12 col-lg-12">
+											    
+											    <?php
+											    if($registro){
+											        $ficha['htmlDatGenFic'] = str_replace('|disRec|','<input name="disRec" value="'.$registro['disRec'].'">' ,$ficha['htmlDatGenFic']);
+                                                    $ficha['htmlDatGenFic'] = str_replace('|redRec|','<input name="redRec" value="'.$registro['redRec'].'">' ,$ficha['htmlDatGenFic']);
+                                                    $ficha['htmlDatGenFic'] = str_replace('|codlocRec|',$registro['codlocRec'],$ficha['htmlDatGenFic']);
+                                                    $ficha['htmlDatGenFic'] = str_replace('|insRec|',$registro['insRec'],$ficha['htmlDatGenFic']);
+                                                    $ficha['htmlDatGenFic'] = str_replace('|textModalidadRec|','<input  class="ctexto" name="textModalidadRec" value="'.$registro['textModalidadRec'].'">' ,$ficha['htmlDatGenFic']);
+                                                    $ficha['htmlDatGenFic'] = str_replace('|textNivelesRec|','<input  class="ctexto" name="textNivelesRec" value="'.$registro['textNivelesRec'].'">' ,$ficha['htmlDatGenFic']);
+                                                    $ficha['htmlDatGenFic'] = str_replace('|turno|','<input name="turnoRec" value="'.$registro['turnoRec'].'">' ,$ficha['htmlDatGenFic']);
+                                                    $ficha['htmlDatGenFic'] = str_replace("|fechaficha|",'<input type="date" name="fecProRec" value="'.$registro['fechaProgramada'].'">' ,$ficha['htmlDatGenFic']);
+                                                    
+                                                    $ficha['htmlDatGenFic'] = str_replace("|nroTerCar|",'<input type="text" name="nroTerCar" value="'.$registro['nroTerCar'].'" onkeypress="if (event.keyCode < 47 || event.keyCode > 57) event.returnValue = false;">' ,$ficha['htmlDatGenFic']);
+                                                    $ficha['htmlDatGenFic'] = str_replace("|nroCuaCar|",'<input type="text" name="nroCuaCar" value="'.$registro['nroCuaCar'].'" onkeypress="if (event.keyCode < 47 || event.keyCode > 57) event.returnValue = false;">' ,$ficha['htmlDatGenFic']);
+                                                    $ficha['htmlDatGenFic'] = str_replace("|nroQuiCar|",'<input type="text" name="nroQuiCar" value="'.$registro['nroQuiCar'].'" onkeypress="if (event.keyCode < 47 || event.keyCode > 57) event.returnValue = false;">' ,$ficha['htmlDatGenFic']);
+                                                    $ficha['htmlDatGenFic'] = str_replace("|nroManCar|",'<input type="text" name="nroManCar" value="'.$registro['nroManCar'].'" onkeypress="if (event.keyCode < 47 || event.keyCode > 57) event.returnValue = false;">' ,$ficha['htmlDatGenFic']);
+                                                    $ficha['htmlDatGenFic'] = str_replace("|nroTarCar|",'<input type="text" name="nroTarCar" value="'.$registro['nroTarCar'].'" onkeypress="if (event.keyCode < 47 || event.keyCode > 57) event.returnValue = false;">' ,$ficha['htmlDatGenFic']);
+                                                    
+                                                    $ficha['htmlDatGenFic'] = str_replace("|nomRec|",'<input  class="ctexto" name="nomRec" value="'.$registro['nomRec'].'">' ,$ficha['htmlDatGenFic']);
+                                                    $ficha['htmlDatGenFic'] = str_replace("|apePatRec|",'<input type="text" name="apePatRec" value="'.$registro['apePatRec'].'">' ,$ficha['htmlDatGenFic']);
+                                                    $ficha['htmlDatGenFic'] = str_replace("|apeMatRec|",'<input type="text" name="apeMatRec" value="'.$registro['apeMatRec'].'">' ,$ficha['htmlDatGenFic']);
+                                                    $ficha['htmlDatGenFic'] = str_replace("|dniRec|",'<input class="ctexto" name="dniRec" value="'.$registro['dniRec'].'">' ,$ficha['htmlDatGenFic']);
+                                                    $ficha['htmlDatGenFic'] = str_replace("|telRec|",'<input class="ctexto" name="telRec" value="'.$registro['telRec'].'">' ,$ficha['htmlDatGenFic']);
+                                                    $ficha['htmlDatGenFic'] = str_replace("|corRec|",'<input class="ctexto" name="corRec" value="'.$registro['corRec'].'">' ,$ficha['htmlDatGenFic']);
+                                                    $ficha['htmlDatGenFic'] = str_replace("|carRec|",'<input class="ctexto" name="carRec" value="'.$registro['carRec'].'">' ,$ficha['htmlDatGenFic']);
+											    }
+											    echo $ficha['htmlDatGenFic'];
+											    ?>
+											</div>
+										</div>
+										<?php
+										if($editarficha){
+										?><button class="btn btn-success guardarficha" style="float:right;" <?=($registro)?'':'disabled'?>>GRABAR</button><?php
+										}
+										?>
+									</form>
+								</div>
+							</div>
+						</div>
+						<?php
+						}
+						?>
 						
 						<?php
 						if($aldirectivo){
@@ -230,8 +297,46 @@
 												<td class="negritacentrado">ASINCRÓNICO</td>
 											</tr>
 											<tr>
-												<td class="negritacentrado">Área 
-													<select style="width:80px;" name="areDoc">
+												<td class="negritacentrado">
+													    <?php
+													    if($ficha['modFic']=='CETPRO'){
+													    ?>
+													    Programa de estudio/Opción Ocupacional
+													    <select style="width:100%;" name="areDoc">
+													        <optgroup label="Programa de estudio">
+													        <?php
+													        if($programa){
+													        foreach ($programa as $keyy) {
+													        ?>
+													        <option><?=$keyy->proEstCnn?></option>
+													        <?php
+													        }
+													        }
+													        ?>
+													        </optgroup>
+													        <optgroup label="Opción Ocupacional">
+													        <option>Artes Gráficas</option>
+                                                            <option>Artesania y manualidades</option>
+                                                            <option>Asistencia en pastelería y panadería</option>
+                                                            <option>Computación e informática</option>
+                                                            <option>Confección Textil</option>
+                                                            <option>Construcción</option>
+                                                            <option>Cuero y calzado</option>
+                                                            <option>Electricidad y electrónica</option>
+                                                            <option>Estética Personal</option>
+                                                            <option>Hostelería y Turismo</option>
+                                                            <option>Mantenimiento básico de casas y edificios</option>
+                                                            <option>Mecánica y Metales</option>
+                                                            <option>Mecánica y motores</option>
+                                                            <option>Peluquería básica</option>
+                                                            <option>Servicios sociales y Asistenciales</option>
+													    </optgroup>
+													    </select>
+													    <?php
+													    }else{
+													    ?>
+													    Área
+													    <select style="width:80px;" name="areDoc">
 														<option>Desarrollo Personal, Ciudadania y Cívica</option>
 														<option>Ciencias Sociales</option>
 														<option>Educación Fisica</option>
@@ -243,7 +348,11 @@
 														<option>Personal Social</option>
 														<option>Educación para el Trabajo</option>
 														<option>Eucación Religiosa</option>
-													</select>
+														</select>
+														<?php
+													    }
+														?>
+													
 												</td>
 												<td><input width="100%" name="nroEstPreRec" value="<?=($registro)?$registro['nroEstPreRec']:''?>" onkeypress="if (event.keyCode < 48 || event.keyCode > 57) event.returnValue = false;" required></td>
 												<td><input width="100%" name="nroEstAsiRec" value="<?=($registro)?$registro['nroEstAsiRec']:''?>" onkeypress="if (event.keyCode < 48 || event.keyCode > 57) event.returnValue = false;" required></td>
@@ -294,6 +403,10 @@
 					    if($grupo){
 						    for ($i=0; $i < count($grupo); $i++) {
 						    $key = $grupo[$i];
+						    if($key['detalle']){
+						    if($key['detalle'][0]['tipPre']!='ENCABEZADO'){     
+						   
+						    
 						?>
 						<div class="card">
 							<div id="headingOne" class="card-header">
@@ -312,7 +425,9 @@
 										<input name="idficha"    style="display:none;" value="<?=($registro)?$registro['idFic']:''?>">
         								<input name="idreceptor" style="display:none;" value="<?=($registro)?$registro['idRec']:''?>">
         								<div class="table-responsive">
-            								<table class="table" style="color:#000;">
+        								    
+        								    <!--GENERAR CON TABLA-->
+            								<table class="table tpreg" style="color:#000;">
             								    <?php
             								    //$fila->tipo=='SI/NO' and $fila->tipo=='TEXTO' and $fila->tipo=='OPCION MULTIPLE'
             								    $cabeza = false;
@@ -349,6 +464,16 @@
             								            $cabeza=10;
             								            /*FIN JMMJ 11-10-2023*/
             								        }
+            								        /*30-05-2025*/
+            								        if($fila['tipPre']=='SI/NO SIMPLE'){
+            								            $cabeza=11;
+            								        }
+            								        /*30-05-2025*/
+            								        /*01-07-2025*/
+            								        if($fila['tipPre']=='UNO O NINGUNO/POCOS/LA MAYORIA/TODOS'){
+            								            $cabeza=12;
+            								        }
+            								        /*01-07-2025*/
             								    }
             								    ?>
 
@@ -360,12 +485,14 @@
             								        <td rowspan="2">Descripción</td>
             								        <td colspan="2">Valoración</td>
             								        <td colspan="2">Evidencias</td>
+            								        <td></td>
             								    </tr>
             								    <tr style="font-weight: bold;text-align:center; background-color:rgb(226,239,218);">
             								        <td>SI</td>
             								        <td>NO</td>
             								        <td>Cargar Archivo</td>
             								        <td>Anexo</td>
+            								        <td>Observaciones yo precisiones</td>
             								    </tr>
             								    <?php
 						                        }
@@ -531,14 +658,52 @@
             								    <?php
 						                        }
             								    ?>
+            								    <!--30-05-2025-->
+            								     <?php
+            								    if($cabeza==11){
+            								    ?>
+            								    <tr style="font-weight: bold;text-align:center; background-color:rgb(226,239,218);">
+            								        <td rowspan="2">N°</td>
+            								        <td rowspan="2">Ítem</td>
+            								        <td colspan="2">Alternativas</td>
+            								    </tr>
+            								    <tr style="font-weight: bold;text-align:center; background-color:rgb(226,239,218);">
+            								        <td>SI</td>
+            								        <td>NO</td>
+            								    </tr>
+            								    <?php
+            								    }
+            								    ?>
+            								    <!--30-05-2025-->
+            								    <!--30-05-2025-->
+            								     <?php
+            								    if($cabeza==12){
+            								    ?>
+            								    <tr style="font-weight: bold;text-align:center; background-color:rgb(226,239,218);">
+            								        <td rowspan="2">N°</td>
+            								        <td rowspan="2">Ítem</td>
+            								        <td colspan="4">Alternativas</td>
+            								    </tr>
+            								    <tr style="font-weight: bold;text-align:center; background-color:rgb(226,239,218);">
+            								        <td>UNO O NINGUNO</td>
+            								        <td>POCOS</td>
+            								        <td>LA MAYORIA</td>
+            								        <td>TODOS</td>
+            								    </tr>
+            								    <?php
+            								    }
+            								    ?>
+            								    <!--30-05-2025-->
+            								    
             								    <!--FIN JMMJ 11-10-2023-->
             								    <?php
             								    if($key['detalle']){
             								    for ($k=0; $k < count($key['detalle']); $k++) {
             								        $fila = $key['detalle'][$k];
+            								        $required = ($fila['camOblPre']=='1')?'required':'';
             								    ?>
             								    <?php if($fila['tipPre']=='SI/NO/NOAPLICA' or $fila['tipPre']=='SI/NO' or $fila['tipPre']=='INICIO/PROCESO/LOGRADO' or $fila['tipPre']=='INICIO/LOGRADO' or $fila['tipPre']=='NOAPLICA/INICIO/PROCESO/LOGRADO' or $fila['tipPre']=='BUENO/REGULAR/MALO' or $fila['tipPre']=='ARCHIVO' or $fila['tipPre']=='0/1/2/3/4' or $fila['tipPre']=='1/2/3'){
-            								    $required = ($fila['camOblPre']=='1')?'required':'';
+            								    
             								    ?>
 												<?php
 												if($fila['altPre']){ 
@@ -614,7 +779,7 @@
             								            ?>
             								        </td>            								    
             								        <td style="text-align:center;"><?=$fila['obsPre']?></td>
-													<?php if($fila['tipPre']=='INICIO/PROCESO/LOGRADO' or $fila['tipPre']=='INICIO/LOGRADO' or $fila['tipPre']=='NOAPLICA/INICIO/PROCESO/LOGRADO' or $fila['tipPre']=='BUENO/REGULAR/MALO' or $fila['tipPre']=='0/1/2/3/4' ){	?>
+													<?php if($fila['tipPre']=='INICIO/PROCESO/LOGRADO' or $fila['tipPre']=='INICIO/LOGRADO' or $fila['tipPre']=='NOAPLICA/INICIO/PROCESO/LOGRADO' or $fila['tipPre']=='BUENO/REGULAR/MALO' or $fila['tipPre']=='0/1/2/3/4' or $fila['tipPre']=='SI/NO'){	?>
 													<td style="text-align:center;"><textarea class="form-control"  name="obs<?=$fila['idPre']?>"><?=$fila['obsRdd']?></textarea></td>
 													<?php }	?>
 													
@@ -638,6 +803,25 @@
             								    <?php } ?>
             								    <?php } ?>
             								    
+            								    <?php if($fila['tipPre']=='SI/NO SIMPLE'){ ?>
+            								    <tr>
+            								        <td style="font-weight:bolder;text-align: center;"><?=($fila['nroPre']=='-')?'':$fila['nroPre'].'.'?></td>
+            								        <td style="font-weight: bold;color:#000;"><?=$fila['textPre']?></td>
+                                                    <td style="text-align:center;"><input type="radio" value="SI" name="p<?=$fila['idPre']?>" onclick="validar_no(this);" <?=($fila['resRdd']=='SI')?'checked':''?> <?=$required?>></td>
+            								        <td style="text-align:center;"><input type="radio" value="NO" name="p<?=$fila['idPre']?>" onclick="validar_no(this);" <?=($fila['resRdd']=='NO')?'checked':''?> <?=$required?>></td>
+            								    </tr>
+            								    <?php } ?>
+            								    
+            								    <?php if($fila['tipPre']=='UNO O NINGUNO/POCOS/LA MAYORIA/TODOS'){ ?>
+            								    <tr>
+            								        <td style="font-weight:bolder;text-align: center;"><?=($fila['nroPre']=='-')?'':$fila['nroPre'].'.'?></td>
+            								        <td style="font-weight: bold;color:#000;"><?=$fila['textPre']?></td>
+                                                    <td style="text-align:center;"><input type="radio" value="1" name="p<?=$fila['idPre']?>" <?=($fila['resRdd']=='1')?'checked':''?> <?=$required?>></td>
+            								        <td style="text-align:center;"><input type="radio" value="2" name="p<?=$fila['idPre']?>" <?=($fila['resRdd']=='2')?'checked':''?> <?=$required?>></td>
+            								        <td style="text-align:center;"><input type="radio" value="3" name="p<?=$fila['idPre']?>" <?=($fila['resRdd']=='3')?'checked':''?> <?=$required?>></td>
+            								        <td style="text-align:center;"><input type="radio" value="4" name="p<?=$fila['idPre']?>" <?=($fila['resRdd']=='4')?'checked':''?> <?=$required?>></td>
+            								    </tr>
+            								    <?php } ?>
             								    
             								    <?php if($fila['tipPre']=='TEXTO'){   ?>
             								    <tr>
@@ -680,8 +864,8 @@
             								    }
             								    ?>
             								    <tr>
-            								        <td></td>
-            								        <td colspan="5"><input type="text" name="p<?=$fila['idPre']?>" value="-" style="display:none;"><?=$fila['htmlPre']?></td>
+            								        <td style="border:0;"></td>
+            								        <td style="border:0;" colspan="5"><input type="text" name="p<?=$fila['idPre']?>" value="-" style="display:none;"><?=$fila['htmlPre']?></td>
             								    </tr>
             								    <?php } ?>
             								    
@@ -696,7 +880,7 @@
             								                for ($j=0; $j < count($r_alternativas); $j++){
             								                $alt = $r_alternativas[$j];
 															echo (strlen($fila['altPre'])>100)?'<br>':'&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;';
-            								                echo '<input type="checkbox" name="p'.$fila['idPre'].'[]" '.(($j==0)?'':'').' value="'.$alt.'" '.((strpos($fila['resRdd'],$alt)>-1)?'checked':'').'> '.$alt;
+            								                echo '<input type="checkbox" name="p'.$fila['idPre'].'[]" '.(($j==0)?'':'').' value="'.$alt.'" '.(($fila['resRdd']==$alt)?'checked':'').'> '.$alt;//strpos($fila['resRdd'],$alt)>-1
             								                }
             								            }
             								            ?>
@@ -728,6 +912,7 @@
             								    ?>
             								    
             								</table>
+            								<!--GENERAR CON TABLA-->
         								  </div>
         								<div>	
         								    <?php
@@ -745,6 +930,8 @@
 							</div>
 						</div>
 						<?php
+						    }
+						    }
 							}
 						}
 						?>
@@ -827,6 +1014,60 @@
 						<?php
 						}
 						?>
+						
+						
+						
+						<?php
+						if($alaie){
+						?>
+						<div class="card">
+							<div id="headingOne" class="card-header">
+								<button type="button" data-toggle="collapse" data-target="#collapserc" aria-expanded="true" aria-controls="collapseOne" class="text-left m-0 p-0 btn btn-link btn-block">
+									<h5 class="m-0 p-0">RECOMENDACIONES Y COMPROMISOS
+										<span id="icoformObs"><?=(($registro)?(($registro['texto1Obs'])?true:false):false)?'<span style="color:green;" class="pe-7s-check"></span>':'<span style="color:red;" class="pe-7s-diskette"></span>'?></span>
+									    <span style="padding:2px;float:right;" class="btn btn-danger">Despegar <span class="pe-7s-angle-down-circle"></span></span>
+									</h5>
+								</button>
+							</div>
+							<div data-parent="#accordion" id="collapserc" aria-labelledby="headingOne" class="collapse">
+								<div class="card-body table-responsive table-responsive" style="padding:0px;">
+									<!--Cuerpo del formulario-->
+									<form enctype="multipart/form-data" id="formObs" method="post" style="width:100%;" onsubmit="guardar_observaciones('formObs');return false;">
+										@csrf
+										<input type="hidden" name="idRec" value="<?=($registro)?$registro['idRec']:''?>"><!--hidden-->
+										<input type="hidden" name="idFic" value="<?=($registro)?$registro['idFic']:''?>">
+										<br>
+										<!--<b>COMPROMISOS:</b>-->
+
+										<div class="row">
+											<div class="col-xs-12 col-sm-12 col-md-12 col-lg-12"><br></div>
+											<div class="col-xs-12 col-sm-12 col-md-12 col-lg-12">
+												<b>RECOMENDACIONES DEL ESPECIALISTA</b>
+												<textarea class="form-control" name="texto1Obs"><?=($registro)?$registro['texto1Obs']:''?></textarea>
+											</div>
+										</div>
+
+										<div class="row">
+											<div class="col-xs-12 col-sm-12 col-md-12 col-lg-12"><br></div>
+											<div class="col-xs-12 col-sm-12 col-md-12 col-lg-12">
+												<b>COMPROMISOS DEL DIRECTOR</b>
+												<textarea class="form-control" name="texto2Obs"><?=($registro)?$registro['texto2Obs']:''?></textarea>
+											</div>
+
+										</div>
+										<?php
+										if($editarficha){
+										?><button class="btn btn-success guardarficha" style="float:right;" <?=($registro)?'':'disabled'?>>GRABAR</button><?php
+										}
+										?>
+									</form>
+								</div>
+							</div>
+						</div>
+						<?php
+						}
+						?>
+						
 					</div>
 				</div>				
 			</div>
@@ -841,6 +1082,52 @@
           </div>
           
           <script type="text/javascript">
+        var nropreCon = <?=json_encode($nropreCon)?>;
+          function validar_no(athis){
+            const radioNombres = [];
+            const radios = document.querySelectorAll('input[type="radio"]');
+            radios.forEach(radio => {
+              if (radio.name && !radioNombres.includes(radio.name)) {
+                radioNombres.push(radio.name);
+              }
+            });
+            const index = radioNombres.indexOf(athis.name);
+           var nro = 0;
+                if(athis.name=='p1618'){ nro=4;}
+                else if(athis.name=='p1630'){ nro=3;}
+                else if(athis.name=='p1632'){ nro=10;}
+                else if(athis.name=='p1656'){ nro=10;}
+                else if(athis.name=='p1667'){ nro=22;}
+                
+                else if(athis.name=='p1700'){ nro=4;}
+                else if(athis.name=='p1719'){ nro=3;}
+                else if(athis.name=='p1726'){ nro=10;}
+                else if(athis.name=='p1737'){ nro=7;}
+                else if(athis.name=='p1748'){ nro=22;}
+                
+                <?php
+                if(count($nropreCon)){
+                foreach ($nropreCon as $key){   
+                ?>
+                else if(athis.name=='p<?=$key['idPre']?>'){ nro=<?=$key['nroPreConPre']?>;}
+                <?php
+                }
+                }
+                ?>
+                
+                else{ return false; }
+                
+                //Recorreer los input dadio y verificar
+                for (let i = index+1; i <= index+nro; i++) { 
+                    if(athis.value=='NO'){
+                        $($("input[name='"+radioNombres[i]+"']")[1]).click();
+                        $($("input[name='"+radioNombres[i]+"']")[0]).css('display','none');
+                    }else{
+                        $($("input[name='"+radioNombres[i]+"']")[0]).css('display','');
+                        $("input[name='"+radioNombres[i]+"']").prop('checked','');
+                    }
+                }
+          }
           
           function maxtext(id){
               $("#s"+id).html($("input[name=p"+id+"]").val().length);
@@ -978,7 +1265,8 @@
                               $("#"+id+" .guardarficha").prop('disabled',false);
                               $("#"+id+" .guardarficha").html('GRABAR');
                               $("#ico"+id).html('<span style="color:green;" class="pe-7s-check"></span>');
-                              if(data['ficha_respondida']['grupo_respondido']==1 && !DocMonFic){ 
+                              if(data['ficha_respondida']['grupo_respondido']==1 && !DocMonFic && $(".pe-7s-diskette").length==0){
+                              //if($("#Modalficha .pe-7s-diskette").length==0){
 								  $("#fc_ficha").click();
                                   alert('Ha completado la ficha. Felicitaciones!!!');
 								  ver_ficha_ie();
@@ -1067,6 +1355,86 @@
                           }
                       });
           }
+          
+          function guardar_observaciones(id){
+                $("#"+id+" .guardarficha").prop('disabled',true);
+                $("#"+id+" .guardarficha").html('<img src="./assets/images/2.gif" style="width:30px;"> GRABAR');                              
+                var ifimagen = true;
+                      //información del formulario
+                      var formData = new FormData($("#"+id)[0]);
+                      var message = "";
+                      //hacemos la petición ajax  
+                      $.ajax({
+                          url: '{{route('guardar_observaciones')}}',  
+                          type: 'POST',
+                          //datos del formulario
+                          data: formData,
+                          dataType: "json",
+                          //necesario para subir archivos via ajax
+                          cache: false,
+                          contentType: false,
+                          processData: false,
+                          //mientras enviamos el archivo
+                          beforeSend: function(){
+                              
+                          },
+                          //una vez finalizado correctamente
+                          success: function(data){
+							alert('Datos Guardados');
+							$("#"+id+" .guardarficha").prop('disabled',false);
+                            $("#"+id+" .guardarficha").html('GRABAR');
+							$("#ico"+id).html('<span style="color:green;" class="pe-7s-check"></span>');
+							if($(".pe-7s-diskette").length==0){
+                                $("#fc_ficha").click();
+                                  alert('Ha completado la ficha. Felicitaciones!!!');
+								  ver_ficha_ie();
+							}
+                          },
+                          error: function(){
+                            alert('Se ha producido un error, recargue la página e inténtelo de nuevo.');
+							$("#"+id+" .guardarficha").prop('disabled',false);
+                            $("#"+id+" .guardarficha").html('GRABAR');
+                          }
+                      });
+          }
+          
+          function guardar_solo_receptores(id){
+                $("#"+id+" .guardarficha").prop('disabled',true);
+                $("#"+id+" .guardarficha").html('<img src="./assets/images/2.gif" style="width:30px;"> GRABAR');                              
+                var ifimagen = true;
+                      //información del formulario
+                      var formData = new FormData($("#"+id)[0]);
+                      var message = "";
+                      //hacemos la petición ajax  
+                      $.ajax({
+                          url: '{{route('guardar_solo_receptores')}}',  
+                          type: 'POST',
+                          //datos del formulario
+                          data: formData,
+                          dataType: "json",
+                          //necesario para subir archivos via ajax
+                          cache: false,
+                          contentType: false,
+                          processData: false,
+                          //mientras enviamos el archivo
+                          beforeSend: function(){
+                              
+                          },
+                          //una vez finalizado correctamente
+                          success: function(data){
+							alert('Datos Guardados');
+							$("#"+id+" .guardarficha").prop('disabled',false);
+                            $("#"+id+" .guardarficha").html('GRABAR');
+							$("#ico"+id).html('<span style="color:green;" class="pe-7s-check"></span>');
+                          },
+                          error: function(){
+                            alert('Se ha producido un error, recargue la página e inténtelo de nuevo.');
+							$("#"+id+" .guardarficha").prop('disabled',false);
+                            $("#"+id+" .guardarficha").html('GRABAR');
+                          }
+                      });
+          }
+          
           
         function enviar_ficha_ugel01(){
             
@@ -1216,6 +1584,16 @@
         <script type="text/javascript">
           $(".ejecutar").keyup();
           $(".spanmaxtext").keyup();
+          
+          <?php
+            if(count($nropreCon)){
+            foreach ($nropreCon as $key){   
+            ?>
+            if($("#Modalficha input[name=p<?=$key['idPre']?>]:checked").val()=='NO'){ $("#Modalficha input[name=p<?=$key['idPre']?>]:checked").click(); };
+            <?php
+            }
+            }
+                ?>
         </script>
           
           

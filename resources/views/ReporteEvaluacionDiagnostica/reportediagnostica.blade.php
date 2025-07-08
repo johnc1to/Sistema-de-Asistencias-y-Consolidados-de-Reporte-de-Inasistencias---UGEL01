@@ -302,7 +302,8 @@
     const labels = avancePorGrado.map(d => d.grado);
     const esperados = avancePorGrado.map(d => d.esperado);
     const evaluados = avancePorGrado.map(d => d.evaluado);
-    const seccionesPorGrado = @json($detalleSecciones);
+
+    
     
     const ctxComparativo = document.getElementById('graficoComparativo');
     new Chart(ctxComparativo, {
@@ -442,57 +443,47 @@
     });
 
     new Chart(document.getElementById('graficoAvanceGrado'), {
-    type: 'bar',
-    data: {
-        labels: labels,
-        datasets: [
-            {
-                label: 'Esperado',
-                data: esperados,
-                backgroundColor: ' #CBD5E0' // gris claro
-            },
-            {
-                label: 'Evaluado',
-                data: evaluados,
-                backgroundColor: ' #3B82F6' // azul
-            }
-        ]
-    },
-    options: {
-        responsive: true,
-        plugins: {
-            title: {
-                display: true,
-                text: 'Estudiantes esperados vs evaluados por grado',
-                font: {
-                    size: 18
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Esperado',
+                    data: esperados,
+                    backgroundColor: ' #CBD5E0' // gris claro
                 },
-                padding: {
-                    top: 10,
-                    bottom: 20
+                {
+                    label: 'Evaluado',
+                    data: evaluados,
+                    backgroundColor: ' #3B82F6' // azul
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Estudiantes esperados vs evaluados por grado',
+                    font: {
+                        size: 18
+                    },
+                    padding: {
+                        top: 10,
+                        bottom: 20
+                    }
                 }
             },
-            tooltip: {
-                callbacks: {
-                    afterLabel: function (context) {
-                        const grado = context.label;
-                        const detalles = seccionesPorGrado[grado] || [];
-                        return detalles; 
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        precision: 0
                     }
                 }
             }
-        },
-        scales: {
-            y: {
-                beginAtZero: true,
-                ticks: {
-                    precision: 0
-                }
-            }
         }
-    }
-});
-
+    });
 
 </script>
 

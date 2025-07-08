@@ -14,6 +14,8 @@ use App\Models\Variables_adicionales;
 use App\Models\Docente;
 use App\Models\Receptores_deta;
 use App\Models\Iiee_a_evaluar_rie;
+use App\Models\Resumen;
+use App\Models\Observaciones;
 use Storage;
 use ZipArchive;
 use DB;
@@ -22,7 +24,6 @@ use DB;
 //DB::raw()
 class Fichamonitoreo extends Controller
 {
-
     //Director
     function director(Request $request){
         if(session()->get('siic01')){
@@ -53,6 +54,86 @@ class Fichamonitoreo extends Controller
         }
     }
     
+    function popup_anadirfichaesp_iiee(Request $request){
+        if(session()->get('siic01_admin')){
+        $info['session'] = session()->get('siic01_admin');
+        $info['ficha']   = Fichas::select('idFic','nomFic')->where('idFic',$request['idFic'])->get()->toArray()[0];
+        $sqliiee = Fichas::select('sql_lista_ie')->where('idFic',$request['idFic'])->get()->toArray()[0]['sql_lista_ie'];
+        $info['iiee']    =  DB::select($sqliiee);
+        $info['data']    = false;
+        return view('fichamonitoreo/popup_anadirfichaespecialista_iiee',$info);
+        }else{
+            echo 'Sesion expirada. Recarge la pagina';
+        }
+    }
+    
+    function anadirfichaespecialista_iiee(Request $request){
+        $codlocal    = explode(',',$request['codlocal'])[0];
+        $idmodalidad = explode(',',$request['codlocal'])[1];
+        //$iiee = iiee_a_evaluar_rie::select('idnivel','institucion','gestion','gestion_dependencia','distrito','red','codlocal')->where('codmod',$request['codmod'])->first();
+        //GROUP_CONCAT(E.idnivel)      as idNivRec,
+        $iiee =  DB::select("SELECT 
+        E.codlocal     as codlocRec,
+        GROUP_CONCAT(E.codmod) as codmodRec,
+        E.institucion  as insRec,
+        GROUP_CONCAT(E.nivel ORDER BY idnivel) as nivRec,
+        
+        E.gestion      as gesRec,
+        E.gestion_dependencia as gesDepRec,
+        C.nombres      as nomRec,
+        C.apellipat    as apePatRec,
+        C.apellimat    as apeMatRec,
+        C.id_contacto  as idConRec,
+        C.dni          as dniRec,
+        C.celular_pers as telRec,
+        IFNULL(E.correo_inst,C.correo_pers)  as corRec,
+        E.distrito     as disRec,
+        E.red          as redRec,
+        E.turno        as turnoRec,
+        E.modalidad    as textModalidadRec,
+       GROUP_CONCAT(E.nivel ORDER BY idnivel) as textNivelesRec
+        FROM iiee_a_evaluar_RIE E 
+                LEFT JOIN (
+                    select Co.*,Pe.esc_codmod from conf_permisos Pe 
+                    inner join contacto Co on Pe.id_contacto = Co.id_contacto
+                    where Pe.estado = 1 and Co.estado = 1 and Co.flg=1
+                ) C ON E.codmod = C.esc_codmod 
+                WHERE E.estado=1 and E.idmodalidad = $idmodalidad and E.codlocal='$codlocal'
+        GROUP BY  E.codlocal,
+        E.institucion,
+        E.gestion,
+        E.gestion_dependencia,
+        C.nombres,
+        C.apellipat,
+        C.apellimat,
+        C.id_contacto,
+        C.dni,
+        C.celular_pers,
+        C.correo_pers,
+        E.correo_inst,
+        E.distrito,
+        E.red,
+        E.turno,
+        E.modalidad");
+        
+        $iiee = ($iiee)?(Array)$iiee[0]:false;
+        if($iiee['dniRec']){
+        $nexus = Nexus::select('nombres','apellipat','apellimat','descargo','idnivel')->where(['estado'=>1,'numdocum'=>$iiee['dniRec']])->whereIn('descsubtipt',['DIRECTIVO','DOCENTE'])->orderBy('descsubtipt','ASC')->first();
+            if($nexus){
+            $iiee['nomRec']    = $nexus['nombres'];
+            $iiee['apePatRec'] = $nexus['apellipat'];
+            $iiee['apeMatRec'] = $nexus['apellimat'];
+            $iiee['carRec']    = $nexus['descargo'];
+            }
+        }
+        //dd($iiee);
+        $iiee['idFic']     = $request['idficha'];
+        $iiee['idEspRec']  = $request['idespecialista'];
+        $iiee['fecProRec'] = $request['fecProRec'];
+        $idRec = Receptores::insertGetId($iiee);
+        Resumen::insert(['idRec'=>$idRec,'idFic'=>$request['idficha']]);
+        return $idRec;
+    }
 
     function docentevalidar_dni(Request $request){
         $dni = $request['dni'];
@@ -77,8 +158,8 @@ class Fichamonitoreo extends Controller
         $ficha    = Fichas::select("*",DB::raw("IF(NOW() between iniFic and  DATE_ADD(finFic,INTERVAL 1 DAY),1,0) as habilitado"),DB::raw("DATE_FORMAT(finFic,'%d/%m/%Y') as t_fin"))->where('idFic',$request['idficha'])->get()->toArray();
         $ficha    = ($ficha)?$ficha[0]:false;
         $boxmes = $request['boxmes'];
-        $r_grado = array('1INI','2INI','3INI','4INI','5INI','1PRI','2PRI','3PRI','4PRI','5PRI','6PRI','1SEC','2SEC','3SEC','4SEC','5SEC','1EBE','2EBE','3EBE','4EBE','5EBE','6EBE','3EBI','4EBI','5EBI');
-        $r_ciclo = array('I','I','II','II','II','III','III','IV','IV','V','V','VI','VI','VII','VII','VII','III','III','IV','IV','V','V','II','II','II');
+        $r_grado = array('1INI','2INI','3INI','4INI','5INI','1PRI','2PRI','3PRI','4PRI','5PRI','6PRI','1SEC','2SEC','3SEC','4SEC','5SEC','1EBE','2EBE','3EBE','4EBE','5EBE','6EBE','3EBI','4EBI','5EBI','1EBA','2EBA','3EBA','4EBA');
+        $r_ciclo = array('I','I','II','II','II','III','III','IV','IV','V','V','VI','VI','VII','VII','VII','III','III','IV','IV','V','V','II','II','II','','','','');
         $request['cicDoc'] = str_replace($r_grado,$r_ciclo,$request['graDoc']);
         unset($request['idficha']);
         unset($request['boxmes']);
@@ -257,128 +338,143 @@ class Fichamonitoreo extends Controller
         $ficha    = Fichas::select("*",DB::raw("IF(NOW() between iniFic and  DATE_ADD(finFic,INTERVAL 1 DAY),1,0) as habilitado"),DB::raw("DATE_FORMAT(finFic,'%d/%m/%Y') as t_fin"))->where('idFic',$idficha)->get()->toArray();
         $ficha    = ($ficha)?$ficha[0]:false;
         $info['ficha'] = $ficha;
-    if($ficha['habilitado']==0){
-        echo '<h2 class="modal-content" style="font-weight:bolder;padding:40px;text-align:center;">HA CONCLUIDO EL REGISTRO DE LA '.$ficha['nomFic'].'<br>EN LA FECHA '.$ficha['t_fin'].'</h2>';
-    }else{      
-        if(!$idreceptor){
-        if(session()->get('siic01')){
-            $session  = session()->get('siic01');
-            $data['idFic']     = $idficha;
-            $data['codlocRec'] = $codlocal;
-            $data['insRec']    = $session['iiee'];
-            $data['gesRec']    = $session['d_gestion'];
-            $data['gesDepRec'] = $session['d_ges_dep'];
-            $data['nomRec']    = $session['nombres'];
-            $data['apePatRec'] = $session['apellipat'];
-            $data['apeMatRec'] = $session['apellimat'];
-            $data['telRec']    = $session['celular_pers'];
-            $data['corRec']    = $session['correo_pers'];
-            $data['idConRec']  = $session['id_contacto'];
-            $data['dniRec']    = $session['dni'];
-            $data['carRec']    = $session['cargo'];
-            $data['textModalidadRec'] = $session['modalidad'];
-            $data['textNivelesRec']    = $session['niveles'];
+        if($ficha['habilitado']==0){
+            echo '<h2 class="modal-content" style="font-weight:bolder;padding:40px;text-align:center;">HA CONCLUIDO EL REGISTRO DE LA '.$ficha['nomFic'].'<br>EN LA FECHA '.$ficha['t_fin'].'</h2>';
+        }else{      
+            if(!$idreceptor){
+            if(session()->get('siic01')){
+                $session  = session()->get('siic01');
+                $data['idFic']     = $idficha;
+                $data['codlocRec'] = $codlocal;
+                $data['insRec']    = $session['iiee'];
+                $data['gesRec']    = $session['d_gestion'];
+                $data['gesDepRec'] = $session['d_ges_dep'];
+                $data['nomRec']    = $session['nombres'];
+                $data['apePatRec'] = $session['apellipat'];
+                $data['apeMatRec'] = $session['apellimat'];
+                $data['telRec']    = $session['celular_pers'];
+                $data['corRec']    = $session['correo_pers'];
+                $data['idConRec']  = $session['id_contacto'];
+                $data['dniRec']    = $session['dni'];
+                $data['carRec']    = $session['cargo'];
+                $data['textModalidadRec'] = $session['modalidad'];
+                $data['textNivelesRec']    = $session['niveles'];
+                
+                if($ficha['modFic']=='TODOS' or $ficha['modFic']=='CETPRO' or $ficha['modFic']=='EBA' or $ficha['modFic']=='EBE' or $ficha['modFic']=='EBR'){
+                    $data['disRec'] = $session['conf_permisos'][0]['d_dist'];
+                    $data['redRec']      = $session['conf_permisos'][0]['red'];
+                    $data['codmodRec']    = $session['codmods'];
+                    $idreceptor = ($idreceptor)?$idreceptor:$this->registro_receptor_codlocal($idficha,$codlocal,$data);
+                }else{
+                    foreach ($session['conf_permisos'] as $key) {
+                            switch ($ficha['modFic'].$key['idnivel']) {
+                                case 'EBR Inicial5':            $permiso = $key; break;
+                                case 'EBR Primaria4':           $permiso = $key; break;
+                                case 'EBR Secundaria3':         $permiso = $key; break;
+                                case 'EBA Inicial Intermedio6': $permiso = $key; break;
+                                case 'EBA Avanzado7':           $permiso = $key; break;
+                            }  
+                        }
+                    $data['codmodRec'] = $permiso['esc_codmod'];
+                    $data['disRec']    = $permiso['d_dist'];
+                    $data['redRec']    = $permiso['red'];
+                    $idreceptor = ($idreceptor)?$idreceptor:$this->registro_receptor_codmod($idficha,$data['codmodRec'],$data);
+                }
+                }
+                }
+                $info['modFic']   = $ficha['modFic'];
+                $info['programa'] = DB::connection('cetpromin')->select("SELECT proEstCnn FROM catalogo_nacional WHERE estCnn=1 and tipCnn='PROGRAMA' GROUP BY proEstCnn ORDER BY proEstCnn ASC");
+                $info['opcionesocupacionales'] = DB::connection('cetpromin')->select("SELECT opcion_ocupacional as proEstCnn FROM opcion_ocupacionals WHERE estado=1 GROUP BY opcion_ocupacional ORDER BY opcion_ocupacional ASC");
+                
+                if($idreceptor){
+                    $info['registro']  = (Array)DB::connection('ficha')->select("SELECT 
+                    R.idRec,
+                    R.idDoc,
+                    R.idFic,
+                    insRec,
+                    codmodRec,
+                    disRec,
+                    redRec,
+                    nomRec,
+                    apePatRec,
+                    apeMatRec,
+                    dniRec,
+                    telRec,
+                    corRec,
+                    carRec,
+                    nroVisRec,
+                    fecAplRec,
+                    AsiTecRec,
+                    nomDoc,
+                    apePatDoc,
+                    apeMatDoc,
+                    dniDoc,
+                    graDoc,
+                    secDoc,
+                    idNivDoc,
+                    nroEstRec,
+                    areDoc,
+                    nroEstPreRec,
+                    nroEstAsiRec,
+                    tipSerRec,
+                    telDoc,
+                    corDoc,
+                    codlocRec,
+                    cicDoc,
+                    esp_apellido_paterno,
+                    esp_apellido_materno,
+                    esp_nombres,
+                    telefono1,
+                    ddni,
+                    conRec,
+                    recRec,
+                    comDirRec,
+                    impDirRec,
+                    comDocRec,
+                    impDocRec,
+                    comEspRec,
+                    impEspRec,
+                    nroEstRec,
+                    nroEstPreRec,
+                    nroEstAsiRec,
+                    tipSerRec,
+                    textModalidadRec,
+                    textNivelesRec,
+                    turnoRec,
+                    texto1Obs,
+                    texto2Obs,
+                    nroTerCar,
+                    nroCuaCar,
+                    nroQuiCar,
+                    nroManCar,
+                    nroTarCar,
+                    DATE_FORMAT(R.fecProRec,'%Y-%m-%d') as fechaProgramada,
+                    DATE_FORMAT(R.updated_at,'%d/%m/%Y') as fechaficha,
+                    DATE_FORMAT(Rd.fecAplRec,'%Y-%m-%d') as fechaaplicacion,
+                    DATE_FORMAT(Rd.fecIniAplRec,'%H:%i:%s') as horainicioaplicacion,
+                    DATE_FORMAT(Rd.fecAplRec,'%H:%i:%s') as horaaplicacion
+                    FROM receptores R 
+                    LEFT JOIN receptores_deta Rd ON R.idRec=Rd.idRec
+                    LEFT JOIN docente D ON R.idDoc=D.idDoc and D.estDoc=1 
+                    LEFT JOIN observaciones O ON R.idRec = O.idRec and O.estObs=1
+                    LEFT JOIN siic01ugel01gob_directores.especialistas E ON R.idEspRec = E.idespecialista 
+                    WHERE R.estRec=1 and R.idRec=$idreceptor")[0];
 
-            if($ficha['modFic']=='TODOS' or $ficha['modFic']=='CETPRO' or $ficha['modFic']=='EBA' or $ficha['modFic']=='EBE' or $ficha['modFic']=='EBR'){
-                $data['disRec'] = $session['conf_permisos'][0]['d_dist'];
-                $data['redRec']      = $session['conf_permisos'][0]['red'];
-                $data['codmodRec']    = $session['codmods'];
-                $idreceptor = ($idreceptor)?$idreceptor:$this->registro_receptor_codlocal($idficha,$codlocal,$data);
-            }else{
-                foreach ($session['conf_permisos'] as $key) {
-                        switch ($ficha['modFic'].$key['idnivel']) {
-                            case 'EBR Inicial5':            $permiso = $key; break;
-                            case 'EBR Primaria4':           $permiso = $key; break;
-                            case 'EBR Secundaria3':         $permiso = $key; break;
-                            case 'EBA Inicial Intermedio6': $permiso = $key; break;
-                            case 'EBA Avanzado7':           $permiso = $key; break;
-                        }  
+                    $info['ficha_respondida'] = $this->ficha_respondida($idficha,$idreceptor);
+                    $info['editarficha'] = true;
+                    $info['nropreCon'] = Preguntas::select('idPre', 'nroPreConPre')->where('estPre', 1)->where('nroPreConPre', '>', 0)->where('idFic', $request['idficha'])->get()->toArray();
+                    $info['grupo']   = $this->grupo_ficha_respondida($idficha,$idreceptor);
+                    if($info['grupo']){
+                    for ($i=0; $i < count($info['grupo']); $i++) {
+                    $info['grupo'][$i]['detalle'] = $this->ver_ficha_respondida($idficha,$idreceptor,$info['grupo'][$i]['gruPre']);
                     }
-                 $data['codmodRec'] = $permiso['esc_codmod'];
-                 $data['disRec']    = $permiso['d_dist'];
-                 $data['redRec']    = $permiso['red'];
-                $idreceptor = ($idreceptor)?$idreceptor:$this->registro_receptor_codmod($idficha,$data['codmodRec'],$data);
-            }
-            }
-            }
-
-            if($idreceptor){
-                $info['registro']  = (Array)DB::connection('ficha')->select("SELECT 
-                R.idRec,
-                R.idDoc,
-                R.idFic,
-                insRec,
-                codmodRec,
-                disRec,
-                redRec,
-                nomRec,
-                apePatRec,
-                apeMatRec,
-                dniRec,
-                telRec,
-                corRec,
-                carRec,
-                nroVisRec,
-                fecAplRec,
-                AsiTecRec,
-                nomDoc,
-                apePatDoc,
-                apeMatDoc,
-                dniDoc,
-                graDoc,
-                secDoc,
-                idNivDoc,
-                nroEstRec,
-                areDoc,
-                nroEstPreRec,
-                nroEstAsiRec,
-                tipSerRec,
-                telDoc,
-                corDoc,
-                codlocRec,
-                cicDoc,
-                esp_apellido_paterno,
-                esp_apellido_materno,
-                esp_nombres,
-                telefono1,
-                ddni,
-                conRec,
-                recRec,
-                comDirRec,
-                impDirRec,
-                comDocRec,
-                impDocRec,
-                comEspRec,
-                impEspRec,
-                nroEstRec,
-                nroEstPreRec,
-                nroEstAsiRec,
-                tipSerRec,
-                textModalidadRec,
-                textNivelesRec,
-                DATE_FORMAT(R.updated_at,'%d/%m/%Y') as fechaficha,
-                DATE_FORMAT(Rd.fecAplRec,'%Y-%m-%d') as fechaaplicacion,
-                DATE_FORMAT(Rd.fecIniAplRec,'%H:%i:%s') as horainicioaplicacion,
-                DATE_FORMAT(Rd.fecAplRec,'%H:%i:%s') as horaaplicacion
-                FROM receptores R 
-                LEFT JOIN receptores_deta Rd ON R.idRec=Rd.idRec
-                LEFT JOIN docente D ON R.idDoc=D.idDoc and D.estDoc=1 
-                LEFT JOIN siic01ugel01gob_directores.especialistas E ON R.idEspRec = E.idespecialista 
-                WHERE R.estRec=1 and R.idRec=$idreceptor")[0];
-                $info['ficha_respondida'] = $this->ficha_respondida($idficha,$idreceptor);
-                $info['editarficha'] = true;
-                $info['grupo']   = $this->grupo_ficha_respondida($idficha,$idreceptor);
-                if($info['grupo']){
-                for ($i=0; $i < count($info['grupo']); $i++) {
-                $info['grupo'][$i]['detalle'] = $this->ver_ficha_respondida($idficha,$idreceptor,$info['grupo'][$i]['gruPre']);
+                    }
+                    return view('fichamonitoreo/ficha',$info);
+                }else{
+                    echo 'No se ha generado la ficha. Vuelva a ingresar a la pagina web.';
                 }
-                }
-                return view('fichamonitoreo/ficha',$info);
-            }else{
-                echo 'No se ha generado la ficha. Vuelva a ingresar a la pagina web.';
-            }
-        
-    }
+            
+        }
     }
     //Director
 
@@ -388,7 +484,10 @@ class Fichamonitoreo extends Controller
         $info['registro'] = ($idreceptor)?Receptores::where(['estRec'=>1,'idRec'=>$idreceptor])->get()->first():false;
         $info['ficha_respondida'] = false;
         $info['editarficha'] = false;
+        $info['nropreCon'] = Preguntas::select('idPre', 'nroPreConPre')->where('estPre', 1)->where('nroPreConPre', '>', 0)->where('idFic', $request['idficha'])->get()->toArray();
         $info['grupo']    = $this->grupo_ficha_respondida($request['idficha'],$idreceptor);
+        $info['programa'] = DB::connection('cetpromin')->select("SELECT proEstCnn FROM catalogo_nacional WHERE estCnn=1 and tipCnn='PROGRAMA' GROUP BY proEstCnn ORDER BY proEstCnn ASC");
+        $info['opcionesocupacionales'] = DB::connection('cetpromin')->select("SELECT opcion_ocupacional as proEstCnn FROM opcion_ocupacionals WHERE estado=1 GROUP BY opcion_ocupacional ORDER BY opcion_ocupacional ASC");
         for ($i=0; $i < count($info['grupo']); $i++) {
             $info['grupo'][$i]['detalle']   = $this->ver_ficha_respondida($request['idficha'],$idreceptor,$info['grupo'][$i]['gruPre']);
         }
@@ -453,12 +552,23 @@ class Fichamonitoreo extends Controller
             impEspRec,
             textModalidadRec,
             textNivelesRec,
+            turnoRec,
+            fecProRec,
+            texto1Obs,
+            texto2Obs,
+            nroTerCar,
+            nroCuaCar,
+            nroQuiCar,
+            nroManCar,
+            nroTarCar,
+            DATE_FORMAT(R.fecProRec,'%Y-%m-%d') as fechaProgramada,
             DATE_FORMAT(Rd.fecAplRec,'%Y-%m-%d') as fechaaplicacion,
             DATE_FORMAT(Rd.fecIniAplRec,'%H:%i:%s') as horainicioaplicacion,
             DATE_FORMAT(Rd.fecAplRec,'%H:%i:%s') as horaaplicacion,
             DATE_FORMAT(R.updated_at,'%d/%m/%Y') as fechaficha FROM receptores R 
             LEFT JOIN receptores_deta Rd ON R.idRec=Rd.idRec
             LEFT JOIN docente D ON R.idDoc=D.idDoc and D.estDoc=1 
+            LEFT JOIN observaciones O ON R.idRec = O.idRec and O.estObs=1
             LEFT JOIN siic01ugel01gob_directores.especialistas E ON R.idEspRec = E.idespecialista 
             WHERE R.estRec=1 and R.idRec=$idreceptor")[0]:false;
         $ficha_respondida = false;
@@ -467,20 +577,15 @@ class Fichamonitoreo extends Controller
             $grupo[$i]['detalle']   = $this->ver_ficha_respondida($request['idficha'],$idreceptor,$grupo[$i]['gruPre']);
         }
         
-        if($ficha['htmlDatGenFic'] and $registro){
-        $ficha['htmlDatGenFic'] = str_replace('disRec',$registro['disRec'],$ficha['htmlDatGenFic']);
-        $ficha['htmlDatGenFic'] = str_replace('redRec',$registro['redRec'],$ficha['htmlDatGenFic']);
-        $ficha['htmlDatGenFic'] = str_replace('codlocRec',$registro['codlocRec'],$ficha['htmlDatGenFic']);
-        $ficha['htmlDatGenFic'] = str_replace('insRec',$registro['insRec'],$ficha['htmlDatGenFic']);
-        $ficha['htmlDatGenFic'] = str_replace('textModalidadRec',$registro['textModalidadRec'],$ficha['htmlDatGenFic']);
-        $ficha['htmlDatGenFic'] = str_replace('textNivelesRec',$registro['textNivelesRec'],$ficha['htmlDatGenFic']);
-        
-
-        }
-        
         $resumenipl = $this->resumen_inicio_proceso_logrado($idreceptor);
         $totalipl   = $this->totales_resumen_inicio_proceso_logrado($idreceptor);
-        $pdf = \PDF::loadView('fichamonitoreo/pdf_ficha', compact('ficha','registro','ficha_respondida','grupo','resumenipl','totalipl'));
+        $resumen_cge = $this->resumen_cge($idreceptor);
+
+        $resumen_data = $this->resumen_matriz($idreceptor);
+        $resumen_matriz = $resumen_data['resumen'];
+        $rangos_ficha = $resumen_data['rangos_ficha'];
+
+        $pdf = \PDF::loadView('fichamonitoreo/pdf_ficha', compact('ficha','registro','ficha_respondida','grupo','resumenipl','totalipl','resumen_cge','resumen_matriz','resumen_data','rangos_ficha'));
         return $pdf->setPaper('a4','')->stream('pdf_ficha.pdf');
     }
     
@@ -535,6 +640,11 @@ class Fichamonitoreo extends Controller
             impDocRec,
             comEspRec,
             impEspRec,
+            textModalidadRec,
+            textNivelesRec,
+            turnoRec,
+            fecProRec,
+            DATE_FORMAT(R.fecProRec,'%Y-%m-%d') as fechaProgramada,
             DATE_FORMAT(Rd.fecAplRec,'%Y-%m-%d') as fechaaplicacion,
             DATE_FORMAT(Rd.fecIniAplRec,'%H:%i:%s') as horainicioaplicacion,
             DATE_FORMAT(Rd.fecAplRec,'%H:%i:%s') as horaaplicacion,
@@ -548,9 +658,15 @@ class Fichamonitoreo extends Controller
         for ($i=0; $i < count($grupo); $i++) {
             $grupo[$i]['detalle']   = $this->ver_ficha_respondida($idficha,$idreceptor,$grupo[$i]['gruPre']);
         }
-        $resumenipl = $this->resumen_inicio_proceso_logrado($idreceptor);
-        $totalipl   = $this->totales_resumen_inicio_proceso_logrado($idreceptor);
-        $pdf = \PDF::loadView('fichamonitoreo/pdf_ficha', compact('ficha','registro','ficha_respondida','grupo','resumenipl','totalipl'));
+        $resumenipl  = $this->resumen_inicio_proceso_logrado($idreceptor);
+        $totalipl    = $this->totales_resumen_inicio_proceso_logrado($idreceptor);
+        $resumen_cge = $this->resumen_cge($idreceptor);
+
+        $resumen_data = $this->resumen_matriz($idreceptor);
+        $resumen_matriz = $resumen_data['resumen'];
+        $rangos_ficha = $resumen_data['rangos_ficha'];
+
+        $pdf = \PDF::loadView('fichamonitoreo/pdf_ficha', compact('ficha','registro','ficha_respondida','grupo','resumenipl','totalipl','resumen_cge','resumen_matriz','resumen_data','rangos_ficha'));
         $output = $pdf->output();
         $nomarchivo = $carpeta.'/'.'rec'.$idreceptor.'_'.date('Ymd_His').'.pdf';
         file_put_contents($nomarchivo, $output);
@@ -572,7 +688,7 @@ class Fichamonitoreo extends Controller
         file_put_contents($nomarchivo, $output);
         return $nomarchivo;
     }*/
-
+    
     public function resumen_inicio_proceso_logrado($idRec){
        $tabla = DB::connection('ficha')->select("SELECT 
        REPLACE(P.gruPre,'<br>',' ') as gruPre,
@@ -603,14 +719,172 @@ class Fichamonitoreo extends Controller
         WHERE D.estRdd=1 and R.estRec=1 and P.estPre=1 and P.tipPre IN('INICIO/PROCESO/LOGRADO','NOAPLICA/INICIO/PROCESO/LOGRADO','INICIO/LOGRADO') and R.idRec=$idRec");
         return ($tabla)?(Array)$tabla[0]:false;
      }
-    
+     
+     public function resumen_cge($idRec){
+       $tabla = DB::connection('ficha')->select("SELECT 
+            R1.*,
+            
+            R2.cge1 as tcge1,
+            R2.cge2 as tcge2,
+            R2.cge3 as tcge3,
+            R2.cge4 as tcge4,
+            R2.cge5 as tcge5,
+            R2.cgeTotal as tcgeTotal,
+            
+            R1.cge1/R2.cge1 as porcge1,
+            R1.cge2/R2.cge2 as porcge2,
+            R1.cge3/R2.cge3 as porcge3,
+            R1.cge4/R2.cge4 as porcge4,
+            R1.cge5/R2.cge5 as porcge5,
+            R1.cgeTotal/R2.cgeTotal as porcgeTotal,
+            
+            IF(R1.cge1/R2.cge1<0.3,'No Presenta',IF(R1.cge1/R2.cge1<0.60,'Inicio',IF(R1.cge1/R2.cge1<0.9,'Proceso','Logrado'))) as textocge1,
+            IF(R1.cge2/R2.cge2<0.3,'No Presenta',IF(R1.cge2/R2.cge2<0.60,'Inicio',IF(R1.cge2/R2.cge2<0.9,'Proceso','Logrado'))) as textocge2,
+            IF(R1.cge3/R2.cge3<0.3,'No Presenta',IF(R1.cge3/R2.cge3<0.60,'Inicio',IF(R1.cge3/R2.cge3<0.9,'Proceso','Logrado'))) as textocge3,
+            IF(R1.cge4/R2.cge4<0.3,'No Presenta',IF(R1.cge4/R2.cge4<0.60,'Inicio',IF(R1.cge4/R2.cge4<0.9,'Proceso','Logrado'))) as textocge4,
+            IF(R1.cge5/R2.cge5<0.3,'No Presenta',IF(R1.cge5/R2.cge5<0.60,'Inicio',IF(R1.cge5/R2.cge5<0.9,'Proceso','Logrado'))) as textocge5,
+            IF(R1.cgeTotal/R2.cgeTotal<0.3,'No Presenta',IF(R1.cgeTotal/R2.cgeTotal<0.60,'Inicio',IF(R1.cgeTotal/R2.cgeTotal<0.9,'Proceso','Logrado'))) as textocgeTotal,
+            
+            IF(R1.cge1/R2.cge1<0.3,'Black',IF(R1.cge1/R2.cge1<0.60,'red',IF(R1.cge1/R2.cge1<0.9,'GoldenRod','Green'))) as stylecge1,
+            IF(R1.cge2/R2.cge2<0.3,'Black',IF(R1.cge2/R2.cge2<0.60,'red',IF(R1.cge2/R2.cge2<0.9,'GoldenRod','Green'))) as stylecge2,
+            IF(R1.cge3/R2.cge3<0.3,'Black',IF(R1.cge3/R2.cge3<0.60,'red',IF(R1.cge3/R2.cge3<0.9,'GoldenRod','Green'))) as stylecge3,
+            IF(R1.cge4/R2.cge4<0.3,'Black',IF(R1.cge4/R2.cge4<0.60,'red',IF(R1.cge4/R2.cge4<0.9,'GoldenRod','Green'))) as stylecge4,
+            IF(R1.cge5/R2.cge5<0.3,'Black',IF(R1.cge5/R2.cge5<0.60,'red',IF(R1.cge5/R2.cge5<0.9,'GoldenRod','Green'))) as stylecge5,
+            IF(R1.cgeTotal/R2.cgeTotal<0.3,'Black',IF(R1.cgeTotal/R2.cgeTotal<0.60,'red',IF(R1.cgeTotal/R2.cgeTotal<0.9,'GoldenRod','Green'))) as stylecgeTotal
+            
+            FROM resumen R1 
+            INNER JOIN resumen R2 ON R1.idFic=R2.idFic and R2.idRec=0
+            WHERE R1.idRec=$idRec;");
+       return ($tabla)?(Array)$tabla[0]:false;
+    }
+
+    public function resumen_matriz($idRec)
+    {
+        // Definimos los rangos personalizados por ficha y grupo
+        $rangos = [
+            // Ficha 97: Estudiantes
+            97 => [
+                'ESTUDIANTES CON CONDICIÓN DE DISCAPACIDAD' => [37, 50, 87, 100],
+                'ESTUDIANTES CON CONDICIÓN ADECUADA DE SALUD FISICA Y EMOCIONAL' => [48, 73, 88, 100],
+                'ESTUDIANTES CON INTERACCIONES FAMILIARES POSITIVAS' => [48, 73, 88, 100],
+                'CONDICIONES SOCIO – ECONÓMICAS Y CULTURALES DE LOS ESTUDIANTES' => [49, 73, 93, 100],
+                'FAMILIAS COMPROMETIDAS CON EL APRENDIZAJE DE SUS HIJOS' => [50, 72, 94, 100],
+            ],
+            // Ficha 98: Docentes
+            98 => [
+                'CARACTERÍSTICAS DE SU PRÁCTICA PEDAGÓGICA' => [49, 73, 97, 100],
+                'COMPETENCIAS DIGITALES EN EL PROCESO DE ENSEÑANZA' => [49, 72, 96, 100],
+                'ESTABLECIMIENTO DE VINCULOS INTERPERSONALES CON LOS ESTUDIANTES' => [49, 74, 97, 100],
+                'ESTABLECIMIENTO DE VÍNCULOS INTERPERSONALES CON LA COMUNIDAD EDUCATIVA' => [49, 73, 95, 100],
+            ],
+            // Ficha 99: Aulas
+            99 => [
+                'AULAS ORDENADAS, CÓMODAS Y SEGURAS PARA LOS ESTUDIANTES' => [49, 74, 97, 100],
+                'AULAS ORGANIZADAS COMO ESPACIOS PARA EL APRENDIZAJE' => [49, 71, 95, 100],
+                'AULAS QUE PROMUEVEN EL DIÁLOGO Y TRABAJO EN EQUIPO' => [49, 74, 93, 100],
+                'AULAS QUE PUEDEN ADAPTARSE A DIFERENTES TIPOS DE ACTIVIDADES DE APRENDIZAJE' => [49, 74, 95, 100],
+            ],
+        ];
+
+        // Obtener el idFic del receptor
+        $idFic = DB::connection('ficha')->table('receptores')
+            ->where('idRec', $idRec)
+            ->value('idFic');
+
+        if (!$idFic || !isset($rangos[$idFic])) {
+            return [];
+        }
+
+        $gruposPermitidos = array_keys($rangos[$idFic]);
+
+        // Obtener datos agregados por grupo
+        $datos = DB::connection('ficha')->select("
+            SELECT 
+                p.gruPre AS grupo,
+                COUNT(r.idRdd) AS preguntas_respondidas,
+                SUM(CASE 
+                        WHEN r.resRdd = '1' THEN 1
+                        WHEN r.resRdd = '2' THEN 2
+                        WHEN r.resRdd = '3' THEN 3
+                        WHEN r.resRdd = '4' THEN 4
+                        ELSE 0
+                    END) AS puntaje_obtenido,
+                (COUNT(r.idRdd) * 4) AS puntaje_maximo,
+                ROUND(SUM(CASE 
+                        WHEN r.resRdd = '1' THEN 1
+                        WHEN r.resRdd = '2' THEN 2
+                        WHEN r.resRdd = '3' THEN 3
+                        WHEN r.resRdd = '4' THEN 4
+                        ELSE 0
+                    END) * 100.0 / (COUNT(r.idRdd) * 4), 0) AS porcentaje
+            FROM respuestas_detalles r
+            INNER JOIN preguntas p ON r.idPre = p.idPre
+            WHERE r.idRec = ? AND r.estRdd = 1 AND p.estPre = 1
+            GROUP BY p.gruPre
+        ", [$idRec]);
+
+        // Función para normalizar texto (acentos, mayúsculas, guiones, espacios)
+        $normalizar = function ($text) {
+            $text = strtoupper(trim($text));
+            $text = str_replace(
+                ['Á','É','Í','Ó','Ú','Ñ','Ü'],
+                ['A','E','I','O','U','N','U'],
+                $text
+            );
+            return preg_replace('/[–−‐‑‒—―]/u', '-', $text); // unifica guiones
+        };
+
+        // Clasificación
+        $resultados = collect($datos)->filter(function ($item) use ($gruposPermitidos, $normalizar) {
+            return in_array($normalizar($item->grupo), array_map($normalizar, $gruposPermitidos));
+        })->map(function ($item) use ($idFic, $rangos) {
+            $grupo = trim($item->grupo);
+            $porcentaje = $item->porcentaje;
+            $r = $rangos[$idFic][$grupo] ?? [0,0,0,100]; // valor por defecto si no existe
+
+            if ($porcentaje <= $r[0]) {
+                $texto = 'Uno o ninguno';
+            } elseif ($porcentaje <= $r[1]) {
+                $texto = 'Pocos';
+            } elseif ($porcentaje <= $r[2]) {
+                $texto = 'La mayoría';
+            } else {
+                $texto = 'Todos';
+            }
+
+            $color = match (true) {
+                $porcentaje < 50 => 'Red',
+                $porcentaje < 74 => 'GoldenRod',
+                $porcentaje < 90 => 'Blue',
+                default => 'Green',
+            };
+
+            return (object)[
+                'grupo' => $grupo,
+                'puntaje_obtenido' => $item->puntaje_obtenido,
+                'puntaje_maximo' => $item->puntaje_maximo,
+                'porcentaje' => $porcentaje,
+                'texto_logro' => $texto,
+                'style_logro' => $color,
+            ];
+        })->values();
+
+        return [
+            'resumen' => $resultados,
+            'rangos_ficha' => $rangos[$idFic] ?? []
+        ];
+    }
+
     public function crearficha(Request $request){
+        
+        if(!session()->get('siic01_admin')){ header('Location: https://siic01.ugel01.gob.pe/'); exit(); }
+        
         $info['anio'] = ($request['anio']=='TODO')?'':(($request['anio'])?:date('Y'));
         $where = ($info['anio'])?" and YEAR(iniFic)='".$info['anio']."'":"";
         $info['anio'] = $request['anio'];
         
         //$where = ($request['anio'])?" and YEAR(iniFic)='".$request['anio']."'":"";
-        if(session()->get('siic01_admin')){
+        //if(session()->get('siic01_admin')){
             $info['session'] = session()->get('siic01_admin');
             //$info['catalogo'] = Fichas::where(['estFic'=>'1',''=>])->get()->toArray();
             $info['listaarea'] = DB::connection('ficha')->select("SELECT areaFic FROM `fichas` WHERE estFic=1 $where GROUP BY areaFic");
@@ -619,7 +893,7 @@ class Fichamonitoreo extends Controller
             $info['catalogo'] = DB::connection('ficha')->select("SELECT * FROM fichas WHERE estFic IN(1,2)".$where);
             $info['anadirficha'] =  DB::connection('ficha')->select("SELECT idFic, REPLACE(nomFic,'FICHA DE','PROGRAMAR') as nomFic from fichas where estFic = 1 and tipFic <> 'FICHA' and NOW() between iniFic and DATE_ADD(finFic,INTERVAL 1 DAY)"); 
             return view('fichamonitoreo/crearficha',$info);
-        }
+        //}
     }
 
     public function listar_ficha(Request $request){
@@ -736,7 +1010,6 @@ class Fichamonitoreo extends Controller
             }
         }
     }
-    
 
     public function guardar_pregunta(Request $request){
         date_default_timezone_set('America/Lima');
@@ -765,6 +1038,7 @@ class Fichamonitoreo extends Controller
                         $fila['adjArcPre'] = ($key[9]=='true')?1:0;
                         $fila['camOblPre'] = ($key[10]=='true')?1:0;
                         $fila['obsPre']    = ($key[11])?$key[11]:NULL;
+                        $fila['nroPreConPre'] = ($key[12])?$key[12]:NULL;
                         if(Preguntas::where('idPre',$idpregunta)->get()->toArray()){
                             Preguntas::where('idPre',$idpregunta)->update($fila);
                          }else{
@@ -808,13 +1082,13 @@ class Fichamonitoreo extends Controller
         CONCAT(R.nomRec,IF(R.apePatRec,CONCAT(' ',R.apePatRec),''),IF(R.apeMatRec,CONCAT(' ',R.apeMatRec),'')) as dirRec,
         IF(R.idEspRec,CONCAT(esp_nombres,' ',esp_apellido_paterno,' ',esp_apellido_materno),'') as especialista,
         
-        DATE_FORMAT(IFNULL(Rd.fecIniAplRec,R.updated_at),'%d/%m/%Y') as fechaficha,
+        DATE_FORMAT(IFNULL(Rd.fecIniAplRec,IFNULL(R.fecProRec,R.updated_at)),'%d/%m/%Y') as fechaficha,
         IF(NOW() between iniFic and DATE_ADD(F.finFic,INTERVAL 1 DAY),1,0) as habilitado 
         FROM fichas F 
         INNER JOIN receptores R on F.idFic = R.idFic 
         LEFT JOIN receptores_deta Rd ON R.idRec=Rd.idRec
         LEFT JOIN siic01ugel01gob_directores.especialistas E ON R.idEspRec = E.idespecialista 
-        WHERE R.estRec = 1 and F.estFic = 1 and F.idFic = ".$request['idficha']);
+        WHERE R.estRec = 1 and F.estFic IN(1,2) and F.idFic = ".$request['idficha']);
 
         echo json_encode($info);
     }
@@ -971,11 +1245,37 @@ class Fichamonitoreo extends Controller
         }
         return 1;
     }
+    
+    public function guardar_solo_receptores(Request $request){
+        $idRec = $request['idRec'];
+        $data = $request->all();
+        unset($data['_token']);
+        if(Receptores::where(['idRec'=>$idRec,'estRec'=>1])->get()->toArray()){
+           Receptores::where(['idRec'=>$idRec,'estRec'=>1])->update($data);
+           return 2;
+        }else{
+           return 1;
+        }
+    }
+    
+    public function guardar_observaciones(Request $request){
+        $idRec = $request['idRec'];
+        $data = $request->all();
+        unset($data['_token']);
+        if(Observaciones::where(['idRec'=>$idRec,'estObs'=>1])->get()->toArray()){
+           Observaciones::where(['idRec'=>$idRec,'estObs'=>1])->update($data);
+           return 2;
+        }else{
+           Observaciones::insert($data);
+           return 1;
+        }
+    }
 
     public function guardar_respuesta(Request $request){
         //$query = $this->db_b->query("SELECT *,IF(texto='-',grupo,texto) as texto FROM pregunta P WHERE P.estado=1 and P.idficha = $idficha ORDER BY orden ASC");
         $preg = Preguntas::where(['estPre'=>1,'idFic'=>$request['idficha']])->select("*",DB::raw("IF(textPre='-',gruPre,textPre) as texto"))->get()->toArray();
         //print_r($preg);
+        $puntajes = 0;
         foreach ($preg as $key) {
             if($request['p'.$key['idPre']] or $request['p'.$key['idPre']]=='0'){
                 $reg = array();
@@ -1019,9 +1319,9 @@ class Fichamonitoreo extends Controller
                     }
                 }
                 //Variables
-
-                //echo '<br>';
-                //print_r($reg);
+                
+                //Puntajes
+                if($request['p'.$key['idPre']]=='SI'){ $puntajes++; }
 
             }
         }
@@ -1032,13 +1332,28 @@ class Fichamonitoreo extends Controller
                 $fichapdf = $this->generar_pdf_ficha($key['idFic'],$key['idRec'],'storage/fichamonitoreo/ficha'.$key['idFic']);
                 Receptores::where(['idRec'=>$key['idRec']])->update(['updated_at'=>$key['fecha'],'fichapdf'=>$fichapdf]);
             }
-            Receptores::where('idRec',$request['idreceptor'])->update(['culRec'=>1]); 
+            Receptores::where('idRec',$request['idreceptor'])->update(['culRec'=>1]);
             
         }
+        
+        $info['puntajes'] = $puntajes;
+        if($request['p1814']){ Resumen::where('idRec',$request['idreceptor'])->update(['cge1'=>$puntajes]); }
+        if($request['p1819']){ Resumen::where('idRec',$request['idreceptor'])->update(['cge2'=>$puntajes]); }
+        if($request['p1825']){ Resumen::where('idRec',$request['idreceptor'])->update(['cge3'=>$puntajes]); }
+        if($request['p1838']){ Resumen::where('idRec',$request['idreceptor'])->update(['cge4'=>$puntajes]); }
+        if($request['p1859']){ Resumen::where('idRec',$request['idreceptor'])->update(['cge5'=>$puntajes]); }
+        
+        if($request['p1892']){ Resumen::where('idRec',$request['idreceptor'])->update(['cge1'=>$puntajes]); }
+        if($request['p1895']){ Resumen::where('idRec',$request['idreceptor'])->update(['cge2'=>$puntajes]); }
+        if($request['p1901']){ Resumen::where('idRec',$request['idreceptor'])->update(['cge3'=>$puntajes]); }
+        if($request['p1914']){ Resumen::where('idRec',$request['idreceptor'])->update(['cge4'=>$puntajes]); }
+        if($request['p1933']){ Resumen::where('idRec',$request['idreceptor'])->update(['cge5'=>$puntajes]); }
+        
+        Resumen::where('idRec',$request['idreceptor'])->update(['cgeTotal' => DB::raw('cge1 + cge2 + cge3 + cge4 + cge5')]);
         echo json_encode($info);
+        
+        
     }
-
-    
 
     public function enviar_ficha_ugel01(Request $request){
         $key = Receptores::select("idFic","idRec","fichapdf",DB::raw("DATE_FORMAT(updated_at,'%Y-%m-%d %H:%i:%s') as fecha"))->where('idRec',$request['idreceptor'])->get()->toArray()[0];
@@ -1118,7 +1433,7 @@ class Fichamonitoreo extends Controller
         IF(count(*) = SUM(IF(D.idRdd,1,0)),1,0) as grupo_respondido
         FROM preguntas P 
         LEFT JOIN respuestas_detalles D ON P.idPre = D.idPre and D.estRdd=1 and D.idRec = $idreceptor
-        WHERE P.estPre=1 and P.idFic = $idficha");        
+        WHERE P.tipPre<>'ENCABEZADO' and P.estPre=1 and P.idFic = $idficha");        
         return ($query)?(Array)$query[0]:false;
     }
 

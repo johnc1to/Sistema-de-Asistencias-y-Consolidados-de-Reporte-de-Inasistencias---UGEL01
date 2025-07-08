@@ -16,9 +16,13 @@
   table tr td { padding-right: 6px;padding-left: 6px;font-size:12px;}
   .titulo { font-size:12px; }
   .cabezera{font-weight: bold;text-align:center; background-color:rgb(217,217,217);}
+  .cuerpo{text-align:center;}
+  .nivellogro{font-weight: bold;text-align:center;}
   .negritacentrado { font-weight: bold;text-align:center; }
   .gris { background-color:rgb(217,217,217); }
   .centro { text-align:center;  }
+  .izquierda { text-align:left;padding-left:6px;  }
+  .resumentotal{ font-weight: bold;}
 </style>
 <body>
   <div id="header">
@@ -54,9 +58,34 @@
     $nro=0;
     if($ficha['DatGenFic']){
     ?>
-    <b class="titulo"><?=$romano[$nro++]?>.	DATOS GENERALES DE LA IE:</b>
+    <b class="titulo"><?=$romano[$nro++]?>.	DATOS GENERALES DE LA INSTITUCIÓN:</b>
     <?php
     if($ficha['htmlDatGenFic']){
+        if($registro){
+        $ficha['htmlDatGenFic'] = str_replace('|disRec|',$registro['disRec'],$ficha['htmlDatGenFic']);
+        $ficha['htmlDatGenFic'] = str_replace('|redRec|',$registro['redRec'],$ficha['htmlDatGenFic']);
+        $ficha['htmlDatGenFic'] = str_replace('|codlocRec|',$registro['codlocRec'],$ficha['htmlDatGenFic']);
+        $ficha['htmlDatGenFic'] = str_replace('|insRec|',$registro['insRec'],$ficha['htmlDatGenFic']);
+        $ficha['htmlDatGenFic'] = str_replace('|textModalidadRec|',$registro['textModalidadRec'],$ficha['htmlDatGenFic']);
+        $ficha['htmlDatGenFic'] = str_replace('|textNivelesRec|',$registro['textNivelesRec'],$ficha['htmlDatGenFic']);
+        $ficha['htmlDatGenFic'] = str_replace('|turno|',$registro['turnoRec'],$ficha['htmlDatGenFic']);
+        $ficha['htmlDatGenFic'] = str_replace("|fechaficha|",$registro['fechaProgramada'],$ficha['htmlDatGenFic']);
+        
+        $ficha['htmlDatGenFic'] = str_replace("|nroTerCar|",$registro['nroTerCar'],$ficha['htmlDatGenFic']);
+        $ficha['htmlDatGenFic'] = str_replace("|nroCuaCar|",$registro['nroCuaCar'],$ficha['htmlDatGenFic']);
+        $ficha['htmlDatGenFic'] = str_replace("|nroQuiCar|",$registro['nroQuiCar'],$ficha['htmlDatGenFic']);
+        $ficha['htmlDatGenFic'] = str_replace("|nroManCar|",$registro['nroManCar'],$ficha['htmlDatGenFic']);
+        $ficha['htmlDatGenFic'] = str_replace("|nroTarCar|",$registro['nroTarCar'],$ficha['htmlDatGenFic']);
+        
+        $ficha['htmlDatGenFic'] = str_replace("|nomRec|",$registro['nomRec'],$ficha['htmlDatGenFic']);
+        $ficha['htmlDatGenFic'] = str_replace("|apePatRec|",$registro['apePatRec'],$ficha['htmlDatGenFic']);
+        $ficha['htmlDatGenFic'] = str_replace("|apeMatRec|",$registro['apeMatRec'],$ficha['htmlDatGenFic']);
+        $ficha['htmlDatGenFic'] = str_replace("|dniRec|",$registro['dniRec'],$ficha['htmlDatGenFic']);
+        $ficha['htmlDatGenFic'] = str_replace("|telRec|",$registro['telRec'],$ficha['htmlDatGenFic']);
+        $ficha['htmlDatGenFic'] = str_replace("|corRec|",$registro['corRec'],$ficha['htmlDatGenFic']);
+        $ficha['htmlDatGenFic'] = str_replace("|carRec|",$registro['carRec'],$ficha['htmlDatGenFic']);
+
+        }
         echo $ficha['htmlDatGenFic'];
     }else{
     ?>
@@ -82,9 +111,6 @@
             <td><?=($registro)?$registro['redRec']:''?></td>
         </tr>
     </table>
-    <?php
-    }
-    ?>
     <br>
     <b class="titulo"><?=$romano[$nro++]?>.	DATOS DEL DIRECTIVO:</b>
     <table border="1" cellspacing="0" cellpadding="2" width="100%">
@@ -107,6 +133,10 @@
             <td><?=($registro)?$registro['carRec']:''?></td>
         </tr>
     </table>
+    <?php
+    }
+    ?>
+    
     <br>
     <!--
     <table border="1" cellspacing="0" cellpadding="2" width="100%">
@@ -288,6 +318,12 @@
 	        elseif($fila['tipPre']=='SI/NO/NOAPLICA'){
                 $cabeza=10;
             }
+            elseif($fila['tipPre']=='SI/NO SIMPLE'){
+                $cabeza=11;
+            }
+            elseif($fila['tipPre']=='UNO O NINGUNO/POCOS/LA MAYORIA/TODOS'){
+                $cabeza=12;
+            }
         }
     ?>
     <?=($key['SalLinPre'])?'<div style="page-break-after:always;"></div>':''?>
@@ -435,7 +471,42 @@
         }
         ?>
         <!--FIN JMMJ 11-10-2023-->
-        
+        <!--30-05-2025-->
+	    <?php
+	    if($cabeza==11){
+	    ?>
+	    <tr class="cabezera">
+	        <td rowspan="2">N°</td>
+	        <td rowspan="2">Ítem</td>
+	        <td colspan="2">Alternativas</td>
+	    </tr>
+	    <tr class="cabezera">
+	        <td>SI</td>
+	        <td>NO</td>
+	    </tr>
+	    <?php
+	    }
+	    ?>
+	    <!--30-05-2025-->
+	    <!--01-07-2025-->
+	    <?php
+	    if($cabeza==12){
+	    ?>
+	    <tr class="cabezera">
+	        <td rowspan="2">N°</td>
+	        <td rowspan="2">Ítem</td>
+	        <td colspan="4">Alternativas</td>
+	    </tr>
+	    <tr class="cabezera">
+	        <td>UNO O NINGUNO</td>
+	        <td>POCOS</td>
+	        <td>LA MAYORIA</td>
+	        <td>TODOS</td>
+	    </tr>
+	    <?php
+	    }
+	    ?>
+	    <!--01-07-2025-->
         
         <?php
         if($key['detalle']){
@@ -458,7 +529,7 @@
             <?php if($fila['tipPre']=='SI/NO'){ ?>
             <td style="text-align:center;"><?=($fila['resRdd']=='SI')?'X':''?></td>
             <td style="text-align:center;"><?=($fila['resRdd']=='NO')?'X':''?></td>
-            <td style="text-align:center;"><?=$fila['obsPre']?></td>
+            <td style="text-align:center;"><?=($fila['obsRdd'])?$fila['obsRdd']:$fila['obsPre']?></td>
             <?php }elseif($fila['tipPre']=='INICIO/LOGRADO' or $fila['tipPre']=='ARCHIVO'){ ?>
             <td style="text-align:center;"><?=($fila['resRdd']=='3')?'X':''?></td>
             <td style="text-align:center;"><?=($fila['resRdd']=='1')?'X':''?></td>
@@ -533,12 +604,40 @@
         
         <?php } ?>
         
+        <?php if($fila['tipPre']=='SI/NO SIMPLE'){ ?>
+	    <tr>
+	        <td style="text-align:center;font-weight:bolder;"><?=($fila['nroPre']=='-')?'':$fila['nroPre'].'.'?></td>
+            <td><?=$fila['textPre']?></td>
+            <td style="text-align:center;"><?=($fila['resRdd']=='SI')?'X':''?></td>
+            <td style="text-align:center;"><?=($fila['resRdd']=='NO')?'X':''?></td>
+	    </tr>
+	    <?php } ?>
+	    
+	    <?php if($fila['tipPre']=='UNO O NINGUNO/POCOS/LA MAYORIA/TODOS'){ ?>
+	    <tr>
+	        <td style="text-align:center;font-weight:bolder;"><?=($fila['nroPre']=='-')?'':$fila['nroPre'].'.'?></td>
+            <td><?=$fila['textPre']?></td>
+            <td style="text-align:center;"><?=($fila['resRdd']=='1')?'X':''?></td>
+            <td style="text-align:center;"><?=($fila['resRdd']=='2')?'X':''?></td>
+            <td style="text-align:center;"><?=($fila['resRdd']=='3')?'X':''?></td>
+            <td style="text-align:center;"><?=($fila['resRdd']=='4')?'X':''?></td>
+	    </tr>
+	    <?php } ?>
         
         <?php if($fila['tipPre']=='TEXTO'){   ?>
         <tr>
             <td></td>
             <td colspan="5"><textarea class="form-control" name="p<?=$fila['idPre']?>" placeholder="Escriba su respuesta en este campo de texto" style="border-bottom: 1px solid darkgreen;resize: vertical;" required><?=$fila['resRdd']?></textarea></td>
         </tr>
+        <?php } ?>
+        
+        <?php if($fila['tipPre']=='ENCABEZADO'){   ?>
+        
+        </table>
+        
+        <table class="table" style="color:#000;width:100%;font-size: 12px;">
+            <tr><td><?=$fila['textPre']?></td></tr>
+        
         <?php } ?>
         
         <?php if($fila['tipPre']=='TEXTO CORTO' or $fila['tipPre']=='NUMERO CORTO'){   ?>
@@ -586,8 +685,8 @@
         }
         ?>
         <tr>
-            <td></td>
-            <td colspan="5"><input type="text" name="p<?=$fila['idPre']?>" value="SI" style="display:none;"><?=$fila['htmlPre']?></td>
+            <td style="border:0;"></td>
+            <td style="border:0;" colspan="5"><input type="text" name="p<?=$fila['idPre']?>" value="SI" style="display:none;"><?=$fila['htmlPre']?></td>
         </tr>
         <?php } ?>
         
@@ -602,7 +701,7 @@
                     for ($j=0; $j < count($r_alternativas); $j++){
                     $alt = $r_alternativas[$j];
                     echo (strlen($fila['altPre'])>100)?'<br>':'&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;';
-                    echo '<span class="l-border">'.((strpos($fila['resRdd'],$alt)>-1)?'&nbsp;X&nbsp;':'&nbsp;&nbsp;&nbsp;&nbsp;').'</span>&nbsp;&nbsp;'.$alt;
+                    echo '<span class="l-border">'.(($fila['resRdd']==$alt)?'&nbsp;X&nbsp;':'&nbsp;&nbsp;&nbsp;&nbsp;').'</span>&nbsp;&nbsp;'.$alt;//strpos($fila['resRdd'],$alt)>-1
                     }
                 }
                 ?>
@@ -700,6 +799,88 @@
         }
         ?>
     
+    
+    <?php
+    if($resumen_cge){
+    ?>
+    <div style="page-break-after:always;"></div>
+    <table border="1" cellspacing="0" cellpadding="2" width="100%">
+        <tr class="cabezera">
+            <td colspan="7">RESULTADOS DEL SEGUIMIENTO A LOS COMPROMISOS DE GESTIÓN ESCOLAR 2025</td>
+        </tr>
+        <tr class="cabezera">
+            <td>Compromiso</td>
+            <td>CGE 1: Desarrollo integral de las y los estudiantes</td>
+            <td>CGE 2: Acceso de las y los estudiantes al SEP hasta la culminación de su trayectoria educativa</td>
+            <td>CGE 3: Gestión de las condiciones operativas orientada al sostenimiento del SE ofrecido por la IE</td>
+            <td>CGE 4: Gestión de la práctica pedagógica orientada al logro de aprendizajes previstos en el perfil de egreso de CNEB</td>
+            <td>CGE 5: Gestión del bienestar escolar que promueva el desarrollo integral de los estudiantes</td>
+            <td>Nivel de avance de los COMPROMISOS DE GESTIÓN ESCOLAR 2025</td>
+        </tr>
+        <tr class="cuerpo">
+            <td class="izquierda">Puntaje total</td>
+            <td>{{$resumen_cge['tcge1']}}</td>
+            <td>{{$resumen_cge['tcge2']}}</td>
+            <td>{{$resumen_cge['tcge3']}}</td>
+            <td>{{$resumen_cge['tcge4']}}</td>
+            <td>{{$resumen_cge['tcge5']}}</td>
+            <td class="resumentotal">{{$resumen_cge['tcgeTotal']}}</td>
+        </tr>
+        <tr class="cuerpo">
+            <td class="izquierda">Puntaje obtenido</td>
+            <td>{{$resumen_cge['cge1']}}</td>
+            <td>{{$resumen_cge['cge2']}}</td>
+            <td>{{$resumen_cge['cge3']}}</td>
+            <td>{{$resumen_cge['cge4']}}</td>
+            <td>{{$resumen_cge['cge5']}}</td>
+            <td class="resumentotal">{{$resumen_cge['cgeTotal']}}</td>
+        </tr>
+        <tr class="cuerpo">
+            <td class="izquierda">Porcentaje obtenido</td>
+            <td>{{round($resumen_cge['porcge1']*100,2)}}%</td>
+            <td>{{round($resumen_cge['porcge2']*100,2)}}%</td>
+            <td>{{round($resumen_cge['porcge3']*100,2)}}%</td>
+            <td>{{round($resumen_cge['porcge4']*100,2)}}%</td>
+            <td>{{round($resumen_cge['porcge5']*100,2)}}%</td>
+            <td class="resumentotal">{{round($resumen_cge['porcgeTotal']*100,2)}}%</td>
+        </tr>
+        <tr class="nivellogro">
+            <td class="izquierda">Nivel de logro %</td>
+            <td style="color:{{$resumen_cge['stylecge1']}};">{{$resumen_cge['textocge1']}}</td>
+            <td style="color:{{$resumen_cge['stylecge2']}};">{{$resumen_cge['textocge2']}}</td>
+            <td style="color:{{$resumen_cge['stylecge3']}};">{{$resumen_cge['textocge3']}}</td>
+            <td style="color:{{$resumen_cge['stylecge4']}};">{{$resumen_cge['textocge4']}}</td>
+            <td style="color:{{$resumen_cge['stylecge5']}};">{{$resumen_cge['textocge5']}}</td>
+            <td class="resumentotal" style="color:{{$resumen_cge['stylecgeTotal']}};">{{strtoupper($resumen_cge['textocgeTotal'])}}</td>
+        </tr>
+    </table>
+    
+    <br>
+    <br>
+    
+
+    <b>Leyenda</b>
+    <table border="1" cellspacing="0" cellpadding="2" width="100%">
+        <tr class="nivellogro">
+            <td class="izquierda">Rangos</td>
+            <td>- 30%</td>
+            <td>30% a 60%</td>
+            <td>61% a 90%</td>
+            <td>+ 90%</td>
+        </tr>
+        <tr class="nivellogro">
+            <td class="izquierda">Niveles de logro</td>
+            <td style="color:Black;">No Presenta</td>
+            <td style="color:red;">Inicio</td>
+            <td style="color:GoldenRod;">Proceso</td>
+            <td style="color:Green;">Logrado</td>
+        </tr>
+    </table>
+    
+    <?php
+    }
+    ?>
+    
     <?php
     /*
     if($resumenbrm){
@@ -750,12 +931,90 @@
     <?php
         }
         */
-        ?>
-        
+    ?>
+    
+    @if ($resumen_matriz && count($resumen_matriz) > 0)
+        <div style="page-break-after:always;"></div>
+        <br>
+        <p style="font-weight: bold;">Resultados:</p>
+        <table border="1" cellspacing="0" cellpadding="2" width="100%">
+            <tr class="cabezera">
+                <td colspan="5">RESULTADOS</td>
+            </tr>
+            <tr class="cabezera">
+                <td rowspan="2" class="center">CARACTERÍSTICAS</td>
+                <td colspan="4" align="center">NIVEL DE LOGRO</td>
+            </tr>
+            <tr class="cabezera">
+                <td align="center">Uno o ninguno</td>
+                <td align="center">Pocos</td>
+                <td align="center">La mayoría</td>
+                <td align="center">Todos</td>
+            </tr>
+
+            @foreach ($resumen_matriz as $item)
+                @php
+                    $uno = $pocos = $mayoria = $todos = '';
+                    $valor = round($item->porcentaje ?? 0, 2) . '%';
+
+                    switch (trim($item->texto_logro)) {
+                        case 'Uno o ninguno':
+                            $uno = $valor;
+                            break;
+                        case 'Pocos':
+                            $pocos = $valor;
+                            break;
+                        case 'La mayoría':
+                            $mayoria = $valor;
+                            break;
+                        case 'Todos':
+                            $todos = $valor;
+                            break;
+                    }
+                @endphp
+                <tr class="cuerpo">
+                    <td class="izquierda">{{ $item->grupo }}</td>
+                    <td align="center">{{ $uno }}</td>
+                    <td align="center">{{ $pocos }}</td>
+                    <td align="center">{{ $mayoria }}</td>
+                    <td align="center">{{ $todos }}</td>
+                </tr>
+            @endforeach
+        </table>
+        <br>
+    @endif
+    
+    @if (!empty($rangos_ficha))
+        <br>
+        <p style="font-weight: bold;">Leyenda de porcentajes por grupo:</p>
+        <table border="1" cellspacing="0" cellpadding="4" width="100%">
+            <thead>
+                <tr class="cabezera">
+                    <td class="izquierda"><b>CARACTERÍSTICA</b></td>
+                    <td align="center"><b>Uno o ninguno</b></td>
+                    <td align="center"><b>Pocos</b></td>
+                    <td align="center"><b>La mayoría</b></td>
+                    <td align="center"><b>Todos</b></td>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (collect($rangos_ficha)->sortKeys() as $grupo => $valores)
+                    <tr class="cuerpo">
+                        <td class="izquierda">{{ $grupo }}</td>
+                        <td align="center">0% – {{ $valores[0] }}%</td>
+                        <td align="center">{{ $valores[0] + 1 }}% – {{ $valores[1] }}%</td>
+                        <td align="center">{{ $valores[1] + 1 }}% – {{ $valores[2] }}%</td>
+                        <td align="center">{{ $valores[2] }}% – 100%</td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+    @endif
+
+
     <?php
     if($ficha['tipFic']=='AL DIRECTIVO' or $ficha['tipFic']=='DIRECTIVO AL DOCENTE'){
     ?>
-    
     <br>
     <table border="1" cellspacing="0" cellpadding="2" width="100%">
     <tr>
@@ -774,56 +1033,24 @@
         <td><b>COMPROMISOS DEL DOCENTE</b></td>
         <td><?=($registro)?$registro['comDocRec']:'-'?></td>
     </tr>
-        
     </table>
+    <?php } ?>
     
     <?php
-    /*
+    if($ficha['tipFic']=='A LA IIEE'){
     ?>
     <br>
-    <b class="titulo">CONCLUSIONES:</b>
+    <br>
+    <b>RECOMENDACIONES DEL ESPECIALISTA:</b>
     <table border="1" cellspacing="0" cellpadding="2" width="100%">
-        <tr><td><?=($registro)?$registro['conRec']:'-'?></td></tr>
+    <tr><td><?=($registro)?$registro['texto1Obs']:'-'?></td></tr>
     </table>
     <br>
-    <b class="titulo">RECOMENDACIONES:</b>
-    <table border="1" cellspacing="0" cellpadding="2" width="100%">
-        <tr><td><?=($registro)?$registro['recRec']:'-'?></td></tr>
-    </table>
     <br>
-    <b class="titulo">COMPROMISOS:</b>
+    <b>COMPROMISOS DEL DIRECTOR:</b>
     <table border="1" cellspacing="0" cellpadding="2" width="100%">
-        <tr class="cabezera">
-            <td>COMPROMISOS DEL DIRECTIVO</td>
-            <td>¿CÓMO SE IMPLEMENTA EL COMPROMISO?</td>
-        </tr>
-        <tr>
-            <td><?=($registro)?$registro['comDirRec']:'-'?></td>
-            <td><?=($registro)?$registro['impDirRec']:'-'?></td>
-        </tr>
-        <tr class="cabezera">
-            <td>COMPROMISOS DEL DOCENTE</td>
-            <td>¿CÓMO SE IMPLEMENTA EL COMPROMISO?</td>
-        </tr>
-        <tr>
-            <td><?=($registro)?$registro['comDocRec']:'-'?></td>
-            <td><?=($registro)?$registro['impDocRec']:'-'?></td>
-        </tr>
-        <?php if($ficha['tipFic']=='AL DIRECTIVO'){ ?>
-        <tr class="cabezera">
-            <td>COMPROMISOS DEL ESPECIALISTA DE UGEL</td>
-            <td>¿CÓMO SE IMPLEMENTA EL COMPROMISO?</td>
-        </tr>
-        <tr>
-            <td><?=($registro)?$registro['comEspRec']:'-'?></td>
-            <td><?=($registro)?$registro['impEspRec']:'-'?></td>
-        </tr>
-        <?php } ?>
+    <tr><td><?=($registro)?$registro['texto2Obs']:'-'?></td></tr>
     </table>
-    <?php
-    */
-    ?>
-    
     <?php } ?>
   </div>
 </body>
