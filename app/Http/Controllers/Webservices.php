@@ -13,10 +13,20 @@ use DB;
 class Webservices extends Controller
 {
     
+    function url(Request $request){
+        return redirect( $request['url']);
+        //return view('Webservices/url');
+        //http://server-biometrico.ugel01.gob.pe:8020/api_reloj/public/vermarcaciones
+        //echo '<body onload="window.open('','_blank');"></body>';
+        //echo "<script>window.open('".$request['url']."', '_blank')</script>";
+        //echo $request['url'];
+        //return redirect('/home/dashboard');
+    }
+    
     function nexus_dir(){
         date_default_timezone_set('America/Lima');
         //NUEVOS DIRECTORES
-        $nexus = DB::select("SELECT codlocal,idmodalidad,numdocum,nombres,apellipat,apellimat,nombie,correo,celular,codmodce,codplaza,descsubtipt,descargo FROM nexus WHERE descargo='DIRECTOR I.E.' and tiporegistro='ORGANICA'");// and numdocum<>'VACANTE'  and codlocal='343847'
+        $nexus = DB::select("SELECT codlocal,idmodalidad,numdocum,nombres,apellipat,apellimat,nombie,correo,celular,codmodce,codplaza,descsubtipt,descargo FROM nexus WHERE estado=1 and descargo='DIRECTOR I.E.' and tiporegistro='ORGANICA'");// and numdocum<>'VACANTE'  and codlocal='343847'
         $nro = 1;
         foreach ($nexus as $key) {
             $dir = $this->director_habilitado($key->codlocal,$key->idmodalidad);

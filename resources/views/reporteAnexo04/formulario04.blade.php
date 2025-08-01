@@ -11,7 +11,7 @@
 <meta name="guardar-firma-url" content="{{ route('guardar.firma.director') }}">
 
     <div class="w-full max-w-full mx-auto bg-white rounded-xl shadow-md p-6">
-        <h1 class="text-2xl font-bold text-center mb-4 uppercase">ANEXO 04</h1>
+        <h1 class="text-2xl font-bold text-center mb-4 uppercase">ANEXO 04 - {{ mb_strtoupper(\Carbon\Carbon::now()->subMonth()->translatedFormat('F '), 'UTF-8') }}</h1>
         <h1 class="text-2xl font-bold text-center mb-4 uppercase">Formato 02: REPORTE CONSOLIDADO DE INASISTENCIAS, TARDANZAS Y PERMISOS SIN GOCE DE REMUNERACIONES</h1>
 
         <!-- Información de la institución y nivel -->
@@ -33,7 +33,7 @@
 
             <p class="text-sm font-medium">Turno: {{ $d_cod_tur }}</p>
         </div>
-       <!-- Ya NO necesitas method="POST" ni action -->
+
         <button id="guardarTodoInasistencia" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
             Guardar Reporte de Consolidado Masiva
         </button>
@@ -75,11 +75,11 @@
                                 <th class="border px-2 py-1 bg-gray-200" rowspan="2">Jor. Lab.</th>
 
                                 <th class="border px-2 py-1 bg-gray-200" rowspan="2">
-                            <div class="flex flex-col h-full">
-                                <div class="border-b border-white py-1 text-center">Inasistencias</div>
-                                <div class="py-1 text-xs font-semibold text-center">Días</div>
-                            </div>
-                        </th>
+                                    <div class="flex flex-col h-full">
+                                        <div class="border-b border-white py-1 text-center">Inasistencias</div>
+                                        <div class="py-1 text-xs font-semibold text-center">Días</div>
+                                    </div>
+                                </th>
 
                                 <th class="border px-2 py-1 bg-gray-200 text-center" colspan="2">
                                     Tardanzas<br>
@@ -780,7 +780,7 @@ document.addEventListener('DOMContentLoaded', function () {
       if (inputDetalle) {
         inputDetalle.value = JSON.stringify(detalle);
       }
-      // 🔍 Mostrar en consola el detalle completo por si quieres revisar
+      // Mostrar en consola el detalle completo por si quieres revisar
         console.log('Detalle generado para DNI:', dni, detalle);
       modal.classList.add('hidden');
     });
@@ -794,13 +794,13 @@ document.getElementById('guardarTodoInasistencia').addEventListener('click', asy
   // Solo un modal con id
   const modal = document.getElementById('modalInasistencia');
   const dniModal = modal ? modal.querySelector('#dniSeleccionado').value : null;
-  const numeroOficio = document.getElementById('oficio_guardado').value.trim();
-  const numeroExpediente = document.getElementById('campoNumeroExpediente').value.trim();
+  // const numeroOficio = document.getElementById('oficio_guardado').value.trim();
+  // const numeroExpediente = document.getElementById('campoNumeroExpediente').value.trim();
 
-    if (!numeroOficio || !numeroExpediente) {
-      alert("Debe ingresar el número de oficio y expediente antes de guardar.");
-      return;
-    }  
+  //   if (!numeroOficio || !numeroExpediente) {
+  //     alert("Debe ingresar el número de oficio y expediente antes de guardar.");
+  //     return;
+  //    }  
   
   filas.forEach(tr => {
     const dni = tr.dataset.dni;

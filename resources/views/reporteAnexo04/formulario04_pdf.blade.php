@@ -65,7 +65,6 @@
         <td style="text-align: left; vertical-align: top; width: 40%; border: none;">
             <p style="margin: 2px 0;"><strong>PERIODO:</strong> {{ strtoupper(Carbon::create($anio, $mes, 1)->translatedFormat('F Y')) }}</p>
             <p style="margin: 2px 0;"><strong>Turno:</strong> {{ $d_cod_tur }}</p>
-            <p><strong>Total registros:</strong> {{ count($registros) }}</p>
         </td>
     </tr>
 </table>

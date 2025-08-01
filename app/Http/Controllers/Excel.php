@@ -35,6 +35,12 @@ class Excel extends Controller
 		    'QA','QB','QC','QD','QE','QF','QG','QH','QI','QJ','QK','QL','QM','QN','QO','QP','QQ','QR','QS','QT','QU','QV','QW','QX','QY','QZ',
 		    );
 		    
+		    
+    public function fecha(){
+        echo date('Y-m-d H:i:s');
+    }
+    
+    
     public function soportetecnico($where=""){
         $query = DB::connection('formularios')->select("SELECT S.*,T.desTip,T.docestTip,
         IF(IFNULL(S.tipDocSop,'DNI')='DNI','L.E./D.N.I.',S.tipDocSop) as tipDocSop,
@@ -699,7 +705,7 @@ class Excel extends Controller
             foreach($pregunta as $key){
             $iniciomerge=$nletra;
             $spread->getActiveSheet()->setCellValue($letras[$nletra]."1",    $key->gruPre);
-            $spread->getActiveSheet()->setCellValue($letras[$nletra++]."2",  $key->textPre);
+            $spread->getActiveSheet()->setCellValue($letras[$nletra++]."2",  (($key->nroPre=='-')?'':$key->nroPre.'. ').$key->textPre);
                 if($key->varTitPre){
                     foreach( explode(',',$key->varTitPre)  as $key1){
                         $spread->getActiveSheet()->setCellValue($letras[$nletra++]."2",  $key1);
@@ -935,6 +941,102 @@ class Excel extends Controller
         }
     }
     
+    public function excel_registro_matricula_modulos_cetpro(Request $request){
+        $where  = '';
+        //$where .= ($request['codmod'])?" and P.codModPee = '".$request['codmod']."' ":'';
+        //$where .= ($request['perOff'])?" and O.perOff = '".$request['perOff']."' ":'';
+        $where .= ($request['codmod'])?" and rie.codmod = '".$request['codmod']."' ":'';
+        $where .= ($request['anio'])?" and oo.periodo = '".$request['anio']."' ":'';
+        
+        
+        date_default_timezone_set('America/Lima');
+        $spread = new Spreadsheet();
+        $sheet = $spread->getActiveSheet();
+        $filename=substr('matricula',0,20); //Guardar nuestro libro de trabajo como este nombre de archivo
+        $sheet->setTitle($filename);
+        
+        $spread->getActiveSheet()->setCellValue('A1', 'REGISTRO  DE  MATRÍCULA  INSTITUCIONAL '.(($request['perOff'])?$request['perOff']:''));
+        $spread->getActiveSheet()->setCellValue('A2', 'EDUCACIÓN  TÉCNICO-PRODUCTIVA');
+        $spread->getActiveSheet()->setCellValue('A4', 'REGIÓN');
+        $spread->getActiveSheet()->setCellValue('B4', 'UGEL');
+        $spread->getActiveSheet()->setCellValue('C4', 'CÓDIGO MODULAR');
+        $spread->getActiveSheet()->setCellValue('D4', 'NOMBRE DEL CETPRO');
+        $spread->getActiveSheet()->setCellValue('E4', 'OPCIÓN OCUPACIONAL');
+        $spread->getActiveSheet()->setCellValue('F4', 'CICLO (BÁSICO/AUXILIAR TÉCNICO) (MEDIO/TÉCNICO)');
+        $spread->getActiveSheet()->setCellValue('G4', 'N° DE RESOLUCIÓN QUE AUTORIZA LA OPCION OCUPACIONAL');
+        $spread->getActiveSheet()->setCellValue('H4', 'MÓDULO  DE LA OPCIÓN OCUPACIONAL');
+        $spread->getActiveSheet()->setCellValue('I4', 'TIPO DE DOCUMENTO');
+        $spread->getActiveSheet()->setCellValue('J4', 'N° DNI');
+        $spread->getActiveSheet()->setCellValue('K4', 'APELLIDO PATERNO');
+        $spread->getActiveSheet()->setCellValue('L4', 'APELLIDO MATERNO');
+        $spread->getActiveSheet()->setCellValue('M4', 'NOMBRES');
+        $spread->getActiveSheet()->setCellValue('N4', 'SEXO');
+        $spread->getActiveSheet()->setCellValue('O4', 'FECHA DE NACIMIENTO');
+
+        $spread->getActiveSheet()->getColumnDimension('A')->setWidth(15);
+        $spread->getActiveSheet()->getColumnDimension('B')->setWidth(15);
+        $spread->getActiveSheet()->getColumnDimension('C')->setWidth(11);
+        $spread->getActiveSheet()->getColumnDimension('D')->setWidth(35);
+        $spread->getActiveSheet()->getColumnDimension('E')->setWidth(25);
+        $spread->getActiveSheet()->getColumnDimension('F')->setWidth(25);
+        $spread->getActiveSheet()->getColumnDimension('G')->setWidth(25);
+        $spread->getActiveSheet()->getColumnDimension('H')->setWidth(20);
+        $spread->getActiveSheet()->getColumnDimension('I')->setWidth(20);
+        $spread->getActiveSheet()->getColumnDimension('J')->setWidth(20);
+        $spread->getActiveSheet()->getColumnDimension('K')->setWidth(20);
+        $spread->getActiveSheet()->getColumnDimension('L')->setWidth(20);
+        $spread->getActiveSheet()->getColumnDimension('M')->setWidth(20);
+        $spread->getActiveSheet()->getColumnDimension('N')->setWidth(20);
+        $spread->getActiveSheet()->getColumnDimension('O')->setWidth(20);
+
+        $data = DB::connection('cetpromin')->select("SELECT rie.codmod,rie.codlocal,rie.institucion,oo.periodo,oo.rd_aprobacion,oo.opcion_ocupacional,oo.nivel_formativo,mo.descripcion,a.docAlu,a.nomAlu,a.apePatAlu,a.apeMatAlu,a.sexAlu,a.fecNacAlu FROM `opcion_ocupacionals` oo
+        JOIN siic01ugel01gob_directores.iiee_a_evaluar_RIE as rie on rie.codmod=oo.codigo_modular
+        JOIN modulo_ocupacionals mo on mo.opcion_ocupacional_id=oo.id
+        JOIN modulo_ofertados mof on mof.modulo_ocupacional_id=mo.id
+        JOIN matricula_modulos mm on mm.modulo_ofertado_id=mof.id
+        JOIN alumnos a on a.idAlu=mm.alumno_id
+        where oo.estado=1 and mo.estado=1 and mm.estado=1 and mof.estado=1 and a.estAlu=1 $where
+                ");
+        
+        $nro = 5;
+        
+        if($data){
+        for ($i=0; $i < count($data); $i++) {
+            $key = $data[$i];
+            $spread->getActiveSheet()->setCellValue('A'.$nro, 'LIMA');
+            $spread->getActiveSheet()->setCellValue('B'.$nro, 'UGEL 01');
+            $spread->getActiveSheet()->setCellValue('C'.$nro, $key->codmod);
+            $spread->getActiveSheet()->setCellValue('D'.$nro, $key->institucion);
+            $spread->getActiveSheet()->setCellValue('E'.$nro, $key->opcion_ocupacional);
+            $spread->getActiveSheet()->setCellValue('F'.$nro, $key->nivel_formativo);
+            $spread->getActiveSheet()->setCellValue('G'.$nro, $key->rd_aprobacion);
+            $spread->getActiveSheet()->setCellValue('H'.$nro, $key->descripcion);
+            $spread->getActiveSheet()->setCellValue('I'.$nro, 'DNI');
+            $spread->getActiveSheet()->setCellValue('J'.$nro, $key->docAlu);
+            $spread->getActiveSheet()->setCellValue('K'.$nro, $key->apePatAlu);
+            $spread->getActiveSheet()->setCellValue('L'.$nro, $key->apeMatAlu);
+            $spread->getActiveSheet()->setCellValue('M'.$nro, $key->nomAlu);
+            $spread->getActiveSheet()->setCellValue('N'.$nro, $key->sexAlu);
+            $spread->getActiveSheet()->setCellValue('O'.$nro, $key->fecNacAlu);
+            $nro++;
+        }
+        }else{
+            $spread->getActiveSheet()->setCellValue('A'.$nro, 'NO SE HA ENCONTRADO INFORMACIÓN PARA MOSTRAR');
+        }
+        
+        $spread->getActiveSheet()->getStyle('A1:A2')->getFont()->setSize(15);
+        $spread->getActiveSheet()->getStyle('A1:A2')->getFont()->setBold(true);
+        $spread->getActiveSheet()->getStyle('A4:O4')->getFont()->setBold(true);
+        $spread->getActiveSheet()->mergeCells("A1:O1");
+        $spread->getActiveSheet()->mergeCells("A2:O2");
+
+        $writer = new Xlsx($spread);
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment; filename="'. urlencode("registro_matricula_cetpro.xlsx").'"');
+        $writer->save('php://output');
+
+    }
+    
     public function excel_registro_matricula_cetpro(Request $request){
         $where  = '';
         $where .= ($request['codmod'])?" and P.codModPee = '".$request['codmod']."' ":'';
@@ -1001,7 +1103,7 @@ class Excel extends Controller
                 INNER JOIN ofertas_formativas O ON M.idOff = O.idOff
                 INNER JOIN modulos MO ON O.idMod = MO.idMod
                 INNER JOIN programas_estudio P ON O.idPro=P.idPro
-                INNER JOIN siic01ugel01gob_directores.iiee_a_evaluar_RIE RIE ON P.codModPee  = RIE.codmod
+                INNER JOIN iiee_a_evaluar_RIE RIE ON P.codModPee  = RIE.codmod
                 WHERE M.estMat = 1 $where
                 GROUP BY 
                 RIE.codmod,
@@ -1057,6 +1159,127 @@ class Excel extends Controller
         $writer->save('php://output');
 
     }
+    
+    
+    public function excel_registro_titulados_cetpro(Request $request){
+        $where  = '';
+        //$where .= ($request['codmod'])?" and P.codModPee = '".$request['codmod']."' ":'';
+        //$where .= ($request['perOff'])?" and O.perOff = '".$request['perOff']."' ":'';
+        //$where .= ($request['anio'])?" and SUBSTRING(O.perOff,1,4) = '".$request['anio']."' ":'';
+        $anio = $request['anio'];
+        
+        
+        date_default_timezone_set('America/Lima');
+        $spread = new Spreadsheet();
+        $sheet = $spread->getActiveSheet();
+        $filename=substr('matricula',0,20); //Guardar nuestro libro de trabajo como este nombre de archivo
+        $sheet->setTitle($filename);
+        
+        $spread->getActiveSheet()->setCellValue('A1', 'REGISTRO  DE  TITULADOS  INSTITUCIONAL '.(($request['perOff'])?$request['perOff']:''));
+        $spread->getActiveSheet()->setCellValue('A2', 'EDUCACIÓN  TÉCNICO-PRODUCTIVA');
+        $spread->getActiveSheet()->setCellValue('A4', 'N°');
+        
+        $spread->getActiveSheet()->setCellValue('B4', 'CODIGO MODULAR');
+        $spread->getActiveSheet()->setCellValue('C4', 'CODIGO LOCAL');
+        $spread->getActiveSheet()->setCellValue('D4', 'CETPRO');
+        
+        $spread->getActiveSheet()->setCellValue('E4', 'TIPO DOCUMENTO');
+        $spread->getActiveSheet()->setCellValue('F4', 'NÚMERO');
+        $spread->getActiveSheet()->setCellValue('G4', 'APELLIDOS Y NOMBRES');
+        $spread->getActiveSheet()->setCellValue('H4', 'SEXO');
+        $spread->getActiveSheet()->setCellValue('I4', 'FECHA DE NACIMIENTO');
+        $spread->getActiveSheet()->setCellValue('J4', 'PROGRAMA DE ESTUDIOS');
+        $spread->getActiveSheet()->setCellValue('K4', 'NUMERO TOTAL DE CRÉDITOS');
+        $spread->getActiveSheet()->setCellValue('L4', 'NUMERO TOTAL DE MÓDULOS');
+        $spread->getActiveSheet()->setCellValue('M4', 'MODALIDAD DEL SERVICIO');
+        $spread->getActiveSheet()->setCellValue('N4', 'FECHA DE EGRESO');
+        $spread->getActiveSheet()->setCellValue('O4', 'CODIGO DE REGISTRO INSTITUCIONAL DEL TÍTULO EN EL CETPRO');
+        $spread->getActiveSheet()->setCellValue('P4', 'N° DE RESOLUCIÓN DIRECTORAL DE EXPEDICIÓN DEL TÍTULO EN EL CETPRO');
+        $spread->getActiveSheet()->setCellValue('Q4', 'CÓDIGO DE REGISTRO INSTITUCIONAL DEL TITULO EN LA UGEL');
+    
+        $spread->getActiveSheet()->getColumnDimension('A')->setWidth(5);
+        $spread->getActiveSheet()->getColumnDimension('B')->setWidth(15);
+        $spread->getActiveSheet()->getColumnDimension('C')->setWidth(15);
+        $spread->getActiveSheet()->getColumnDimension('D')->setWidth(25);
+        $spread->getActiveSheet()->getColumnDimension('E')->setWidth(15);
+        $spread->getActiveSheet()->getColumnDimension('F')->setWidth(11);
+        $spread->getActiveSheet()->getColumnDimension('G')->setWidth(35);
+        $spread->getActiveSheet()->getColumnDimension('H')->setWidth(25);
+        $spread->getActiveSheet()->getColumnDimension('I')->setWidth(25);
+        $spread->getActiveSheet()->getColumnDimension('J')->setWidth(25);
+        $spread->getActiveSheet()->getColumnDimension('K')->setWidth(20);
+        $spread->getActiveSheet()->getColumnDimension('L')->setWidth(20);
+        $spread->getActiveSheet()->getColumnDimension('M')->setWidth(20);
+        $spread->getActiveSheet()->getColumnDimension('N')->setWidth(20);
+        $spread->getActiveSheet()->getColumnDimension('O')->setWidth(20);
+        $spread->getActiveSheet()->getColumnDimension('P')->setWidth(20);
+        $spread->getActiveSheet()->getColumnDimension('Q')->setWidth(20);
+
+        $data = DB::connection('cetpromin')->select("SELECT
+        RIE.codmod,
+        RIE.codlocal,
+        RIE.institucion,
+        A.tipDocAlu,
+        A.docAlu,
+        CONCAT(A.apePatAlu,' ',A.apeMatAlu,', ',A.nomAlu) as estudiante,
+        A.sexAlu,
+        DATE_FORMAT(A.fecNacAlu,'%d/%m/%Y') as fecNacAlu,
+        P.proEstPee,
+        P.credPee,
+        T.cantModTit,
+        P.tipSerEduPee,
+        DATE_FORMAT(T.fecEgrTit,'%d/%m/%Y') as fecEgrTit,
+        T.codRegIeTit,
+        T.rdExpTit,
+        T.codRegUgelTit
+        FROM titulos T
+        INNER JOIN alumnos            A ON T.idAlu=A.idAlu
+        INNER JOIN programas_estudio  P ON T.idPro=P.idPro
+        INNER JOIN iiee_a_evaluar_RIE RIE ON P.codModPee = RIE.codmod 
+        WHERE T.estTit=1 and T.rdExpTit <>'' and YEAR(T.fecEgrTit)='$anio'");
+        
+        $nro = 5;
+        
+        if($data){
+        for ($i=0; $i < count($data); $i++) {
+            $key = $data[$i];
+            $spread->getActiveSheet()->setCellValue('A'.$nro, $i+1);
+            $spread->getActiveSheet()->setCellValue('B'.$nro,  $key->codmod);
+            $spread->getActiveSheet()->setCellValue('C'.$nro,  $key->codlocal);
+            $spread->getActiveSheet()->setCellValue('D'.$nro,  $key->institucion);
+            $spread->getActiveSheet()->setCellValue('E'.$nro,  $key->tipDocAlu);
+            $spread->getActiveSheet()->setCellValue('F'.$nro, $key->docAlu);
+            $spread->getActiveSheet()->setCellValue('G'.$nro, $key->estudiante);
+            $spread->getActiveSheet()->setCellValue('H'.$nro, $key->sexAlu);
+            $spread->getActiveSheet()->setCellValue('I'.$nro, $key->fecNacAlu);
+            $spread->getActiveSheet()->setCellValue('J'.$nro, $key->proEstPee);
+            $spread->getActiveSheet()->setCellValue('K'.$nro, $key->credPee);
+            $spread->getActiveSheet()->setCellValue('L'.$nro, $key->cantModTit);
+            $spread->getActiveSheet()->setCellValue('M'.$nro, $key->tipSerEduPee);
+            $spread->getActiveSheet()->setCellValue('N'.$nro, $key->fecEgrTit);
+            $spread->getActiveSheet()->setCellValue('O'.$nro, $key->codRegIeTit);
+            $spread->getActiveSheet()->setCellValue('P'.$nro, $key->rdExpTit);
+            $spread->getActiveSheet()->setCellValue('Q'.$nro, $key->codRegUgelTit);
+            $nro++;
+        }
+        }else{
+            $spread->getActiveSheet()->setCellValue('A'.$nro, 'NO SE HA ENCONTRADO INFORMACIÓN PARA MOSTRAR');
+        }
+        
+        $spread->getActiveSheet()->getStyle('A1:A2')->getFont()->setSize(15);
+        $spread->getActiveSheet()->getStyle('A1:A2')->getFont()->setBold(true);
+        $spread->getActiveSheet()->getStyle('A4:Q4')->getFont()->setBold(true);
+        $spread->getActiveSheet()->mergeCells("A1:Q1");
+        $spread->getActiveSheet()->mergeCells("A2:Q2");
+
+        $writer = new Xlsx($spread);
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment; filename="'. urlencode("registro_titulados_cetpro.xlsx").'"');
+        $writer->save('php://output');
+
+    }
+    
+    
     
     
     

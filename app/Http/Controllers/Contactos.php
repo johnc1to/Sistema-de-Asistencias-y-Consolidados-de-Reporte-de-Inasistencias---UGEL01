@@ -28,9 +28,13 @@ class Contactos extends Controller
    }
    public function tabla_Contactos(Request $request){
     $where   = '';
-    $gestion = $request['gestion'];
+    //$gestion = $request['gestion'];
+    //AND E.gestion LIKE'$gestion%'
+    $where   = ($request['gestion']=='Publica')?" and cant_plazas_nexus>0":" and cant_plazas_nexus=0";
        $sql = DB::select("SELECT 
        E.codmod,
+       E.cant_plazas_nexus,
+       E.descgestie,
        GROUP_CONCAT(DISTINCT(E.institucion)) as institucion,
        IF(E.idmodalidad=1,'ETP',IF(E.idmodalidad=2,'EBE',IF(E.idmodalidad=3,'EBR',IF(E.idmodalidad=4,'EBA','---')))) as modalidad,
        E.nivel,
@@ -64,7 +68,7 @@ class Contactos extends Controller
            where Pe.estado = 1 and Co.estado = 1 and Co.flg=1
        ) C ON E.codmod = C.esc_codmod 
        
-       WHERE E.estado = 1  AND E.gestion LIKE'$gestion%' $where
+       WHERE E.estado = 1   $where
        GROUP BY E.codmod,E.idmodalidad,E.nivel,E.distrito,C.nombres,C.apellipat,C.apellimat,E.red,E.codlocal,E.gestion,E.gestion_dependencia, E.correo_inst
 
        ORDER BY E.distrito ASC, E.institucion ASC");

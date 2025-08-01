@@ -106,12 +106,12 @@ class Soporte extends Controller{
     }
     
     public function popup_accesodocente(Request $request){
-        $info['nexus'] = Nexus::where(['codmodce'=>$request['codmod'],'desctipotrab'=>'DOCENTE'])->orderBy('nombres','ASC')->get()->toArray();
+        $info['nexus'] = Nexus::where(['estado'=>1,'codmodce'=>$request['codmod'],'desctipotrab'=>'DOCENTE'])->orderBy('nombres','ASC')->get()->toArray();
         return view("soporte/popup_accesodocente",$info);
     }
 
     public function popup_crearaccesodocente(Request $request){
-        $info['nexus'] = Nexus::where(['codmodce'=>$request['codmod'],'desctipotrab'=>'DOCENTE'])->orderBy('nombres','ASC')->get()->toArray();
+        $info['nexus'] = Nexus::where(['estado'=>1,'codmodce'=>$request['codmod'],'desctipotrab'=>'DOCENTE'])->orderBy('nombres','ASC')->get()->toArray();
         return view("soporte/popup_crearaccesodocente",$info);
     }
     

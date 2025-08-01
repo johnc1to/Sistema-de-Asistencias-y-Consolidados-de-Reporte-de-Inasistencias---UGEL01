@@ -73,7 +73,7 @@ class Vacacionesie extends Controller{
     
 
     function getPersonal($codmods, $codeplaza){
-        $query = DB::select("SELECT*FROM nexus WHERE codmodce='$codmods' and codplaza<>'$codeplaza' and desctipotrab IN('ADMINISTRATIVO', 'DOCENTE', 'CAS', 'PROFESIONAL DE LA SALUD') and situacion<>'VACANTE'  ");
+        $query = DB::select("SELECT*FROM nexus WHERE estado=1 and codmodce='$codmods' and codplaza<>'$codeplaza' and desctipotrab IN('ADMINISTRATIVO', 'DOCENTE', 'CAS', 'PROFESIONAL DE LA SALUD') and situacion<>'VACANTE'  ");
         $result = array();
         foreach ($query as $key){
             $result[] = (Array)$key;
@@ -170,7 +170,7 @@ class Vacacionesie extends Controller{
 	}
 
     function getPersonal2($codmods, $codeplaza){
-        $query = DB::select("SELECT*FROM nexus WHERE codmodce='$codmods' and codplaza<>'$codeplaza' and desctipotrab IN('ADMINISTRATIVO', 'DOCENTE', 'PROFESIONAL DE LA SALUD') and situacion<>'VACANTE' and descargo NOT IN('AUXILIAR DE EDUCACION') ");
+        $query = DB::select("SELECT*FROM nexus WHERE estado=1 and codmodce='$codmods' and codplaza<>'$codeplaza' and desctipotrab IN('ADMINISTRATIVO', 'DOCENTE', 'PROFESIONAL DE LA SALUD') and situacion<>'VACANTE' and descargo NOT IN('AUXILIAR DE EDUCACION') ");
         $result = array();
         foreach ($query as $key){
             $result[] = (Array)$key;

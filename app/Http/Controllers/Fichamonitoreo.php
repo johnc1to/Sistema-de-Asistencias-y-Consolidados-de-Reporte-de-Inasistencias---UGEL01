@@ -24,6 +24,7 @@ use DB;
 //DB::raw()
 class Fichamonitoreo extends Controller
 {
+
     //Director
     function director(Request $request){
         if(session()->get('siic01')){
@@ -134,10 +135,10 @@ class Fichamonitoreo extends Controller
         Resumen::insert(['idRec'=>$idRec,'idFic'=>$request['idficha']]);
         return $idRec;
     }
-
+    
     function docentevalidar_dni(Request $request){
         $dni = $request['dni'];
-        $data = Nexus::select('nombres','apellipat','apellimat','descargo','idnivel')->where(['estado'=>1,'numdocum'=>$dni])->whereIn('descsubtipt',['DIRECTIVO','DOCENTE'])->orderBy('descsubtipt', 'ASC')->first();
+        $data = Nexus::select('nombres','apellipat','apellimat','descargo','idnivel','descniveduc')->where(['estado'=>1,'numdocum'=>$dni])->whereIn('descsubtipt',['DIRECTIVO','DOCENTE'])->orderBy('descsubtipt', 'ASC')->first();
         if($data){
             $receptor = Receptor::where(['documento'=>$dni,'estado'=>1,'etapa_de_registro'=>2])->first();
             if($receptor){
@@ -358,7 +359,8 @@ class Fichamonitoreo extends Controller
                 $data['dniRec']    = $session['dni'];
                 $data['carRec']    = $session['cargo'];
                 $data['textModalidadRec'] = $session['modalidad'];
-                $data['textNivelesRec']    = $session['niveles'];
+                $data['textNivelesRec']   = $session['niveles'];
+                $data['turnoRec']  = $session['turno'];
                 
                 if($ficha['modFic']=='TODOS' or $ficha['modFic']=='CETPRO' or $ficha['modFic']=='EBA' or $ficha['modFic']=='EBE' or $ficha['modFic']=='EBR'){
                     $data['disRec'] = $session['conf_permisos'][0]['d_dist'];
@@ -448,6 +450,8 @@ class Fichamonitoreo extends Controller
                     nroQuiCar,
                     nroManCar,
                     nroTarCar,
+                    nivRec,
+                    idNivRec,
                     DATE_FORMAT(R.fecProRec,'%Y-%m-%d') as fechaProgramada,
                     DATE_FORMAT(R.updated_at,'%d/%m/%Y') as fechaficha,
                     DATE_FORMAT(Rd.fecAplRec,'%Y-%m-%d') as fechaaplicacion,
@@ -473,11 +477,10 @@ class Fichamonitoreo extends Controller
                 }else{
                     echo 'No se ha generado la ficha. Vuelva a ingresar a la pagina web.';
                 }
-            
+        
         }
     }
     //Director
-
     public function mostrar_modelo_ficha(Request $request){
         $idreceptor  = ($request['idreceptor'])?$request['idreceptor']:0;
         $info['ficha']    = Fichas::where('idFic',$request['idficha'])->get()->toArray()[0];
@@ -561,6 +564,8 @@ class Fichamonitoreo extends Controller
             nroQuiCar,
             nroManCar,
             nroTarCar,
+            nivRec,
+            idNivRec,
             DATE_FORMAT(R.fecProRec,'%Y-%m-%d') as fechaProgramada,
             DATE_FORMAT(Rd.fecAplRec,'%Y-%m-%d') as fechaaplicacion,
             DATE_FORMAT(Rd.fecIniAplRec,'%H:%i:%s') as horainicioaplicacion,
@@ -580,12 +585,13 @@ class Fichamonitoreo extends Controller
         $resumenipl = $this->resumen_inicio_proceso_logrado($idreceptor);
         $totalipl   = $this->totales_resumen_inicio_proceso_logrado($idreceptor);
         $resumen_cge = $this->resumen_cge($idreceptor);
-
+        
         $resumen_data = $this->resumen_matriz($idreceptor);
         $resumen_matriz = $resumen_data['resumen'];
         $rangos_ficha = $resumen_data['rangos_ficha'];
-
-        $pdf = \PDF::loadView('fichamonitoreo/pdf_ficha', compact('ficha','registro','ficha_respondida','grupo','resumenipl','totalipl','resumen_cge','resumen_matriz','resumen_data','rangos_ficha'));
+        $nombre_ficha = $resumen_data['nombre_ficha'];
+        
+        $pdf = \PDF::loadView('fichamonitoreo/pdf_ficha', compact('ficha','registro','ficha_respondida','grupo','resumenipl','totalipl','resumen_cge','resumen_matriz','resumen_data','rangos_ficha','nombre_ficha'));
         return $pdf->setPaper('a4','')->stream('pdf_ficha.pdf');
     }
     
@@ -661,12 +667,13 @@ class Fichamonitoreo extends Controller
         $resumenipl  = $this->resumen_inicio_proceso_logrado($idreceptor);
         $totalipl    = $this->totales_resumen_inicio_proceso_logrado($idreceptor);
         $resumen_cge = $this->resumen_cge($idreceptor);
-
+        
         $resumen_data = $this->resumen_matriz($idreceptor);
         $resumen_matriz = $resumen_data['resumen'];
         $rangos_ficha = $resumen_data['rangos_ficha'];
-
-        $pdf = \PDF::loadView('fichamonitoreo/pdf_ficha', compact('ficha','registro','ficha_respondida','grupo','resumenipl','totalipl','resumen_cge','resumen_matriz','resumen_data','rangos_ficha'));
+        $nombre_ficha = $resumen_data['nombre_ficha'];
+        
+        $pdf = \PDF::loadView('fichamonitoreo/pdf_ficha', compact('ficha','registro','ficha_respondida','grupo','resumenipl','totalipl','resumen_cge','resumen_matriz','resumen_data','rangos_ficha','nombre_ficha'));
         $output = $pdf->output();
         $nomarchivo = $carpeta.'/'.'rec'.$idreceptor.'_'.date('Ymd_His').'.pdf';
         file_put_contents($nomarchivo, $output);
@@ -757,10 +764,15 @@ class Fichamonitoreo extends Controller
             WHERE R1.idRec=$idRec;");
        return ($tabla)?(Array)$tabla[0]:false;
     }
-
-    public function resumen_matriz($idRec)
-    {
+    
+    public function resumen_matriz($idRec){
         // Definimos los rangos personalizados por ficha y grupo
+        $fichas_nombres = [
+            97 => 'FICHA DE CARACTERIZACIÓN DE ESTUDIANTES DE PRIMARIA',
+            98 => 'FICHA DE CARACTERIZACIÓN DE DOCENTES DE PRIMARIA',
+            99 => 'FICHA DE CARACTERIZACIÓN DE AULAS DE PRIMARIA',
+        ];
+
         $rangos = [
             // Ficha 97: Estudiantes
             97 => [
@@ -792,7 +804,11 @@ class Fichamonitoreo extends Controller
             ->value('idFic');
 
         if (!$idFic || !isset($rangos[$idFic])) {
-            return [];
+            return [
+                'resumen' => [],
+                'rangos_ficha' => [],
+                'nombre_ficha' => 'Ficha',
+            ];
         }
 
         $gruposPermitidos = array_keys($rangos[$idFic]);
@@ -837,10 +853,10 @@ class Fichamonitoreo extends Controller
         // Clasificación
         $resultados = collect($datos)->filter(function ($item) use ($gruposPermitidos, $normalizar) {
             return in_array($normalizar($item->grupo), array_map($normalizar, $gruposPermitidos));
-        })->map(function ($item) use ($idFic, $rangos) {
-            $grupo = trim($item->grupo);
-            $porcentaje = $item->porcentaje;
-            $r = $rangos[$idFic][$grupo] ?? [0,0,0,100]; // valor por defecto si no existe
+            })->map(function ($item) use ($idFic, $rangos) {
+                $grupo = trim($item->grupo);
+                $porcentaje = $item->porcentaje;
+                $r = $rangos[$idFic][$grupo] ?? [0,0,0,100]; // valor por defecto si no existe
 
             if ($porcentaje <= $r[0]) {
                 $texto = 'Uno o ninguno';
@@ -852,29 +868,30 @@ class Fichamonitoreo extends Controller
                 $texto = 'Todos';
             }
 
-            $color = match (true) {
-                $porcentaje < 50 => 'Red',
-                $porcentaje < 74 => 'GoldenRod',
-                $porcentaje < 90 => 'Blue',
-                default => 'Green',
-            };
-
             return (object)[
                 'grupo' => $grupo,
                 'puntaje_obtenido' => $item->puntaje_obtenido,
                 'puntaje_maximo' => $item->puntaje_maximo,
                 'porcentaje' => $porcentaje,
                 'texto_logro' => $texto,
-                'style_logro' => $color,
             ];
         })->values();
+        
+        // Ordenar los resultados según el orden de los rangos
+        $ordenGrupos = array_keys($rangos[$idFic]); // orden deseado
+        $resultadosOrdenados = collect($ordenGrupos)->map(function ($grupoNombre) use ($resultados, $normalizar) {
+            return $resultados->first(function ($item) use ($grupoNombre, $normalizar) {
+                return $normalizar($item->grupo) === $normalizar($grupoNombre);
+            });
+        });
 
         return [
-            'resumen' => $resultados,
-            'rangos_ficha' => $rangos[$idFic] ?? []
+            'resumen' => $resultadosOrdenados->filter(),
+            'rangos_ficha' => $rangos[$idFic] ?? [],
+            'nombre_ficha' => $fichas_nombres[$idFic] ?? 'Ficha'
         ];
     }
-
+    
     public function crearficha(Request $request){
         
         if(!session()->get('siic01_admin')){ header('Location: https://siic01.ugel01.gob.pe/'); exit(); }
@@ -1130,7 +1147,7 @@ class Fichamonitoreo extends Controller
             $result[] = (Array)$key;
         }
         return $result;
-     }
+    }
      
     public function listar_html_adicional(Request $request){
         echo json_encode(Preguntas::where('idPre',$request['idpregunta'])->get()->first());
@@ -1247,16 +1264,47 @@ class Fichamonitoreo extends Controller
     }
     
     public function guardar_solo_receptores(Request $request){
+        $idDoc = $request['idDoc'];
         $idRec = $request['idRec'];
-        $data = $request->all();
-        unset($data['_token']);
-        if(Receptores::where(['idRec'=>$idRec,'estRec'=>1])->get()->toArray()){
-           Receptores::where(['idRec'=>$idRec,'estRec'=>1])->update($data);
-           return 2;
-        }else{
-           return 1;
+        //docente
+        $ins = array();
+        $col= DB::connection('ficha')->select("SHOW COLUMNS FROM `docente` WHERE `key` <> 'PRI' and `Field` NOT IN('creado_at','updated_at');");
+        foreach ($col as $key) {
+            if($request[$key->Field]){ $ins[$key->Field] = $request[$key->Field]; }
         }
+        if($ins){
+            if($idDoc){ $idDoc = Docente::updateOrCreate(['idDoc' => $idDoc, 'estDoc' => 1],$ins)->idDoc; }
+            else      { $idDoc = Docente::insertGetId($ins); }
+        }
+        //receptores
+        $ins = array();
+        if($idDoc){ $ins['idDoc'] = $idDoc; }
+        $col= DB::connection('ficha')->select("SHOW COLUMNS FROM `receptores` WHERE `key` <> 'PRI' and `Field` NOT IN('creado_at','updated_at');");
+        foreach ($col as $key) {
+            if($request[$key->Field]){ $ins[$key->Field] = $request[$key->Field]; }
+        }
+        if($ins){
+            if(Receptores::where(['idRec'=>$idRec,'estRec'=>1])->get()->toArray()){
+               Receptores::where(['idRec'=>$idRec,'estRec'=>1])->update($ins);
+            }
+        }
+        return array('idDoc'=>$idDoc,'idRec'=>$idRec);
     }
+    
+    /*
+    if($idRec = 29287){
+    }else{
+            $idRec = $request['idRec'];
+            $data = $request->all();
+            unset($data['_token']);
+            if(Receptores::where(['idRec'=>$idRec,'estRec'=>1])->get()->toArray()){
+               Receptores::where(['idRec'=>$idRec,'estRec'=>1])->update($data);
+               return 2;
+            }else{
+               return 1;
+            }
+        }
+    */
     
     public function guardar_observaciones(Request $request){
         $idRec = $request['idRec'];
@@ -1461,5 +1509,33 @@ class Fichamonitoreo extends Controller
         Receptores::where('idRec',$idRec)->update($data);
         return $idRec;
     }
+
+public function listarIieeFaltantes(Request $request)
+{
+    $idFic = $request->get('idFic');
+
+    $sqlListaIe = DB::connection('ficha')
+                    ->table('fichas')
+                    ->where('idFic', $idFic)
+                    ->value('sql_lista_ie');
+
+    if (!$sqlListaIe) {
+        return response()->json(['error' => 'Ficha no encontrada o lista vacía'], 404);
+    }
+
+    // Convertir a array de codlocales y limpiar espacios
+    $codlocales = array_map('trim', explode(',', $sqlListaIe));
+
+    // Buscar IIEE de nivel primaria
+    $iiee = Iiee_a_evaluar_rie::whereIn('codlocal', $codlocales)
+                ->whereRaw("LOWER(nivel) = 'primaria'")
+                ->select('codlocal', 'institucion', 'director','telefono','correo_inst')
+                ->get();
+
+    return response()->json($iiee);
+}
+
+
+
 
 }

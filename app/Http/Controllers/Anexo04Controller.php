@@ -18,7 +18,7 @@ use PDF;
 
 use App\Models\Anexo04Persona;
 use App\Models\Anexo04;
-
+use App\Models\Iiee_a_evaluar_rie;
 
 
 class Anexo04Controller extends Controller
@@ -34,8 +34,7 @@ class Anexo04Controller extends Controller
 
         $codlocal = $director['conf_permisos'][0]['codlocal'];
 
-        $institucion = DB::table('iiee_a_evaluar_rie')
-            ->select('modalidad', 'institucion')
+        $institucion = Iiee_a_evaluar_rie::select('modalidad', 'institucion')
             ->where('codlocal', $codlocal)
             ->first();
 
@@ -64,6 +63,7 @@ class Anexo04Controller extends Controller
             ->whereNotNull('nexus.numdocum')
             ->where('nexus.numdocum', '!=', 'VACANTE')
             ->where('nexus.situacion', '!=', 'VACANTE')
+            ->where('nexus.estado', 1)
             ->get();
 
         // Niveles únicos
@@ -158,7 +158,7 @@ class Anexo04Controller extends Controller
                 }
                 return [$item->id_persona => $decoded];
             });
-
+        
 
         $datosInasistenciaPorDni = [];
 
@@ -389,6 +389,40 @@ class Anexo04Controller extends Controller
         }
     }
 
+
+    private function obtenerRegistrosInasistencia($id_contacto)
+    {
+            // Obtener los registros de contacto que estén asociados al id_contacto
+            $contactos = Contacto::where('id_contacto', $id_contacto)->get();
+            $registros = [];
+
+            foreach ($contactos as $contacto) {
+                // Obtener un único registro de inasistencia para este contacto (ajusta si puede haber varios)
+                $inasistencia = Anexo04Inasistencia::where('id_contacto', $contacto->id_contacto)->first();
+
+                // Decodificar el JSON del campo `inasistencia`
+                $inasistenciaResumen = json_decode($inasistencia->inasistencia ?? '{}', true);
+
+                // Agregar al array de registros
+                $registros[] = (object)[
+                    'dni' => $contacto->dni,
+                    'nombres' => $contacto->nombres,
+                    'cargo' => $contacto->cargo,
+                    'condicion' => $contacto->condicion,
+                    'jornada' => $contacto->jornada,
+                    'inasistencias_dias' => $inasistenciaResumen['inasistencia_total'] ?? '',
+                    'tardanzas_horas' => $inasistenciaResumen['tardanza_total']['horas'] ?? '',
+                    'tardanzas_minutos' => $inasistenciaResumen['tardanza_total']['minutos'] ?? '',
+                    'permisos_sg_horas' => $inasistenciaResumen['permiso_sg_total']['horas'] ?? '',
+                    'permisos_sg_minutos' => $inasistenciaResumen['permiso_sg_total']['minutos'] ?? '',
+                    'huelga_paro_dias' => $inasistenciaResumen['huelga_total'] ?? '',
+                    'observaciones' => $inasistencia->observacion ?? '',
+                ];
+            }
+        return $registros;
+    }
+
+
     public function exportarInasistenciaPDF(Request $request)
     {
             $director = session('siic01');
@@ -402,8 +436,7 @@ class Anexo04Controller extends Controller
             $codlocal = $director['conf_permisos'][0]['codlocal'];
 
             // Obtener datos de la institución
-            $institucion = DB::table('iiee_a_evaluar_rie')
-                ->select('modalidad', 'institucion', 'direccion_ie', 'distrito')
+            $institucion = Iiee_a_evaluar_rie::select('modalidad', 'institucion', 'direccion_ie', 'distrito')
                 ->where('codlocal', $codlocal)
                 ->first();
 
@@ -411,6 +444,7 @@ class Anexo04Controller extends Controller
             $directorUgel = DB::table('nexus')
                 ->select('nombres', 'apellipat', 'apellimat')
                 ->where('descargo', 'DIRECTOR DE UNIDAD DE GESTIÓN EDUCATIVA LOCAL')
+                ->where('nexus.estado', 1)
                 ->first();
 
             // Obetenr localidad 
@@ -433,36 +467,30 @@ class Anexo04Controller extends Controller
                 ->value('nombre');
 
             //obtener resolucion
-            $resolucion = DB::table('iiee_a_evaluar_rie')
-                ->select('nro_rdcreacion')
+            $resolucion = Iiee_a_evaluar_rie::select('nro_rdcreacion')
                 ->where('codlocal', $codlocal)
-                ->value('resolucion');
+                ->value('nro_rdcreacion');
             
             //obtener codmodular        
-            $codmod = DB::table('iiee_a_evaluar_rie')
-                ->select('codmod')
+            $codmod = Iiee_a_evaluar_rie::select('codmod')
                 ->where('codlocal', $codlocal)
                 ->value('codmod');
 
             //obtener resolucion
-            $resolucion = DB::table('iiee_a_evaluar_rie')
-                ->select('nro_rdcreacion')
+            $resolucion = Iiee_a_evaluar_rie::select('nro_rdcreacion')
                 ->where('codlocal', $codlocal)
-                ->value('resolucion');
+                ->value('nro_rdcreacion');
             //obtener codmods
-            $codmodulares = DB::table('iiee_a_evaluar_rie')
-                ->select('nivel', 'codmod')
+            $codmodulares = Iiee_a_evaluar_rie::select('nivel', 'codmod')
                 ->where('codlocal', $codlocal)
                 ->get();
             
             // Obetenr logo 
-            $logo= DB::table('iiee_a_evaluar_rie')
-                ->select('logo')
+            $logo= Iiee_a_evaluar_rie::select('logo')
                 ->where('codlocal', $codlocal)
                 ->value('logo');
 
-            $logoBD = DB::table('iiee_a_evaluar_rie')
-                ->where('codlocal', $codlocal)
+            $logoBD = Iiee_a_evaluar_rie::where('codlocal', $codlocal)
                 ->value('logo'); // Esto puede ser null o un string
 
             $nombreLogo = $logoBD ? basename($logoBD) : null;
@@ -471,8 +499,8 @@ class Anexo04Controller extends Controller
                 
             //Obtener firma
             $firmaGuardada = DB::connection('siic_anexos')->table('anexo03')
-                ->where('id_contacto', $director['id_contacto'])
-                ->value('firma');
+            ->where('id_contacto', $director['id_contacto'])
+            ->value('firma');
 
             // Obtener docentes y personal
             $personal = DB::table('nexus')
@@ -489,16 +517,18 @@ class Anexo04Controller extends Controller
                 ->whereNotNull('nexus.numdocum')
                 ->where('nexus.numdocum', '!=', 'VACANTE')
                 ->where('nexus.situacion', '!=', 'VACANTE')
+                ->where('nexus.estado', 1)
                 ->get();
 
             
 
             $niveles = $personal->pluck('nivel')->unique()->sort()->values();
-            
-            
+
+
         // Nivel seleccionado
             $nivelSeleccionado = $niveles;
                 
+
                 $filtrados = $personal->where('nivel', $nivelSeleccionado)->values();
 
                 $filtrados = $filtrados->sort(function ($a, $b) {
@@ -555,7 +585,7 @@ class Anexo04Controller extends Controller
                 ->get();
 
             $idsAnexo04 = $anexos04->pluck('id')->all();
-            
+
             $personasAnexo04 = DB::connection('siic_anexos')->table('anexo04_persona')
                 ->whereIn('id_anexo04', $idsAnexo04)
                 ->get()
@@ -574,7 +604,7 @@ class Anexo04Controller extends Controller
 
                     return [$json->dni => $item->id];
                 });
-            
+
             $inasistencias = DB::connection('siic_anexos')->table('anexo04_inasistencia')
                 ->whereIn('id_persona', $personasAnexo04->values()->all())
                 ->get()
@@ -586,7 +616,7 @@ class Anexo04Controller extends Controller
                     }
                     return [$item->id_persona => $decoded];
                 });
-            
+
             $datosInasistenciaPorDni = [];
 
             foreach ($personasAnexo04 as $dni => $id_persona) {
@@ -616,26 +646,26 @@ class Anexo04Controller extends Controller
             }
             
             // Combinar con personas filtradas
-            // $filtrados = $filtrados->map(function ($persona) use ($datosInasistenciaPorDni) {
-            //     $dni = $persona->dni;
-            //     $inasistencia = $datosInasistenciaPorDni[$dni] ?? null;
+            $filtrados = $filtrados->map(function ($persona) use ($datosInasistenciaPorDni) {
+                $dni = $persona->dni;
+                $inasistencia = $datosInasistenciaPorDni[$dni] ?? null;
 
-            //     $persona->inasistencias_dias = $inasistencia['inasistencia_total'] ?? 0;
-            //     $persona->huelga_paro_dias = $inasistencia['huelga_total'] ?? 0;
+                $persona->inasistencias_dias = $inasistencia['inasistencia_total'] ?? 0;
+                $persona->huelga_paro_dias = $inasistencia['huelga_total'] ?? 0;
 
-            //     $persona->tardanzas_horas = $inasistencia['tardanza_total']['horas'] ?? 0;
-            //     $persona->tardanzas_minutos = $inasistencia['tardanza_total']['minutos'] ?? 0;
+                $persona->tardanzas_horas = $inasistencia['tardanza_total']['horas'] ?? 0;
+                $persona->tardanzas_minutos = $inasistencia['tardanza_total']['minutos'] ?? 0;
 
-            //     $persona->permisos_sg_horas = $inasistencia['permiso_sg_total']['horas'] ?? 0;
-            //     $persona->permisos_sg_minutos = $inasistencia['permiso_sg_total']['minutos'] ?? 0;
-               
-            //     return $persona;
+                $persona->permisos_sg_horas = $inasistencia['permiso_sg_total']['horas'] ?? 0;
+                $persona->permisos_sg_minutos = $inasistencia['permiso_sg_total']['minutos'] ?? 0;
+
+                return $persona;
                 
-            // });
-            
+            });
+
                 // Datos comunes para ambas vistas
                 $data = [
-                    // 'registros' => $filtrados,
+                    'registros' => $filtrados,
                     'niveles' => $niveles,
                     'nivelSeleccionado' => $nivelSeleccionado,
                     'modalidad' => $institucion->modalidad ?? '',
@@ -700,23 +730,23 @@ class Anexo04Controller extends Controller
 
             // Definir encabezado vertical para las siguientes páginas
             $headerVertical = '
-                <div style="
-                    position: fixed;
-                    top: 24%;
-                    right: 0;
-                    transform: translateY(-50%) rotate(180deg);
-                    writing-mode: vertical-rl;
-                    text-orientation: mixed;
-                    width: 40px;
-                    font-weight: bold;
-                    font-size: 23px;
-                    line-height: 1.2;
-                    color: #999;
-                    text-align: center;
-                ">
-                    3<br>2<br>6<br>-<br>2<br>0<br>1<br>7<br>-<br>M<br>I<br>N<br>E<br>D<br>U
-                </div>
-                ';
+            <div style="
+                position: fixed;
+                top: 18%;
+                right: 0;
+                transform: translateY(-50%) rotate(180deg);
+                writing-mode: vertical-rl;
+                text-orientation: mixed;
+                width: 40px;
+                font-weight: bold;
+                font-size: 23px;
+                line-height: 1.2;
+                color: #999;
+                text-align: center;
+            ">
+                R<br>S<br>G<br>-<br>3<br>2<br>6<br>-<br>2<br>0<br>1<br>7<br>-<br>M<br>I<br>N<br>E<br>D<br>U
+            </div>
+            ';
 
             // Recorrer niveles seleccionados y generar páginas por nivel
             foreach ($nivelSeleccionado as $nivel) {
@@ -781,6 +811,7 @@ class Anexo04Controller extends Controller
                     'inasistencias'=> $inasistencias,
                     'datos_inasistencias'=> $datosInasistenciaPorDni,
                 ];
+
                 // Renderizar vista del reporte horizontal
                 $htmlReporte = View::make('reporteAnexo04.formulario04_pdf', $data)->render();
 
@@ -789,6 +820,7 @@ class Anexo04Controller extends Controller
                 $mpdf->AddPage('L');
                 $mpdf->WriteHTML($htmlReporte);
             }
+
                 // Descargar el PDF generado
                 return response($mpdf->Output('reporte_inasistencia_con_oficio.pdf', 'I'), 200)
                 ->header('Content-Type', 'application/pdf');

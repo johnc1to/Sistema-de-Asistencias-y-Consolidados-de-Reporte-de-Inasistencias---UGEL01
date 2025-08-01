@@ -936,10 +936,10 @@
     @if ($resumen_matriz && count($resumen_matriz) > 0)
         <div style="page-break-after:always;"></div>
         <br>
-        <p style="font-weight: bold;">Resultados:</p>
+        <p style="font-weight: bold;">RESULTADOS - {{ mb_strtoupper($nombre_ficha, 'UTF-8') }}</p>
         <table border="1" cellspacing="0" cellpadding="2" width="100%">
             <tr class="cabezera">
-                <td colspan="5">RESULTADOS</td>
+                <td colspan="5">RESULTADOS </td>
             </tr>
             <tr class="cabezera">
                 <td rowspan="2" class="center">CARACTERÍSTICAS</td>
@@ -986,8 +986,8 @@
     
     @if (!empty($rangos_ficha))
         <br>
-        <p style="font-weight: bold;">Leyenda de porcentajes por grupo:</p>
-        <table border="1" cellspacing="0" cellpadding="4" width="100%">
+        <p style="font-weight: bold;">LEYENDA DE PORCENTAJES POR GRUPO:</p>
+        <table border="1" cellspacing="0" cellpadding="2" width="100%">
             <thead>
                 <tr class="cabezera">
                     <td class="izquierda"><b>CARACTERÍSTICA</b></td>
@@ -998,7 +998,8 @@
                 </tr>
             </thead>
             <tbody>
-                @foreach (collect($rangos_ficha)->sortKeys() as $grupo => $valores)
+                @foreach ($rangos_ficha as $grupo => $valores)
+                    @if (is_array($valores) && count($valores) >= 3)
                     <tr class="cuerpo">
                         <td class="izquierda">{{ $grupo }}</td>
                         <td align="center">0% – {{ $valores[0] }}%</td>
@@ -1006,11 +1007,11 @@
                         <td align="center">{{ $valores[1] + 1 }}% – {{ $valores[2] }}%</td>
                         <td align="center">{{ $valores[2] }}% – 100%</td>
                     </tr>
+                    @endif
                 @endforeach
             </tbody>
         </table>
     @endif
-
 
     <?php
     if($ficha['tipFic']=='AL DIRECTIVO' or $ficha['tipFic']=='DIRECTIVO AL DOCENTE'){

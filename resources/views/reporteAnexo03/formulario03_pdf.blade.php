@@ -2,7 +2,7 @@
     use Carbon\Carbon;
     $diasEnMes = Carbon::create($anio, $mes, 1)->daysInMonth;
     $diasSemana = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
-    $feriados = ['2025-05-01'];
+    $feriados = ['2025-07-28','2025-07-29','2025-08-06','2025-08-30'];
     $fechaHoy = Carbon::now()->translatedFormat('d \d\e F \d\e Y');
 @endphp
 
@@ -101,8 +101,9 @@
         @foreach ($registros as $index => $r)
             @php
                 $dni = $r->dni;
-                $asistencia = $asistencias[$dni]['asistencia'] ?? [];
-                $observacion = $asistencias[$dni]['observacion'] ?? null;
+                $clave = $r->dni . '_' . $r->cod;
+                $asistencia = $asistencias[$clave]['asistencia'] ?? [];
+                $observacion = $asistencias[$clave]['observacion'] ?? null;
 
                 // Verificamos si toda la asistencia está vacía (solo blancos o vacíos)
                 $asistenciaVacia = collect($asistencia)->filter(function($val) {
@@ -119,7 +120,7 @@
 
                 @if ($asistenciaVacia)
                     {{-- Mostrar observación centrada si no hay asistencia --}}
-                    <td colspan="{{ $diasEnMes }}" style="text-align: center; font-style: italic;">
+                    <td colspan="{{ $diasEnMes }}" style="text-align: center; font-style: italic; background-color: #fee2e2;">
 
                         {{ $observacion }}
                     </td>
@@ -149,9 +150,9 @@
                                 }
                                 $colspan = $fin - $inicio + 1;
                         @endphp
-                            <td colspan="{{ $colspan }}" style="text-align: center; font-style: italic;">
-                        {{ $observacion ?? 'Licencia' }}
-                        </td>
+                            <td colspan="{{ $colspan }}" style="text-align: center; font-style: italic; background-color: #fee2e2;">
+                                {{ $observacion ?? 'Licencia' }}
+                            </td>
                             @php
                                 $d = $fin + 1;
                                 continue;
@@ -159,7 +160,20 @@
                             @php
                                 } else {
                             @endphp
-                                <td style="text-align: center;">{{ $valor }}</td>
+                                @php
+                                    $fechaActual = Carbon::create($anio, $mes, $d);
+                                    $esFeriado = in_array($fechaActual->toDateString(), $feriados ?? []);
+                                    $esFinDeSemana = $fechaActual->isWeekend();
+
+                                    $estilo = 'text-align: center;';
+
+                                    if ($esFeriado) {
+                                        $estilo .= 'background-color:rgb(239, 252, 205);'; // Rojo claro
+                                    } elseif ($esFinDeSemana) {
+                                        $estilo .= 'background-color:rgb(198, 201, 204);'; // Gris claro
+                                    }
+                                @endphp
+                                <td style="{{ $estilo }}">{{ $valor }}</td>
                             @php
                                 $d++;
                                 }

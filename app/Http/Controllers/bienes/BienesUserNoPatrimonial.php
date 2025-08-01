@@ -4,13 +4,12 @@ namespace App\Http\Controllers\bienes;
 
 use App\Http\Controllers\Controller;
 use App\Models\bienes\Bienes;
-use App\Models\bienes\BienesMovimiento;
+use App\Models\bienes\BienesMovimientoNoPatrimonial;
 use App\Models\bienes\Persona;
-use App\Models\Directores;
 use App\Models\bienes\UserSiguhs;
 use Illuminate\Http\Request;
 
-class BienesUser extends Controller
+class BienesUserNoPatrimonial extends Controller
 {
      public function __construct(Request $request)
     {
@@ -32,28 +31,24 @@ class BienesUser extends Controller
 
     public function transferido(Request $request)
     {
-         
-      // try{
         $userSiguhs = UserSiguhs::where("NomUsu",$request->session()->get("siic01_admin")["ddni"])->where("EstUsu",1)->first();
-        
         if($userSiguhs)
         {
-            $dato = BienesMovimiento::selectRaw("numero_firmas,observacion_rechazo,usuario_rechazo,bienes_movimiento1.estado,bienes_movimiento1.sustento,fecha_aprobacion_eti,movimiento,correlativo,id_persona_transferente,id_persona_receptor,id_movimiento,bienes_movimiento1.flg,flg_aprobacion_eti")
-                ->join("tipo_bien as tb","tb.id","=","bienes_movimiento1.id_tipo_bien")
+            $dato = BienesMovimientoNoPatrimonial::selectRaw("numero_firmas,observacion_rechazo,usuario_rechazo,bienes_movimiento_no_patrimonials.estado,bienes_movimiento_no_patrimonials.sustento,fecha_aprobacion_eti,movimiento,correlativo,id_persona_transferente,id_persona_receptor,id_movimiento,bienes_movimiento_no_patrimonials.flg,flg_aprobacion_eti")
+                ->join("tipo_bien as tb","tb.id","=","bienes_movimiento_no_patrimonials.id_tipo_bien")
                 ->with("movimiento1")
                 ->with("firmas",function($query)use($userSiguhs){
                     $query->where("persona_id", $userSiguhs->CodPer)->whereIn("tipo",[2,3])->whereEstado(1);
                 })
-                ->whereIn("bienes_movimiento1.estado",[0,1])
-                ->whereIn("tb.flg",[1,0])
-                ->where("usuario_rechazo","=",null)
-                ->whereRaw("YEAR(bienes_movimiento1.fecha_creacion)>=2025")
+                ->whereIn("bienes_movimiento_no_patrimonials.estado",[0,1])
+                ->whereIn("tb.flg",[2])
+                ->whereRaw("YEAR(bienes_movimiento_no_patrimonials.fecha_creacion)>=2025")
                 ->where(function($where)use($userSiguhs){
                     $where->whereIdPersonaTransferente( $userSiguhs->CodPer)->orWhere("id_persona_receptor", $userSiguhs->CodPer);
                 })
 
-                ->groupBy(["numero_firmas","observacion_rechazo","usuario_rechazo","bienes_movimiento1.estado","bienes_movimiento1.sustento","fecha_aprobacion_eti","movimiento","correlativo","id_persona_transferente","id_persona_receptor","id_movimiento","flg","flg_aprobacion_eti"])->get();
- //dd($dato);
+                ->groupBy(["numero_firmas","observacion_rechazo","usuario_rechazo","bienes_movimiento_no_patrimonials.estado","bienes_movimiento_no_patrimonials.sustento","fecha_aprobacion_eti","movimiento","correlativo","id_persona_transferente","id_persona_receptor","id_movimiento","flg","flg_aprobacion_eti"])->get();
+
             //$dato = BienesBienesMovimiento::with(["movimiento"])->where("estado",1)->get();
             if($dato)
             {
@@ -70,40 +65,24 @@ class BienesUser extends Controller
                     $dato[$key]->id =$value->correlativo;
                 }
             }
-           
-           
+            return view("bienes.transferido-no-patrimonial",compact(["dato","userSiguhs"]));
         }
-         return view("bienes.transferido",compact(["dato","userSiguhs"]));
-      // } catch (\Throwable $th) {
-         //   dd($th);
-       // }
     }
 
     protected function flgTipoBien($correlativo)
     {
-        return BienesMovimiento::selectRaw("tb.flg")->join("tipo_bien as tb","tb.id","=","bienes_movimiento1.id_tipo_bien")
-                    ->where("bienes_movimiento1.estado",1)
-                    ->where("bienes_movimiento1.correlativo",$correlativo)->groupBy(["tb.flg"])->get();
+        return BienesMovimientoNoPatrimonial::selectRaw("tb.flg")->join("tipo_bien as tb","tb.id","=","bienes_movimiento_no_patrimonials.id_tipo_bien")
+                    ->where("bienes_movimiento_no_patrimonials.estado",1)
+                    ->where("bienes_movimiento_no_patrimonials.correlativo",$correlativo)->groupBy(["tb.flg"])->get();
     }
 
     protected function ConsultaPersona($id)
     {
-        if(strlen($id) == 8)
+        $persona=Persona::findOrFail($id,["NocPer"]);
+       // dd($persona);
+        if($persona)
         {
-            $persona=Directores::selectRaw("nombre as NocPer")
-            ->where("dni",$id)->first();
-            // dd($persona);
-             if($persona)
-             {
-                 return $persona->NocPer;
-             }
-        }else{
-            $persona=Persona::findOrFail($id,["NocPer"]);
-           // dd($persona);
-            if($persona)
-            {
-                return $persona->NocPer;
-            }
+            return $persona->NocPer;
         }
         return "No encontrado";
     }

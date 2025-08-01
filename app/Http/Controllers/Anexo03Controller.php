@@ -17,6 +17,7 @@ use DB;
 use PDF;
 use App\Models\Anexo03Persona;
 use App\Models\Anexo03;
+use App\Models\Iiee_a_evaluar_rie;
 
 
 
@@ -33,16 +34,15 @@ class Anexo03Controller extends Controller
 
         $codlocal = $director['conf_permisos'][0]['codlocal'];
 
-        $institucion = DB::table('iiee_a_evaluar_rie')
-            ->select('modalidad', 'institucion')
+        $institucion = Iiee_a_evaluar_rie::select('modalidad', 'institucion')
             ->where('codlocal', $codlocal)
             ->first();
 
-        // Obtener turno 
-        $d_cod_tur= DB::table('escale')
-            ->select('d_cod_tur')
-            ->where('codlocal', $codlocal)
-            ->value('tud_cod_turrno');  
+        //Obtener turno 
+            $d_cod_tur= DB::table('escale')
+                ->select('d_cod_tur')
+                ->where('codlocal', $codlocal)
+                ->value('tud_cod_turrno');  
         
         //Obtener firma
             $firmaGuardada = DB::connection('siic_anexos')->table('anexo03')
@@ -59,7 +59,8 @@ class Anexo03Controller extends Controller
             ->where('id_contacto', $director['id_contacto'])
             ->value('expediente');
             
-        // Lista de docentes desde nexus (para control de acceso)
+        
+        //Lista de docentes desde nexus (para control de acceso)
         $personal = DB::table('nexus')
             ->select(
                 'nexus.numdocum as dni',
@@ -68,12 +69,14 @@ class Anexo03Controller extends Controller
                 'nexus.situacion as condicion',
                 'nexus.jornlab as jornada',
                 'nexus.descniveduc as nivel',
-                'nexus.nombreooii as ugel'
+                'nexus.nombreooii as ugel',
+                'nexus.codplaza as cod'
             )
             ->where('nexus.codlocal', $codlocal)
             ->whereNotNull('nexus.numdocum')
             ->where('nexus.numdocum', '!=', 'VACANTE')
             ->where('nexus.situacion', '!=', 'VACANTE')
+            ->where('nexus.estado', 1)
             ->get();
 
         // Niveles únicos
@@ -139,8 +142,18 @@ class Anexo03Controller extends Controller
             ->get()
             ->mapWithKeys(function ($item) {
                 $persona = json_decode($item->persona_json);
-                return [$persona->dni => $item->id];
+
+                // Asegúrate que codplaza exista en el JSON
+                $dni = $persona->dni ?? null;
+                $codplaza = $persona->cod ?? ($persona->cod ?? null); // por si el campo se llama 'cod'
+
+                // Si no hay codplaza, usar solo DNI, pero idealmente siempre debería haber
+                $clave = $codplaza ? "{$dni}_{$codplaza}" : $dni;
+
+                return [$clave => $item->id];
+                
             });
+
 
         // Obtén la asistencia y observación para las personas que están en el reporte
         $asistencias = DB::connection('siic_anexos')->table('anexo03_asistencia')
@@ -156,10 +169,10 @@ class Anexo03Controller extends Controller
 
         // Finalmente construye un array para usar en la vista que relacione DNI con asistencia y observacion
         $datosAsistenciaPorDni = [];
-        foreach ($personasReporte as $dni => $id_persona) {
-            $datosAsistenciaPorDni[$dni] = $asistencias[$id_persona] ?? ['asistencia' => [], 'observacion' => null];
+        foreach ($personasReporte as $clave => $id_persona) {
+            $datosAsistenciaPorDni[$clave] = $asistencias[$id_persona] ?? ['asistencia' => [], 'observacion' => null];
         }
-
+       
         return view('reporteAnexo03.formulario03', [
             'registros' => $filtrados,
             'niveles' => $niveles,
@@ -210,7 +223,8 @@ class Anexo03Controller extends Controller
                         'cargo' => $docente['cargo'] ?? '',
                         'condicion' => $docente['condicion'] ?? '',
                         'jornada' => $docente['jornada'] ?? '',
-                    ])
+                        'cod' => $docente['cod'] ?? '',
+                    ]),
                 ]);
 
                 // INSERTAR EN anexo03_asistencia
@@ -271,8 +285,7 @@ class Anexo03Controller extends Controller
         $codlocal = $director['conf_permisos'][0]['codlocal'];
 
         // Obtener datos únicos de la institución
-        $institucion = DB::table('iiee_a_evaluar_rie')
-            ->select('modalidad', 'institucion')
+        $institucion = Iiee_a_evaluar_rie::select('modalidad', 'institucion')
             ->where('codlocal', $codlocal)
             ->first();
 
@@ -292,6 +305,7 @@ class Anexo03Controller extends Controller
             ->where('nexus.numdocum', '!=', '')
             ->where('nexus.numdocum', '!=', 'VACANTE')
             ->where('nexus.situacion', '!=', 'VACANTE')
+            ->where('nexus.estado', 1)
             ->get();
 
         $totalResultados = $personal->count();
@@ -323,8 +337,7 @@ class Anexo03Controller extends Controller
         $codlocal = $director['conf_permisos'][0]['codlocal'];
 
         // Obtener datos de la institución
-        $institucion = DB::table('iiee_a_evaluar_rie')
-            ->select('modalidad', 'institucion', 'direccion_ie', 'distrito')
+        $institucion = Iiee_a_evaluar_rie::select('modalidad', 'institucion', 'direccion_ie', 'distrito')
             ->where('codlocal', $codlocal)
             ->first();
 
@@ -332,6 +345,7 @@ class Anexo03Controller extends Controller
         $directorUgel = DB::table('nexus')
             ->select('nombres', 'apellipat', 'apellimat')
             ->where('descargo', 'DIRECTOR DE UNIDAD DE GESTIÓN EDUCATIVA LOCAL')
+            ->where('nexus.estado', 1)
             ->first();
 
         // Obtener localidad 
@@ -354,29 +368,26 @@ class Anexo03Controller extends Controller
             ->value('nombre');
 
         // Obtener resolucion
-        $resolucion = DB::table('iiee_a_evaluar_rie')
-            ->select('nro_rdcreacion')
+        $resolucion = Iiee_a_evaluar_rie::select('nro_rdcreacion')
             ->where('codlocal', $codlocal)
-            ->value('resolucion');
+            ->value('nro_rdcreacion');
         //Bbtener codmods
-        $codmodulares = DB::table('iiee_a_evaluar_rie')
-            ->select('nivel', 'codmod')
+        $codmodulares = Iiee_a_evaluar_rie::select('nivel', 'codmod')
             ->where('codlocal', $codlocal)
             ->get();
+        
         //correo institucional
-        $correo_inst = DB::table('iiee_a_evaluar_rie')
+        $correo_inst = Iiee_a_evaluar_rie::select('iiee_a_evaluar_rie')
             ->select('correo_inst')
             ->where('codlocal', $codlocal)
             ->value('correo_inst');
 
         // Obtener logo 
-        $logo= DB::table('iiee_a_evaluar_rie')
-            ->select('logo')
+        $logo= Iiee_a_evaluar_rie::select('logo')
             ->where('codlocal', $codlocal)
             ->value('logo');
 
-        $logoBD = DB::table('iiee_a_evaluar_rie')
-            ->where('codlocal', $codlocal)
+        $logoBD = Iiee_a_evaluar_rie::where('codlocal', $codlocal)
             ->value('logo'); // Esto puede ser null o un string
 
         $nombreLogo = $logoBD ? basename($logoBD) : null;
@@ -397,12 +408,14 @@ class Anexo03Controller extends Controller
                 'nexus.situacion as condicion',
                 'nexus.jornlab as jornada',
                 'nexus.descniveduc as nivel',
-                'nexus.nombreooii as ugel'
+                'nexus.nombreooii as ugel',
+                'nexus.codplaza as cod',
             )
             ->where('nexus.codlocal', $codlocal)
             ->whereNotNull('nexus.numdocum')
             ->where('nexus.numdocum', '!=', 'VACANTE')
             ->where('nexus.situacion', '!=', 'VACANTE')
+            ->where('nexus.estado', 1)
             ->get();
 
         $niveles = $personal->pluck('nivel')->unique()->sort()->values();
@@ -410,6 +423,7 @@ class Anexo03Controller extends Controller
 
         $nivelSeleccionado = $niveles;
         // Obtener personas con id_persona en anexo03_persona para este codlocal (igual que en mostrarAsistenciaDetallada)
+        // Obtén las personas del reporte anexo03 para este codlocal
         $personasReporte = DB::connection('siic_anexos')->table('anexo03')
             ->join('anexo03_persona', 'anexo03.id_anexo03', '=', 'anexo03_persona.id_anexo03')
             ->where('anexo03.codlocal', $codlocal)
@@ -417,7 +431,16 @@ class Anexo03Controller extends Controller
             ->get()
             ->mapWithKeys(function ($item) {
                 $persona = json_decode($item->persona_json);
-                return [$persona->dni => $item->id];
+
+                // Asegúrate que codplaza exista en el JSON
+                $dni = $persona->dni ?? null;
+                $codplaza = $persona->cod ?? ($persona->cod ?? null); // por si el campo se llama 'cod'
+
+                // Si no hay codplaza, usar solo DNI, pero idealmente siempre debería haber
+                $clave = $codplaza ? "{$dni}_{$codplaza}" : $dni;
+
+                return [$clave => $item->id];
+                
             });
 
         // Obtener asistencia para esas personas
@@ -434,8 +457,8 @@ class Anexo03Controller extends Controller
 
         // Mapear dni con asistencia para pasar a la vista PDF
         $datosAsistenciaPorDni = [];
-        foreach ($personasReporte as $dni => $id_persona) {
-            $datosAsistenciaPorDni[$dni] = $asistencias[$id_persona] ?? ['asistencia' => [], 'observacion' => null];
+        foreach ($personasReporte as $clave => $id_persona) {
+            $datosAsistenciaPorDni[$clave] = $asistencias[$id_persona] ?? ['asistencia' => [], 'observacion' => null];
         }
 
         $filtrados = $personal->where('nivel', $nivelSeleccionado)->values();
@@ -551,7 +574,7 @@ class Anexo03Controller extends Controller
         $headerVertical = '
         <div style="
             position: fixed;
-            top: 24%;
+            top: 18%;
             right: 0;
             transform: translateY(-50%) rotate(180deg);
             writing-mode: vertical-rl;
@@ -563,7 +586,7 @@ class Anexo03Controller extends Controller
             color: #999;
             text-align: center;
         ">
-            3<br>2<br>6<br>-<br>2<br>0<br>1<br>7<br>-<br>M<br>I<br>N<br>E<br>D<br>U
+            R<br>S<br>G<br>-<br>1<br>2<br>1<br>-<br>2<br>0<br>1<br>8<br>-<br>M<br>I<br>N<br>E<br>D<br>U
         </div>
         ';
 

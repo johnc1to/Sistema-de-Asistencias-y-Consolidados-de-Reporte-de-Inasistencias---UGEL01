@@ -2,20 +2,79 @@
 
 @section('html')
 <script src="https://cdn.tailwindcss.com"></script>
+<!-- Intro.js CSS y JS -->
+<link rel="stylesheet" href="https://unpkg.com/intro.js@4.2.2/minified/introjs.min.css">
+<script src="https://unpkg.com/intro.js@4.2.2/minified/intro.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <style>
         #modalDocente {
-            z-index: 9999; /* Asegúrate de que el modal esté encima de otros elementos */
+            z-index: 9999; 
         }
+
+    /* Aplica un fondo visual a la columna completa del DNI cuando introJs está activo */
+    .introjs-showElement .dni-tour {
+        background-color: #e0f2fe !important;
+       
+        box-shadow: 0 0 0 4px rgba(2,132,199,0.3);
+        z-index: 9999;
+        position: relative;
+    }
+    .introjs-tooltiptext {
+        text-align: center !important;
+        font-size: 15px !important;
+        line-height: 1.6 !important;
+    }
+
+    .introjs-tooltip {
+        max-width: 350px !important;
+    }
+
+    .introjs-progress {
+        background: #e0e0e0 !important;
+    }
+
+    .introjs-progressbar {
+        background-color: #6366f1 !important; /* tailwind indigo-500 */
+    }
+
+    .introjs-button {
+        font-weight: 600;
+        padding: 6px 14px !important;
+    }
+
+    .introjs-tooltip-title {
+        text-align: center;
+        font-weight: bold;
+    }
+    .custom-intro-tooltip {
+        text-align: center;
+        font-size: 15px;
+        line-height: 1.6;
+    }
+    .custom-intro-tooltip .introjs-skipbutton {
+        background: transparent;
+        border: none;
+        font-size: 22px;
+        color: #555;
+        position: absolute;
+        top: 8px;
+        right: 12px;
+        padding: 0;
+        line-height: 1;
+    }
 
 </style>
 <meta name="guardar-firma-url" content="{{ route('guardar.firma.director') }}">
-
-    <div class="w-full max-w-full mx-auto bg-white rounded-xl shadow-md p-6">
-        <h1 class="text-2xl font-bold text-center mb-4 uppercase">ANEXO 03</h1>
+    <div class="w-full max-w-full mx-auto bg-white rounded-xl shadow-md p-6" >
+        <h1 class="text-2xl font-bold text-center mb-4 uppercase">ANEXO 03 - {{ mb_strtoupper(\Carbon\Carbon::now()->translatedFormat('F '), 'UTF-8') }}</h1>
         <h1 class="text-2xl font-bold text-center mb-4 uppercase">Formato 01: Reporte de Asistencia Detallado</h1>
+        <button onclick="iniciarTutorial()" class="mb-4 px-4 py-2 bg-emerald-600 text-white rounded bg-violet-600 hover:bg-violet-700">
+    Ver tutorial
+</button>
 
         <!-- Información de la institución y nivel -->
-        <div class="mb-4 flex flex-wrap justify-between items-center gap-4">
+        <div class="mb-4 flex flex-wrap justify-between items-center gap-4" data-step="1">
         <!-- Columna izquierda: UGEL, IE, Nivel -->
         <div class="flex-1 min-w-[250px]">
             <p class="text-sm font-medium">{{ $registros->first()->ugel ?? 'N/A' }}</p>
@@ -25,24 +84,24 @@
             </p>
         </div>
 
-    <!-- Columna derecha: Periodo y Turno -->
-    <div class="flex-1 min-w-[200px]">
-        <p class="text-sm font-medium mt-[2px]">
-            PERIODO: {{ mb_strtoupper(\Carbon\Carbon::now()->translatedFormat('F Y'), 'UTF-8') }}
-        </p>
+            <!-- Columna derecha: Periodo y Turno -->
+            <div class="flex-1 min-w-[200px]">
+                <p class="text-sm font-medium mt-[2px]">
+                    PERIODO: {{ mb_strtoupper(\Carbon\Carbon::now()->translatedFormat('F Y'), 'UTF-8') }}
+                </p>
 
-        <p class="text-sm font-medium">Turno: {{ $d_cod_tur }}</p>
-    </div>
+                <p class="text-sm font-medium">Turno: {{ $d_cod_tur }}</p>
+            </div>
 
             <form method="GET" action="{{ url('/reporte_anexo03') }}" class="flex flex-wrap items-center gap-4">
 
                 <!-- Botón Guardar Asistencia Masiva -->
-                <button id="guardarTodo" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                <button type="button" id="guardarTodo" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700" data-step='19'>
                     Guardar Asistencia Masiva
                 </button>
 
                 <!-- Selector de Nivel -->
-                <div class="flex items-center ml-auto">
+                <div class="flex items-center ml-auto" data-step="2">
                     <label for="nivel" class="text-sm font-medium mr-2">Nivel:</label>
                     <select id="nivel" name="nivel" onchange="this.form.submit()"
                             class="border border-gray-300 rounded px-2 py-1 text-sm"
@@ -54,18 +113,19 @@
                 </div>
             </form>
         </div>
+       
 
     <!-- Contenedor exclusivo para la tabla -->
-    <div class="mb-4">
+    <div class="mb-4" data-step="3">
         <div class="overflow-auto border rounded max-h-[500px] w-full">
-            <div class="min-w-[900px] w-full">
-                <table class="min-w-[1200px] w-full text-sm table-auto border-collapse">
+            <div class="min-w-[900px] w-full" >
+                <table  class="min-w-[1200px] w-full text-sm table-auto border-collapse">
                     @php
                         use Carbon\Carbon;
                         $mes = $mes ?? 3;
                         $anio = $anio ?? 2025;
                         $diasEnMes = Carbon::create($anio, $mes, 1)->daysInMonth;
-                        $feriados = ['2025-05-01'];
+                        $feriados = ['2025-07-28','2025-07-29','2025-08-06','2025-08-30'];
                         $diasSemana = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
                         $fechaHoy = Carbon::now()->translatedFormat('d \d\e F \d\e Y');
                     @endphp
@@ -73,7 +133,10 @@
                     <thead class="bg-gray-200 text-gray-700 uppercase text-xs sticky top-0 z-10">
                         <tr>
                             <th class="border px-2 py-1 bg-gray-200" rowspan="2">Nº</th>
-                            <th class="border px-2 py-1 bg-gray-200" rowspan="2">DNI</th>
+                            <th class="border px-2 py-1 bg-gray-200" rowspan="2">
+                                DNI
+                            </th>
+
                             <th class="border px-2 py-1 bg-gray-200" rowspan="2">Apellidos y Nombres</th>
                             <th class="border px-2 py-1 bg-gray-200" rowspan="2">Cargo</th>
                             <th class="border px-2 py-1 bg-gray-200" rowspan="2">Condición</th>
@@ -95,10 +158,11 @@
                         </tr>
                     </thead>
 
-                    <tbody class="bg-white">
+                    <tbody class="bg-white" >
                         @forelse ($registros as $index => $r)
                                 @php
-                                    $asistenciaPersona = $asistencias[$r->dni] ?? null;
+                                    $clave = $r->dni . '_' . $r->cod;
+                                    $asistenciaPersona = $asistencias[$clave] ?? null;
                                 @endphp
                                     <tr class="hover:bg-gray-100"
                                         data-dni="{{ $r->dni }}"
@@ -106,6 +170,7 @@
                                         data-cargo="{{ $r->cargo }}"
                                         data-condicion="{{ $r->condicion }}"
                                         data-jornada="{{ $r->jornada }}"
+                                        data-cod="{{$r->cod}}"
                                         @if ($asistenciaPersona)
                                             @if (!empty($asistenciaPersona['observacion']))
                                                 data-observacion="{{ $asistenciaPersona['observacion'] }}"
@@ -116,16 +181,20 @@
                                         @endif
                                     >
                                         <td class="border px-2 py-1">{{ $index + 1 }}</td>
-                                        <td class="border px-2 py-1 cursor-pointer text-blue-500" onclick="openModal('{{ $r->dni }}', '{{ $r->nombres }}')">
+                                        <td class="border px-2 py-1  text-blue-500 dni-tour dni-tour-clickable"
+                                            onclick="openModal('{{ $r->dni }}', '{{ $r->nombres }}', '{{ $r->cod }}')"
+                                            data-step="2">
                                             {{ $r->dni }}
                                         </td>
+
+
                                         <td class="border px-2 py-1 text-left">{{ $r->nombres }}</td>
                                         <td class="border px-2 py-1">{{ $r->cargo }}</td>
                                         <td class="border px-2 py-1">{{ $r->condicion }}</td>
                                         <td class="border px-2 py-1">{{ $r->jornada }}</td>
                                     @php
-                                        $dni = $r->dni;
-                                        $asistenciaPersona = $asistencias[$dni] ?? ['asistencia' => [], 'observacion' => null];
+                                        $clave = $r->dni . '_' . $r->cod;
+                                        $asistenciaPersona = $asistencias[$clave] ?? null;
                                         $observacion = $asistenciaPersona['observacion'] ?? null;
                                     @endphp
 
@@ -137,8 +206,35 @@
                                         $asistencia = $asistenciaPersona['asistencia'] ?? [];
 
                                         $todoVacio = empty($asistencia) || collect($asistencia)->every(fn($v) => is_null($v) || $v === '');
+                                        
+                                        if ($todoVacio && empty($observacion) && empty($tipoObservacion)) {
+                                            for ($d = 1; $d <= $diasEnMes; $d++) {
+                                                $fecha = Carbon::create($anio, $mes, $d);
+                                                $fechaActual = $fecha->format('Y-m-d');
+                                                $nombreDia = $diasSemana[$fecha->dayOfWeek];
 
-                                        if ($todoVacio) {
+                                                // Determinar si es feriado
+                                                $esFeriado = in_array($fechaActual, $feriados);
+                                                $valor = $esFeriado ? 'F' : (in_array($nombreDia, ['S', 'D']) ? '' : 'A');
+
+                                                $claseFondo = match (true) {
+                                                    $valor === 'F' => 'bg-yellow-100',
+                                                    in_array($nombreDia, ['S', 'D']) => 'bg-gray-100',
+                                                    default => '',
+                                                };
+
+                                                $codigosNegrita = ['I', '3T', 'J', 'L', 'P', 'T', 'H', 'F'];
+                                                $claseTexto = in_array(strtoupper($valor), $codigosNegrita) ? 'font-bold' : '';
+
+                                                echo '<td class="border px-1 py-1 text-sm asistencia-celda text-center ' . $claseFondo . '"
+                                                        data-id="' . $r->dni . '" data-dia="' . $d . '">
+                                                        <span class="asistencia-valor ' . $claseTexto . '">' . $valor . '</span>
+                                                    </td>';
+                                            }
+                                            continue;
+                                        }
+                                        // Si hay observación pero no hay asistencia registrada, mostrar la observación en un solo <td>
+                                        if ($todoVacio && (!empty($observacion) || !empty($tipoObservacion))) {
                                             echo '<td colspan="' . $diasEnMes . '" style="text-align: center;
                                                 color: #dc2626;
                                                 font-weight: 600;
@@ -188,12 +284,20 @@
                                         {{-- Celda normal --}}
                                         @php
                                             $fecha = Carbon::create($anio, $mes, $d);
+                                            $fechaActual = $fecha->format('Y-m-d');
                                             $nombreDia = $diasSemana[$fecha->dayOfWeek];
+                                            $valor = $asistencia[$d - 1] ?? null;
+
+                                            if (in_array($fechaActual, $feriados)) {
+                                                $valor = 'F'; // sobreescribe valor si es feriado
+                                            }
+
                                             $claseFondo = match (true) {
-                                                $valor === 'F' => 'bg-red-100',
+                                                $valor === 'F' => 'bg-yellow-100',
                                                 in_array($nombreDia, ['S', 'D']) => 'bg-gray-100',
                                                 default => '',
                                             };
+
                                             $codigosNegrita = ['I', '3T', 'J', 'L', 'P', 'T', 'H', 'F'];
                                             $claseTexto = in_array(strtoupper($valor), $codigosNegrita) ? 'font-bold' : '';
                                         @endphp
@@ -222,7 +326,6 @@
         <div class="mt-1 grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2 text-gray-700">
             <span><strong>A:</strong> Día laborado</span>
             <span><strong>I:</strong> Inasistencia injustificada</span>
-            <span><strong>3T:</strong> Tercera Tardanza, considerada como inasistencia injustificada</span>
             <span><strong>J:</strong> Inasistencia justificada</span>
             <span><strong>L:</strong> Licencia sin goce de remuneraciones</span>
             <span><strong>P:</strong> Permiso sin goce de remuneraciones</span>
@@ -238,7 +341,7 @@
 
     <div class="flex items-start gap-4">
         <!-- Botón ingresar oficio + vista previa -->
-        <div class="flex flex-col items-center">
+        <div class="flex flex-col items-center" data-step='10'>
             <button id="btnOficio" onclick="openModal2()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
                 Ingresar número de oficio
             </button>
@@ -248,7 +351,7 @@
         </div>
 
         <!-- Firma: Botón y vista previa -->
-        <div class="flex flex-col items-center">
+        <div class="flex flex-col items-center" data-step='14'>
             <button onclick="openFirmaModal()" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-700">
                 Ingresar firma
             </button>
@@ -268,7 +371,7 @@
             <input type="hidden" name="numero_expediente" id="campoNumeroExpediente">
             <input type="hidden" name="firma_base64" id="campoFirmaBase64">
 
-            <div class="flex flex-col items-center">
+            <div class="flex flex-col items-center" data-step='20'>
                 <button type="submit"
                     onclick="antesDeExportar()"
                     class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">
@@ -277,8 +380,8 @@
             </div>
         </form>
         <!-- Botón ingresar expediente + vista previa -->
-        <div class="flex flex-col items-center">
-            <button id="btnExpediente" onclick="openExpedienteModal()" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">
+        <div class="flex flex-col items-center" data-step='21'>
+            <button id="btnExpediente" onclick="openmodalExpediente()" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">
                 Ingresar número de expediente
             </button>
             <p id="previewExpediente" class="mt-2 font-bold text-indigo-800"></p>
@@ -291,7 +394,7 @@
     <input type="hidden" id="oficio_guardado">
 
     <!-- Modal para subir la firma -->
-    <div id="modalFirma" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 hidden">
+    <div id="modalFirma" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 hidden" data-step='15'>
         <div class="bg-white rounded-lg shadow-lg w-full max-w-md p-6 relative">
             <h2 class="text-xl font-semibold mb-4 text-center">Subir firma</h2>
 
@@ -300,9 +403,9 @@
             </div>
 
             <input type="file" id="firmaInput" accept="image/*"
-                class="w-full border border-gray-300 rounded px-3 py-2 mb-4">
+                class="w-full border border-gray-300 rounded px-3 py-2 mb-4" data-step='16'>
 
-            <div class="mb-4">
+            <div class="mb-4" data-step='17'>
                 <label class="flex items-start space-x-2">
                     <input type="checkbox" id="guardarFirmaCheck" class="mt-1">
                     <span class="text-sm text-gray-700">
@@ -314,14 +417,14 @@
                 </label>
             </div>
 
-            <div class="flex justify-end space-x-2">
+            <div class="flex justify-end space-x-2" data-step='18'>
                 <button onclick="closeFirmaModal()" class="bg-red-500 text-white hover:bg-red-600 px-4 py-2 rounded">Cancelar</button>
                 <button onclick="guardarFirma()" class="bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded">Guardar</button>
             </div>
         </div>
     </div>
     <!-- Modal para ingresar el Oficio-->
-    <div id="modalOficio" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 hidden">
+    <div id="modalOficio" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 hidden" data-step='11'>
         <div class="bg-white rounded-lg shadow-lg w-full max-w-md p-6 relative">
             <h2 class="text-xl font-semibold mb-4 text-center">Número de Oficio</h2>
 
@@ -331,22 +434,23 @@
             <input type="number" id="numeroOficio"
                     class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
                     oninput="this.value = this.value.replace(/[^0-9]/g, '')"
-                    min="0">
+                    min="0"
+                    data-step='12'>
 
-            <div class="flex justify-end space-x-2">
+            <div class="flex justify-end space-x-2" data-step='13'>
                 <button onclick="closeModal()" class="bg-red-500 text-white hover:bg-red-600 px-4 py-2 rounded">Cancelar</button>
                 <button onclick="guardarOficio()" class="bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded">Guardar</button>
             </div>
         </div>
     </div>
     <!-- Modal para ingresar número de expediente -->
-    <div id="expedienteModal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 hidden">
+    <div id="modalExpediente" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 hidden" data-step='22'>
         <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
             <h2 class="text-xl font-semibold text-gray-800 mb-4">Ingresar número de expediente</h2>
             <input type="text" id="inputExpediente" placeholder="Ej. 123456"
-                class="w-full border rounded px-4 py-2 focus:outline-none focus:ring focus:border-blue-300">
-            <div class="flex justify-end gap-2 mt-4">
-                <button onclick="cerrarExpedienteModal()"
+                class="w-full border rounded px-4 py-2 focus:outline-none focus:ring focus:border-blue-300" data-step='23'>
+            <div class="flex justify-end gap-2 mt-4" data-step='24'>
+                <button onclick="cerrarmodalExpediente()"
                     class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">Cancelar</button>
                 <button onclick="guardarExpediente()"
                     class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Guardar</button>
@@ -355,19 +459,18 @@
     </div>
 
     <!-- Modal con leyenda, datalist, tabla editable , validación y observación -->
-    <div id="modalForm" class="fixed inset-0 bg-gray-800 bg-opacity-60 flex justify-center items-center hidden z-50">
+    <div data-step="8" id="modalForm" class="fixed inset-0 bg-gray-800 bg-opacity-60 flex justify-center items-center hidden z-50">
         <div class="bg-white rounded-lg shadow-lg w-[90%] max-w-4xl p-6 overflow-auto max-h-[90vh]">
             <h2 class="text-xl font-bold mb-4" id="modalTitle">Modificar Asistencia</h2>
             <form id="asistenciaForm">
             <input type="hidden" name="dni" id="dni">
 
             <!-- Leyenda -->
-            <div class="mb-4 text-sm bg-blue-50 p-4 rounded-lg">
+            <div class="mb-4 text-sm bg-blue-50 p-4 rounded-lg" data-step="4">
             <p><strong>Leyenda:</strong></p>
             <div class="mt-1 grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2 text-gray-700">
                 <span><strong>A:</strong> Día laborado</span>
                 <span><strong>I:</strong> Inasistencia injustificada</span>
-                <span><strong>3T:</strong> Tercera Tardanza, considerada como inasistencia injustificada</span>
                 <span><strong>J:</strong> Inasistencia justificada</span>
                 <span><strong>L:</strong> Licencia sin goce de remuneraciones</span>
                 <span><strong>P:</strong> Permiso sin goce de remuneraciones</span>
@@ -377,7 +480,7 @@
 
             </div>
             <!-- Aplicar patrón -->
-                <div class="mt-4 bg-gray-50 p-4 rounded-lg border">
+                <div class="mt-4 bg-gray-50 p-4 rounded-lg border" data-step='5'>
                     <p class="text-sm font-semibold mb-2">Rellenar automáticamente con “A” según días seleccionados:</p>
                     <div class="flex flex-wrap gap-4 text-sm">
                     <label><input type="checkbox" class="dia-patron" value="1"> Lunes</label>
@@ -390,9 +493,12 @@
                     </button>
                 </div>
             </div>
-
+            <h1 class="text-2xl font-bold text-center mt-6 mb-2 uppercase">
+                MES DE {{ mb_strtoupper(\Carbon\Carbon::now()->translatedFormat('F '), 'UTF-8') }}
+            </h1>
+                           
             <!-- Tabla editable -->
-            <div class="overflow-auto mb-4 mt-4">
+            <div class="overflow-auto mb-4 mt-4" data-step='6'>
             <table class="min-w-full text-sm border border-gray-400 shadow rounded-lg">
                 <thead class="border px-2 py-1 bg-gray-300 text-center">
                 <tr id="dias-numeros"></tr>
@@ -405,7 +511,7 @@
             </div>
 
             <!-- Tipo de Observación -->
-            <div class="mt-4">
+            <div class="mt-4" data-step='7'>
                 <label for="tipo_observacion" class="block text-sm font-semibold mb-1">Tipo de Observación:</label>
                 <select id="tipo_observacion" name="tipo_observacion" class="w-full border rounded p-2 text-sm">
                     <option value="" selected>-- Seleccione --</option>
@@ -427,7 +533,7 @@
             </div>
 
             <!-- Observación -->
-            <div class="mt-4">
+            <div class="mt-4" data-step='9'>
                 <label for="observacion" class="block text-sm font-semibold mb-1">Observación:</label>
                 <textarea id="observacion" rows="2" class="w-full border rounded p-2 text-sm" placeholder="Ej. Cese Voluntario, Renuncia, etc."></textarea>
             </div>
@@ -459,7 +565,142 @@
     </div>
 
 <script>
-const feriados = ['2025-05-01']; 
+function iniciarTutorial() {
+    const tour = introJs();
+
+    const dniElements = document.querySelectorAll('.dni-tour-clickable');
+    const sextoDni = dniElements[0];
+
+    tour.setOptions({
+        scrollToElement: false,
+        showProgress: true,
+        showBullets: false,
+        tooltipClass: 'custom-intro-tooltip',
+        nextLabel: 'Siguiente',
+        prevLabel: 'Anterior',
+        skipLabel: 'x',
+        doneLabel: 'Finalizar',
+        steps: [
+            { element: '[data-step="1"]', intro: "Datos de su Institución" },
+            { element: '[data-step="2"]', intro: "Selector por nivel educativo" },
+            { element: '[data-step="3"]', intro: "Cuadro de asistencia según nivel" },
+            { element: sextoDni, intro: "Haz clic aquí para abrir el formulario de asistencia" },
+            { element: '#modalForm', intro: "Formulario emergente de asistencia" },
+            { element: '[data-step="4"]', intro: "Leyenda de códigos válidos" },
+            { element: '[data-step="5"]', intro: "Selector de patrón de días" },
+            { element: '[data-step="6"]', intro: "Valores de asistencia por día" },
+            { element: '[data-step="7"]', intro: "Tipo de observación" },
+            { element: '[data-step="9"]', intro: "Detalle de observación" },
+            { element: '[data-step="10"]', intro: "Botón ingresar número de oficio" },
+            { element: '[data-step="11"]', intro: "Formulario de oficio" },
+            { element: '[data-step="12"]', intro: "Ingrese su número de oficio" },
+            { element: '[data-step="13"]', intro: "Botones guardar / cancelar oficio" },
+            { element: '[data-step="14"]', intro: "Botón ingresar firma" },
+            { element: '[data-step="15"]', intro: "Formulario de firma" },
+            { element: '[data-step="16"]', intro: "Sube la imagen de tu firma" },
+            { element: '[data-step="17"]', intro: "Casilla para firma permanente" },
+            { element: '[data-step="18"]', intro: "Si no marcas, la firma es temporal" },
+            { element: '[data-step="19"]', intro: "Botón final de guardar asistencias" },
+            { element: '[data-step="20"]', intro: "Vista previa del PDF para MINEDU" },
+            { element: '[data-step="21"]', intro: "Número de expediente" },
+            { element: '[data-step="22"]', intro: "Formulario de expediente" },
+            { element: '[data-step="23"]', intro: "Ingresa solo tu número de expediente" },
+            { element: '[data-step="24"]', intro: "Botones para expediente" }
+        ].map((step) => {
+            if (typeof step.element === 'string') {
+                step.element = document.querySelector(step.element);
+            }
+            return step;
+        }).filter(step => step.element)
+    });
+
+    tour.onafterchange((element) => {
+        const paso = tour._currentStep;
+
+        if (element === sextoDni) {
+            sextoDni?.click();
+        }
+
+        if (element?.id === 'modalForm') {
+            const modal = document.getElementById('modalForm');
+            if (modal?.classList.contains('hidden')) {
+                sextoDni?.click();
+                setTimeout(() => {
+                    tour.goToStepNumber(4).start();
+                }, 150);
+            }
+        }
+
+        if (paso === 10) {
+            cerrarModal('modalForm');
+            abrirModal('modalOficio');
+        }
+
+        if (paso === 14) {
+            cerrarModal('modalOficio');
+            abrirModal('modalFirma');
+        }
+
+        if (paso === 19) {
+            cerrarModal('modalFirma');
+        }
+
+        if (paso === 22) {
+            abrirModal('modalExpediente');
+            setTimeout(() => {
+                tour.refresh();
+            }, 10);
+        }
+
+        if (paso === 25) {
+            cerrarModal('modalExpediente');
+        }
+    });
+
+    tour.oncomplete(() => {
+    Swal.fire({
+        title: "🎉 ¡Tutorial finalizado!",
+        html: `
+            <div style="text-align: center;">
+                <p style="margin-bottom: 12px; font-size: 16px;">
+                    Si tienes dudas puedes repetir el recorrido cuando gustes.
+                </p>
+                <img src="https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExZHMxN3dpajBybDE5cnV5bjJxZXV1NXl2cWRkeWk0Zmgyb3VneW11eiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/E6jscXfv3AkWQ/giphy.gif"
+                     style="display: block; margin: 10px auto 0 auto; width: 100%; max-width: 300px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+            </div>
+        `,
+        icon: "success",
+        confirmButtonText: "👍 Entendido",
+        customClass: {
+            popup: 'rounded-xl'
+        }
+    });
+
+        cerrarModal('modalFirma');
+        cerrarModal('modalOficio');
+        cerrarModal('modalForm');
+        cerrarModal('modalExpediente');
+    });
+
+
+
+    tour.start();
+
+    function abrirModal(id) {
+        const modal = document.getElementById(id);
+        if (modal) modal.classList.remove('hidden');
+    }
+
+    function cerrarModal(id) {
+        const modal = document.getElementById(id);
+        if (modal) modal.classList.add('hidden');
+    }
+}
+
+
+
+
+const feriados = ['2025-07-28','2025-07-29','2025-08-06','2025-08-30']; 
 const diasSemana = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
 const codigosValidos = ['A', 'I', 'J', 'L', 'P', 'T', 'H', 'F'];
 
@@ -505,14 +746,14 @@ const urlGuardarFirma = document.querySelector('meta[name="guardar-firma-url"]')
         document.getElementById('modalForm').classList.add('hidden');
     }
 
-    function openExpedienteModal() {
-        document.getElementById('expedienteModal').classList.remove('hidden');
+    function openmodalExpediente() {
+        document.getElementById('modalExpediente').classList.remove('hidden');
         document.getElementById('inputExpediente').value = '';
         document.getElementById('inputExpediente').focus();
     }
 
-    function cerrarExpedienteModal() {
-        document.getElementById('expedienteModal').classList.add('hidden');
+    function cerrarmodalExpediente() {
+        document.getElementById('modalExpediente').classList.add('hidden');
     }
 
     function guardarFirma() {
@@ -598,7 +839,7 @@ const urlGuardarFirma = document.querySelector('meta[name="guardar-firma-url"]')
         if (numero !== '') {
             document.getElementById('campoNumeroExpediente').value = numero;
             document.getElementById('previewExpediente').innerText = 'Expediente MPD2025-EXP-' +numero;
-            cerrarExpedienteModal();
+            cerrarmodalExpediente();
         } else {
             alert('Por favor, ingrese un número de expediente válido.');
         }
@@ -616,17 +857,18 @@ let mes = fechaActual.getMonth() + 1;
 let anio = fechaActual.getFullYear();
 let numeroOficio = null;
 let numeroExpediente = null;
+let codActual = '';
 
-
-    function openModal(dni, nombres) {
+    function openModal(dni, nombres, cod) {
         dniActual = dni;
-
+        codActual = cod;
         const title = document.getElementById('modalTitle');
         const filaNumeros = document.getElementById('dias-numeros');
         const filaLetras = document.getElementById('dias-letras');
+
         const filaInputs = document.getElementById('fila-asistencia');
 
-        title.textContent = `Modificar Asistencia de ${nombres}`;
+        title.textContent = `Modificar Asistencia de ${nombres} `;
         document.getElementById('modalForm').classList.remove('hidden');
 
         filaNumeros.innerHTML = '';
@@ -646,8 +888,9 @@ let numeroExpediente = null;
             filaLetras.innerHTML += `<th class="border px-1">${diasSemana[diaSemana]}</th>`;
 
             // Buscar valor actual en la tabla principal
-            const selector = `.asistencia-celda[data-id="${dni}"][data-dia="${dia}"] .asistencia-valor`;
-            const celda = document.querySelector(selector);
+            const fila = document.querySelector(`tr[data-dni="${dni}"][data-cod="${cod}"]`);
+            const celda = fila ? fila.querySelector(`.asistencia-celda[data-id="${dni}"][data-dia="${dia}"] .asistencia-valor`) : null;
+
             let valor = celda ? celda.textContent.trim().toUpperCase() : '';
 
             // Si es feriado, forzar valor "F"
@@ -712,13 +955,12 @@ let numeroExpediente = null;
     document.getElementById('aplicar-patron').addEventListener('click', () => {
         const seleccionados = Array.from(document.querySelectorAll('.dia-patron'))
             .filter(cb => cb.checked)
-            .map(cb => parseInt(cb.value)); // [1, 2, 4] por ejemplo
+            .map(cb => parseInt(cb.value)); 
 
         const inputs = document.querySelectorAll('.asistencia-input');
 
-        // 1. Restaurar filas con celdas combinadas (observación o licencia)
-        // 1. Restaurar filas con celdas combinadas (solo la del dniActual)
-        document.querySelectorAll(`tr[data-dni="${dniActual}"]`).forEach(fila => {
+        
+        document.querySelectorAll(`tr[data-dni="${dniActual}"][data-cod="${codActual}"]`).forEach(fila => {
             const dni = fila.dataset.dni;
             const diasEnMes = new Date(anio, mes, 0).getDate();
             const celdasDia = fila.querySelectorAll('td[data-dia]');
@@ -788,7 +1030,8 @@ let numeroExpediente = null;
     document.getElementById('saveAsistencia').addEventListener('click', () => {
         const observacion = document.getElementById('observacion')?.value.trim() || '';
         const tipoObservacion = document.getElementById('tipo_observacion')?.value || '';
-        const fila = document.querySelector(`tr[data-dni="${dniActual}"]`);
+        const fila = document.querySelector(`tr[data-dni="${dniActual}"][data-cod="${codActual}"]`);
+        
 
         if (!fila) return;
 
@@ -822,6 +1065,7 @@ let numeroExpediente = null;
 
                 for (let d = primerDia; d <= ultimoDia; d++) {
                     const celda = fila.querySelector(`.asistencia-celda[data-id="${dniActual}"][data-dia="${d}"]`);
+
                     if (celda) celda.remove();
                 }
 
@@ -871,7 +1115,8 @@ let numeroExpediente = null;
             inputs.forEach(input => {
                 const dia = input.dataset.dia;
                 const valor = input.value.toUpperCase();
-                const celda = document.querySelector(`.asistencia-celda[data-id="${dniActual}"][data-dia="${dia}"]`);
+                const celda = fila.querySelector(`.asistencia-celda[data-id="${dniActual}"][data-dia="${dia}"]`);
+
                 if (celda) {
                     celda.innerHTML = '';
                     const span = document.createElement('span');
@@ -895,15 +1140,16 @@ let numeroExpediente = null;
 
     // Guardar datos a la BD
     document.getElementById('guardarTodo').addEventListener('click', function () {
-        const numeroOficio = document.getElementById('oficio_guardado').value.trim();
-        const numeroExpediente = document.getElementById('campoNumeroExpediente').value.trim();
+        // const numeroOficio = document.getElementById('oficio_guardado').value.trim();
+        // const numeroExpediente = document.getElementById('campoNumeroExpediente').value.trim();
 
-        if (!numeroOficio || !numeroExpediente) {
-            alert("Debe ingresar el número de oficio y expediente antes de guardar.");
-            return;
-        }
+        // if (!numeroOficio || !numeroExpediente) {
+        //     alert("Debe ingresar el número de oficio y expediente antes de guardar.");
+        //     return;
+        // }
 
         const filas = document.querySelectorAll('tr[data-dni]');
+        
         const docentes = [];
 
         filas.forEach(fila => {
@@ -912,6 +1158,7 @@ let numeroExpediente = null;
             const cargo = fila.getAttribute('data-cargo');
             const condicion = fila.getAttribute('data-condicion');
             const jornada = fila.getAttribute('data-jornada');
+            const cod = fila.getAttribute('data-cod');
 
             let asistencia = [];
             let observacion = null;
@@ -962,6 +1209,7 @@ let numeroExpediente = null;
                 cargo,
                 condicion,
                 jornada,
+                cod,
                 asistencia,
                 observacion,
                 tipo_observacion
@@ -991,7 +1239,7 @@ let numeroExpediente = null;
             if (!response.ok) {
                 console.error("Error HTTP:", response.status, text);
                 alert("Error del servidor (" + response.status + "). Ver consola para detalles.");
-                location.reload();
+                //location.reload();
                 return;
             }
 
@@ -1007,12 +1255,13 @@ let numeroExpediente = null;
                 console.error("No se pudo parsear JSON:", text);
                 alert("Guardado completado, pero la respuesta del servidor no fue JSON válido.");
             }
-            location.reload();
+            //location.reload();
         })
         .catch(error => {
             console.error("Error de red o excepción del fetch:", error);
-            alert("Guardado exitoso");
-            location.reload();
+            alert("Guardado exitoso 111");
+            return false;
+
         });
     });
 

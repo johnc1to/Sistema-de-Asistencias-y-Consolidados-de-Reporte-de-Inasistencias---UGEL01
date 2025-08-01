@@ -282,6 +282,8 @@ Route::get('exportar_respuestas_ficha',[Excel::class,'exportar_respuestas_ficha'
 Route::get('popup_anadirfichaesp_iiee',[Fichamonitoreo::class,'popup_anadirfichaesp_iiee'])->name('popup_anadirfichaesp_iiee');
 Route::post('anadirfichaespecialista_iiee',[Fichamonitoreo::class,'anadirfichaespecialista_iiee'])->name('anadirfichaespecialista_iiee');
 
+Route::get('/listar-iiee-faltantes', [Fichamonitoreo::class, 'listarIieeFaltantes'])->name('iieefaltante');;
+
 Route::get('vacacionesdirector',[Vacacionesie::class,'director'])->name('vacacionesdirector');
 Route::get('eliminarVacaciondirector',[Vacacionesie::class,'eliminarVacaciondirector'])->name('eliminarVacaciondirector');
 Route::get('guardarVacacionesdir',[Vacacionesie::class,'guardarVacacionesdir'])->name('guardarVacacionesdir');

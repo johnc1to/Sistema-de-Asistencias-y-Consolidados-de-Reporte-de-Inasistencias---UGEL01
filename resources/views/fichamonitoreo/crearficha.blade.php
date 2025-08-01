@@ -10,6 +10,7 @@
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
+
 <!-- ***********************LIBRERIAS PARA LA TABLA**************************** -->
     <script type="text/javascript" src="https://cdn.datatables.net/1.10.16/js/jquery.dataTables.min.js"></script>
     <script type="text/javascript" src="https://cdn.datatables.net/buttons/1.5.1/js/dataTables.buttons.min.js"></script>
@@ -30,6 +31,102 @@
   .gris { background-color:rgb(217,217,217); }
   .marcarx{ width:25px;font-weight: bold;cursor: pointer;text-align:center; }
   .centro { text-align:center;  }
+
+    .custom-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.6);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+    }
+
+    .custom-modal.hidden {
+        display: none;
+    }
+
+    .custom-modal-content {
+        background-color: #fff;
+        width: 60%;               /* antes era 90% */
+        max-height: 80%;
+        overflow-y: auto;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+        position: relative;
+        margin-left: 80px;        /* deja espacio para sidebar si es fijo */
+    }
+
+
+    .custom-modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+
+    .custom-modal-header h2 {
+        margin: 0;
+    }
+
+    .close-button {
+        background: none;
+        border: none;
+        font-size: 28px;
+        cursor: pointer;
+    }
+
+    .custom-modal-body table {
+        width: 50%;
+        border-collapse: collapse;
+    }
+
+    .custom-modal-body th,
+    .custom-modal-body td {
+        padding: 10px;
+        border: 1px solid #ccc;
+        text-align: left;
+    }
+
+    .custom-modal-body thead {
+        background-color: #333;
+        color: #fff;
+    }
+
+    .custom-modal-body tbody tr:nth-child(even) {
+        background-color: #f2f2f2;
+    }
+
+    .tabla-scroll {
+        max-height: 400px; /* Ajusta este valor según tu diseño */
+        overflow-y: auto;
+        display: block;
+        border: 1px solid #ccc;
+    }
+
+    .tabla-scroll table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .tabla-scroll thead th {
+        position: sticky;
+        top: 0;
+        background-color:rgb(16, 17, 17); /* color de fondo para que no se mezcle al hacer scroll */
+        z-index: 10;
+        border-bottom: 2px solid #ddd;
+        padding: 8px;
+        text-align: left;
+    }
+
+    .tabla-scroll tbody td {
+        padding: 8px;
+        border-bottom: 1px solid #e5e7eb;
+    }
 </style>
 
 <style type="text/css">
@@ -241,6 +338,23 @@
     </div>
 </div>
 
+<!-- Modal personalizado sin Bootstrap -->
+<div id="Modalficha" class="custom-modal hidden">
+    <div class="custom-modal-content">
+        <div class="custom-modal-header">
+            <h2>Instituciones que no han llenado la ficha</h2>
+            <button id="closeModal" class="close-button">&times;</button>
+        </div>
+        <div class="custom-modal-body" id="modal_body_iiee">
+            <!-- Aquí se inyectará la tabla -->
+        </div>
+    </div>
+</div>
+
+
+
+
+
 <script type="text/javascript">
 
 function marcarx(athis,clase=false){
@@ -250,7 +364,7 @@ function marcarx(athis,clase=false){
 			}else{
 				$(athis).val('X')
 			}
-	}
+}
 		
 function selecanio(){
     var anio = $("#anio").val();
@@ -318,25 +432,25 @@ function javasuma(idres,elementos){
 }
 
 function anadirjavasuma(){
-for (var nro = 1; nro <= 30; nro++) {
-    var opt = '';
-    if($("#div_htmladicional .stotal"+nro).length){
-        $("#div_htmladicional .stotal"+nro).prop('readonly',false);
-            var sum = [];
-            opt = $("#div_htmladicional .stotal"+nro)[0].name;
-            if($("#div_htmladicional .suma"+nro).length){
-            for (var i = 0; i < $("#div_htmladicional .suma"+nro).length; i++) {
-                sum.push($("#div_htmladicional .suma"+nro)[i].name);
+    for (var nro = 1; nro <= 30; nro++) {
+        var opt = '';
+        if($("#div_htmladicional .stotal"+nro).length){
+            $("#div_htmladicional .stotal"+nro).prop('readonly',false);
+                var sum = [];
+                opt = $("#div_htmladicional .stotal"+nro)[0].name;
+                if($("#div_htmladicional .suma"+nro).length){
+                for (var i = 0; i < $("#div_htmladicional .suma"+nro).length; i++) {
+                    sum.push($("#div_htmladicional .suma"+nro)[i].name);
+                }
+                var codigo = "javasuma('"+opt+"','"+sum.join()+"')";
+                for (var i = 0; i < $("#div_htmladicional .suma"+nro).length; i++) {
+                    $($("#div_htmladicional .suma"+nro)[i]).attr('onkeyup',codigo);
+                }
+                $("#div_htmladicional .stotal"+nro).prop('readonly',true);
+                }
+                
             }
-            var codigo = "javasuma('"+opt+"','"+sum.join()+"')";
-            for (var i = 0; i < $("#div_htmladicional .suma"+nro).length; i++) {
-                $($("#div_htmladicional .suma"+nro)[i]).attr('onkeyup',codigo);
-            }
-            $("#div_htmladicional .stotal"+nro).prop('readonly',true);
-            }
-            
-        }
-}
+    }
 }
 
 var var_input = [];
@@ -352,7 +466,6 @@ function guardar_html(){
 function guardar_html_cabecera(){
     alert('guardar_html_cabecera');
 }
-
 
 function guardar_html_adicional(){
     var cabeza = $("#idpregunta").val();
@@ -467,6 +580,7 @@ function opciones_respuesta(){
         <?php if($session['id_oficina']==77 or $session['idespecialista']==138 or  $session['idespecialista']==890  ){ ?> 
         opt += '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;';
         opt += '<a id="btn_generar_masa_pdf_ficha"   class="btn btn-danger" href="#" onclick="link_generar_masa_pdf_ficha();">Generar fichas</a>&nbsp;&nbsp;&nbsp;';
+        opt += '<a id="btn_generar_iiee_faltantes_ficha" class="btn btn-info" href="#">Ver IIEE que no han llenado la Ficha</a>&nbsp;&nbsp;&nbsp;';
         <?php } ?>
         opt += '</div>';
     }
@@ -559,7 +673,7 @@ function ver_ficha_ie(){
                         $("#avance").html('');
                         }
                         $("#t_resumen tr td").css({'padding-top':'2px','padding-bottom':'2px','padding-right':'2px','padding-left':'2px',});
-                        $("#btnpbi").html((ficha['pbiFic'])?'&nbsp;&nbsp;&nbsp;<a class="btn btn btn-warning" target="_blank" href="'+ficha['pbiFic']+'"><img src="assets/images/icopbi.png" width="30px"> Ver reporte</<a>':'');
+                        $("#btnpbi").html((ficha['pbiFic'])?'&nbsp;&nbsp;&nbsp;<a class="btn btn btn-warning" target="_blank" href="'+ficha['pbiFic']+'"><img src="assets/images/icopbi.png" width="30px"> Ver Reporte</<a>':'');
                   }
           });
     }else{
@@ -1089,6 +1203,78 @@ $("#catalogo_nacional").bind("contextmenu",function(e){
     return false;
 });
 
+function cargarIieeFaltantes(idFicha) {
+    $.ajax({
+        url: 'listar-iiee-faltantes',
+        method: 'GET',
+        data: { idFic: idFicha },
+        success: function (response) {
+            if (!response || response.length === 0) {
+                $('#modal_body_iiee').html('<p>No hay instituciones faltantes.</p>');
+                document.getElementById('Modalficha').classList.remove('hidden');
+                return;
+            }
+
+            let html = `
+                <div class="tabla-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Codlocal</th>
+                                <th>Institución</th>
+                                <th>Director</th>
+                                <th>Teléfono</th>
+                                <th>Correo Institucional</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            response.forEach(row => {
+                html += `
+                    <tr>
+                        <td>${row.codlocal}</td>
+                        <td>${row.institucion}</td>
+                        <td>${row.director}</td>
+                        <td>${row.telefono}</td>
+                        <td>${row.correo_inst}</td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+            $('#modal_body_iiee').html(html);
+
+            document.getElementById('Modalficha').classList.remove('hidden');
+        },
+        error: function (xhr, status, error) {
+            console.error("Error al obtener IIEE faltantes:", error);
+            alert('No se pudo obtener los datos de IIEE.');
+        }
+    });
+}
+
+$(document).on('click', '#btn_generar_iiee_faltantes_ficha', function (e) {
+    e.preventDefault();
+    const idFic = $('#idficha').val();
+    if (!idFic) {
+        alert('Seleccione una ficha primero.');
+        return;
+    }
+    cargarIieeFaltantes(idFic);
+});
+
+document.getElementById('closeModal').addEventListener('click', () => {
+    document.getElementById('Modalficha').classList.add('hidden');
+});
+
+
+
 /*$("#competencias").bind("contextmenu",function(e){
     return false;
 });*/
@@ -1209,13 +1395,6 @@ var table5 = $("#t_resumen").DataTable( {
 </script>
 
 @endsection
-
-<div id="Modalficha" class="modal fade" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-xl" style="width:90%;">
-    <div class="modal-content"></div>
-  </div>
-</div>
-<div id="fc_ficha"  data-toggle="modal" data-target="#Modalficha"></div>
 
 
 

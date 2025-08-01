@@ -19,7 +19,7 @@ use PDF;
 
 use App\Models\Anexo04Persona;
 use App\Models\Anexo04;
-
+use App\Models\Iiee_a_evaluar_rie;
 
 
 class ReporteAnexosController extends Controller
@@ -46,8 +46,7 @@ class ReporteAnexosController extends Controller
         $codlocales = $reportes->pluck('codlocal')->unique();
 
         // Obtener información de instituciones desde otra base (ej: siic_2024)
-        $iiees = DB::table('iiee_a_evaluar_rie')
-            ->whereIn('codlocal', $codlocales)
+        $iiees = Iiee_a_evaluar_rie::whereIn('codlocal', $codlocales)
             ->get()
             ->keyBy('codlocal');
 
@@ -92,9 +91,8 @@ class ReporteAnexosController extends Controller
         });
 
         // Listas para filtros (extraídas desde la tabla de instituciones)
-        $distritos = DB::table('iiee_a_evaluar_RIE')->distinct()->pluck('distrito')->sort()->values();
-        $instituciones = DB::table('iiee_a_evaluar_RIE')
-            ->select('codmod', 'institucion')->distinct()->orderBy('institucion')->get();
+        $distritos = Iiee_a_evaluar_rie::distinct()->pluck('distrito')->sort()->values();
+        $instituciones = Iiee_a_evaluar_rie::select('codmod', 'institucion')->distinct()->orderBy('institucion')->get();
         $niveles = DB::connection('siic_anexos')->table('anexo03')->distinct()->pluck('nivel')->sort()->values();
 
         // Reporte de directores sin anexo03
@@ -109,7 +107,7 @@ class ReporteAnexosController extends Controller
                 'c.celular_pers',
                 'i.institucion as nombre_inst'
             )
-            ->join('iiee_a_evaluar_rie as i', 'c.dni', '=', 'i.dni_director')
+            ->join('iiee_a_evaluar_RIE as i', 'c.dni', '=', 'i.dni_director')
             ->where('c.estado', 1)
             ->where('c.cargo', 'LIKE', '%DIRECTOR%')
             ->where('c.cargo', 'NOT LIKE', '%SUB-DIRECTOR%')
@@ -164,8 +162,7 @@ class ReporteAnexosController extends Controller
             $codlocalNivel = $reportes->map(fn($r) => [$r->codlocal, $r->nivel]);
 
             // Paso 2: Obtener datos de iiee_a_evaluar_rie desde la base principal
-            $iiees = DB::table('iiee_a_evaluar_rie')
-                ->whereIn(DB::raw("CONCAT(codlocal,'-',nivel)"), $codlocalNivel->map(fn($c) => "{$c[0]}-{$c[1]}"))
+            $iiees = Iiee_a_evaluar_rie::whereIn(DB::raw("CONCAT(codlocal,'-',nivel)"), $codlocalNivel->map(fn($c) => "{$c[0]}-{$c[1]}"))
                 ->get()
                 ->keyBy(fn($iiee) => "{$iiee->codlocal}-{$iiee->nivel}");
 
@@ -202,8 +199,8 @@ class ReporteAnexosController extends Controller
             })->values();
 
             // Datos para filtros
-            $distritos = DB::table('iiee_a_evaluar_rie')->distinct()->pluck('distrito')->sort()->values();
-            $instituciones = DB::table('iiee_a_evaluar_rie')
+            $distritos = Iiee_a_evaluar_rie::distinct()->pluck('distrito')->sort()->values();
+            $instituciones = DB::table('iiee_a_evaluar_RIE')
                 ->select('codmod', 'institucion')->distinct()->orderBy('institucion')->get();
             $niveles = DB::connection('siic_anexos')->table('anexo04')->distinct()->pluck('nivel')->sort()->values();
 
@@ -222,7 +219,7 @@ class ReporteAnexosController extends Controller
                     'c.celular_pers',
                     'i.institucion as nombre_inst'
                 )
-                ->join('iiee_a_evaluar_rie as i', 'c.dni', '=', 'i.dni_director')
+                ->join('iiee_a_evaluar_RIE as i', 'c.dni', '=', 'i.dni_director')
                 ->where('c.estado', 1)
                 ->where('c.cargo', 'LIKE', '%DIRECTOR%')
                 ->where('c.cargo', 'NOT LIKE', '%SUB-DIRECTOR%')
