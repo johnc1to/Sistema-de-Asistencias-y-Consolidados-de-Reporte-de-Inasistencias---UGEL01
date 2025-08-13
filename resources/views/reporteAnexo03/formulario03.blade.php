@@ -70,8 +70,8 @@
         <h1 class="text-2xl font-bold text-center mb-4 uppercase">ANEXO 03 - {{ mb_strtoupper(\Carbon\Carbon::now()->translatedFormat('F '), 'UTF-8') }}</h1>
         <h1 class="text-2xl font-bold text-center mb-4 uppercase">Formato 01: Reporte de Asistencia Detallado</h1>
         <button onclick="iniciarTutorial()" class="mb-4 px-4 py-2 bg-emerald-600 text-white rounded bg-violet-600 hover:bg-violet-700">
-    Ver tutorial
-</button>
+            Ver tutorial
+        </button>
 
         <!-- Información de la institución y nivel -->
         <div class="mb-4 flex flex-wrap justify-between items-center gap-4" data-step="1">
@@ -99,6 +99,14 @@
                 <button type="button" id="guardarTodo" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700" data-step='19'>
                     Guardar Asistencia Masiva
                 </button>
+                <div id="loader" class="hidden flex items-center justify-center space-x-2 text-blue-600 mt-4">
+                    <svg class="animate-spin h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor"
+                            d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                    </svg>
+                    <span>Guardando asistencia...</span>
+                </div>
 
                 <!-- Selector de Nivel -->
                 <div class="flex items-center ml-auto" data-step="2">
@@ -125,22 +133,49 @@
                         $mes = $mes ?? 3;
                         $anio = $anio ?? 2025;
                         $diasEnMes = Carbon::create($anio, $mes, 1)->daysInMonth;
-                        $feriados = ['2025-07-28','2025-07-29','2025-08-06','2025-08-30'];
+                        $feriados = ['2025-07-28','2025-07-29','2025-08-06','2025-08-30','2025-10-08' ,'2025-11-01','2025-12-08','2025-12-09','2025-12-25','2025-12-26'];
                         $diasSemana = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
                         $fechaHoy = Carbon::now()->translatedFormat('d \d\e F \d\e Y');
+                    @endphp
+                    @php
+                        $bloques = [
+                            ['tipo' => 'g', 'inicio' => '2025-03-03', 'fin' => '2025-03-14'],
+                            ['tipo' => 'l', 'inicio' => '2025-03-17', 'fin' => '2025-05-16'],
+                            ['tipo' => 'g', 'inicio' => '2025-05-19', 'fin' => '2025-05-23'],
+                            ['tipo' => 'l', 'inicio' => '2025-05-26', 'fin' => '2025-07-25'],
+                            ['tipo' => 'g', 'inicio' => '2025-07-28', 'fin' => '2025-08-08'],
+                            ['tipo' => 'l', 'inicio' => '2025-08-11', 'fin' => '2025-10-10'],
+                            ['tipo' => 'g', 'inicio' => '2025-10-13', 'fin' => '2025-10-17'],
+                            ['tipo' => 'l', 'inicio' => '2025-10-20', 'fin' => '2025-12-19'],
+                            ['tipo' => 'g', 'inicio' => '2025-12-22', 'fin' => '2025-12-31'],
+                        ];
+
+                        function obtenerTipoSemana($fecha, $bloques, $feriados) {
+                            if ($fecha->isWeekend() || in_array($fecha->format('Y-m-d'), $feriados)) {
+                                return null;
+                            }
+
+                            foreach ($bloques as $bloque) {
+                                if ($fecha->between(Carbon::parse($bloque['inicio']), Carbon::parse($bloque['fin']))) {
+                                    return $bloque['tipo'];
+                                }
+                            }
+
+                            return null;
+                        }
                     @endphp
 
                     <thead class="bg-gray-200 text-gray-700 uppercase text-xs sticky top-0 z-10">
                         <tr>
-                            <th class="border px-2 py-1 bg-gray-200" rowspan="2">Nº</th>
-                            <th class="border px-2 py-1 bg-gray-200" rowspan="2">
+                            <th class="border px-2 py-1 bg-gray-200" rowspan="3">Nº</th>
+                            <th class="border px-2 py-1 bg-gray-200" rowspan="3">
                                 DNI
                             </th>
 
-                            <th class="border px-2 py-1 bg-gray-200" rowspan="2">Apellidos y Nombres</th>
-                            <th class="border px-2 py-1 bg-gray-200" rowspan="2">Cargo</th>
-                            <th class="border px-2 py-1 bg-gray-200" rowspan="2">Condición</th>
-                            <th class="border px-2 py-1 bg-gray-200" rowspan="2">Jor. Lab.</th>
+                            <th class="border px-2 py-1 bg-gray-200" rowspan="3">Apellidos y Nombres</th>
+                            <th class="border px-2 py-1 bg-gray-200" rowspan="3">Cargo</th>
+                            <th class="border px-2 py-1 bg-gray-200" rowspan="3">Condición</th>
+                            <th class="border px-2 py-1 bg-gray-200" rowspan="3">Jor. Lab.</th>
                             @for ($d = 1; $d <= $diasEnMes; $d++)
                                 <th class="border px-1 py-1 bg-gray-200">{{ $d }}</th>
                             @endfor
@@ -153,6 +188,29 @@
                                 @endphp
                                 <th class="border px-1 py-1 text-[10px] {{ in_array($nombreDia, ['S', 'D']) ? 'bg-gray-300' : 'bg-gray-200' }}">
                                     {{ $nombreDia }}
+                                </th>
+                            @endfor
+                        </tr>
+                        <tr>
+                            @for ($d = 1; $d <= $diasEnMes; $d++)
+                                @php
+                                    $fecha = Carbon::create($anio, $mes, $d);
+                                    $tipo = obtenerTipoSemana($fecha, $bloques, $feriados);
+
+                                    $texto = match($tipo) {
+                                        'g' => 'G',
+                                        'l' => 'L',
+                                        default => '',
+                                    };
+
+                                    $bgColor = match($tipo) {
+                                        'g' => 'bg-blue-100 text-blue-800',
+                                        'l' => 'bg-green-100 text-green-800',
+                                        default => 'bg-gray-100 text-gray-500',
+                                    };
+                                @endphp
+                                <th class="border px-1 py-1 text-[10px] {{ $bgColor }}">
+                                    {{ $texto }}
                                 </th>
                             @endfor
                         </tr>
@@ -183,7 +241,7 @@
                                         <td class="border px-2 py-1">{{ $index + 1 }}</td>
                                         <td class="border px-2 py-1  text-blue-500 dni-tour dni-tour-clickable"
                                             onclick="openModal('{{ $r->dni }}', '{{ $r->nombres }}', '{{ $r->cod }}')"
-                                            data-step="2">
+                                            >
                                             {{ $r->dni }}
                                         </td>
 
@@ -260,7 +318,7 @@
                                                 for ($j = $d + 1; $j <= $diasEnMes; $j++) {
                                                     $valorJ = $asistencia[$j - 1] ?? null;
 
-                                                    if ($valorJ === 'L' || $valorJ === null) {
+                                                    if ($valorJ === 'L') {
                                                         $fin = $j;
                                                     } else {
                                                         break;
@@ -333,6 +391,10 @@
             <span><strong>H:</strong> Huelga o paro</span>
         </div>
     </div>
+    
+    <span style="color: blue; margin-right: 12px;"><strong>G:</strong> Bloque de Semanas de Gestión</span>
+    <span style="color: green;"><strong>L:</strong> Bloque de Semanas Lectivas</span>
+
 
     <!-- Firma y botón de exportación -->
     <div class="mt-10 text-sm text-right">
@@ -510,32 +572,63 @@
             </table>
             </div>
 
-            <!-- Tipo de Observación -->
+            <!-- Tipo Observacion -->
             <div class="mt-4" data-step='7'>
                 <label for="tipo_observacion" class="block text-sm font-semibold mb-1">Tipo de Observación:</label>
                 <select id="tipo_observacion" name="tipo_observacion" class="w-full border rounded p-2 text-sm">
                     <option value="" selected>-- Seleccione --</option>
                     <option value="Cese">Cese</option>
-                    <option value="Renuncia">Renuncia</option>
-                    <option value="Licencia">Licencia</option>
-                    <option value="Abandono de Cargo">Abandono de Cargo</option>
+                    <option value="Inasistencia">Inasistencia Justificada (Licencia / Permiso)</option>
+                    <option value="Licencia">Licencia sin goce de remuneraciones</option>
+                    <option value="PermisoSinGoce">Permiso sin goce de remuneraciones</option>
+                    <option value="AbandonoCargo">Abandono de Cargo</option>
                     <option value="Vacaciones">Vacaciones</option>
                 </select>
             </div>
-
+            <!-- Subtipo -->
+            <div class="mt-4">
+                <label for="tipo_especifico" class="block text-sm font-semibold mb-1">Detalle (<strong>RVM-081-2023-MINEDU</strong>):</label>
+                <select id="tipo_especifico" name="tipo_especifico" class="w-full border rounded p-2 text-sm" disabled>
+                    <option value="">-- Seleccione un tipo observación primero --</option>
+                </select>
+            </div>
             <!-- Rango de Fechas para Licencia -->
             <div id="rangoFechasLicencia" class="mt-4 hidden">
-                <label class="block text-sm font-semibold mb-1">Rango de Fechas de Licencia:</label>
+                <label class="block text-sm font-semibold mb-1">Rango de Fechas de Licencia sin goce de remuneraciones:</label>
                 <div class="flex gap-2">
                     <input type="date" id="fechaInicioLicencia" class="w-full border rounded p-2 text-sm">
                     <input type="date" id="fechaFinLicencia" class="w-full border rounded p-2 text-sm">
+                </div>
+            </div>
+            <!-- Rango de Fechas para Inasistencia -->
+            <div id="rangoFechasInasistencia" class="mt-4 hidden">
+                <label class="block text-sm font-semibold mb-1">Rango de Fechas de Inasistencia Justificada:</label>
+                <div class="flex gap-2">
+                    <input type="date" id="fechaInicioInasistencia" class="w-full border rounded p-2 text-sm">
+                    <input type="date" id="fechaFinInasistencia" class="w-full border rounded p-2 text-sm">
+                </div>
+            </div>
+            <!-- Rango de Fechas para Permisos -->
+            <div id="rangoFechasPermisos" class="mt-4 hidden">
+                <label class="block text-sm font-semibold mb-1">Rango de Fechas de Permiso sin foce de remuneraciones:</label>
+                <div class="flex gap-2">
+                    <input type="date" id="fechaInicioPermiso" class="w-full border rounded p-2 text-sm">
+                    <input type="date" id="fechaFinPermiso" class="w-full border rounded p-2 text-sm">
+                </div>
+            </div>
+            <!-- Rango de Fechas para Vacaciones -->
+            <div id="rangoFechasVacaciones" class="mt-4 hidden">
+                <label class="block text-sm font-semibold mb-1">Rango de Fechas de Vacaciones:</label>
+                <div class="flex gap-2">
+                    <input type="date" id="fechaInicioVacaciones" class="w-full border rounded p-2 text-sm">
+                    <input type="date" id="fechaFinVacaciones" class="w-full border rounded p-2 text-sm">
                 </div>
             </div>
 
             <!-- Observación -->
             <div class="mt-4" data-step='9'>
                 <label for="observacion" class="block text-sm font-semibold mb-1">Observación:</label>
-                <textarea id="observacion" rows="2" class="w-full border rounded p-2 text-sm" placeholder="Ej. Cese Voluntario, Renuncia, etc."></textarea>
+                <textarea id="observacion" rows="2" class="w-full border rounded p-2 text-sm" placeholder="Ej. Detalle EXPEDIENTE,RESOLUCION ,etc"></textarea>
             </div>
 
             <!-- Botones -->
@@ -565,146 +658,144 @@
     </div>
 
 <script>
-function iniciarTutorial() {
-    const tour = introJs();
 
-    const dniElements = document.querySelectorAll('.dni-tour-clickable');
-    const sextoDni = dniElements[0];
+    function iniciarTutorial() {
+        const tour = introJs();
 
-    tour.setOptions({
-        scrollToElement: false,
-        showProgress: true,
-        showBullets: false,
-        tooltipClass: 'custom-intro-tooltip',
-        nextLabel: 'Siguiente',
-        prevLabel: 'Anterior',
-        skipLabel: 'x',
-        doneLabel: 'Finalizar',
-        steps: [
-            { element: '[data-step="1"]', intro: "Datos de su Institución" },
-            { element: '[data-step="2"]', intro: "Selector por nivel educativo" },
-            { element: '[data-step="3"]', intro: "Cuadro de asistencia según nivel" },
-            { element: sextoDni, intro: "Haz clic aquí para abrir el formulario de asistencia" },
-            { element: '#modalForm', intro: "Formulario emergente de asistencia" },
-            { element: '[data-step="4"]', intro: "Leyenda de códigos válidos" },
-            { element: '[data-step="5"]', intro: "Selector de patrón de días" },
-            { element: '[data-step="6"]', intro: "Valores de asistencia por día" },
-            { element: '[data-step="7"]', intro: "Tipo de observación" },
-            { element: '[data-step="9"]', intro: "Detalle de observación" },
-            { element: '[data-step="10"]', intro: "Botón ingresar número de oficio" },
-            { element: '[data-step="11"]', intro: "Formulario de oficio" },
-            { element: '[data-step="12"]', intro: "Ingrese su número de oficio" },
-            { element: '[data-step="13"]', intro: "Botones guardar / cancelar oficio" },
-            { element: '[data-step="14"]', intro: "Botón ingresar firma" },
-            { element: '[data-step="15"]', intro: "Formulario de firma" },
-            { element: '[data-step="16"]', intro: "Sube la imagen de tu firma" },
-            { element: '[data-step="17"]', intro: "Casilla para firma permanente" },
-            { element: '[data-step="18"]', intro: "Si no marcas, la firma es temporal" },
-            { element: '[data-step="19"]', intro: "Botón final de guardar asistencias" },
-            { element: '[data-step="20"]', intro: "Vista previa del PDF para MINEDU" },
-            { element: '[data-step="21"]', intro: "Número de expediente" },
-            { element: '[data-step="22"]', intro: "Formulario de expediente" },
-            { element: '[data-step="23"]', intro: "Ingresa solo tu número de expediente" },
-            { element: '[data-step="24"]', intro: "Botones para expediente" }
-        ].map((step) => {
-            if (typeof step.element === 'string') {
-                step.element = document.querySelector(step.element);
-            }
-            return step;
-        }).filter(step => step.element)
-    });
+        const dniElements = document.querySelectorAll('.dni-tour-clickable');
+        const sextoDni = dniElements[0];
 
-    tour.onafterchange((element) => {
-        const paso = tour._currentStep;
+        tour.setOptions({
+            scrollToElement: false,
+            showProgress: true,
+            showBullets: false,
+            tooltipClass: 'custom-intro-tooltip',
+            nextLabel: 'Siguiente',
+            prevLabel: 'Anterior',
+            skipLabel: 'x',
+            doneLabel: 'Finalizar',
+            steps: [
+                { element: '[data-step="1"]', intro: "Datos de su Institución" },
+                { element: '[data-step="2"]', intro: "Selector por nivel educativo" },
+                { element: '[data-step="3"]', intro: "Cuadro de asistencia según nivel" },
+                { element: sextoDni, intro: "Haz clic aquí para abrir el formulario de asistencia" },
+                { element: '#modalForm', intro: "Formulario emergente de asistencia" },
+                { element: '[data-step="4"]', intro: "Leyenda de códigos válidos" },
+                { element: '[data-step="5"]', intro: "Selector de patrón de días" },
+                { element: '[data-step="6"]', intro: "Valores de asistencia por día" },
+                { element: '[data-step="7"]', intro: "Tipo de observación" },
+                { element: '[data-step="9"]', intro: "Detalle de observación" },
+                { element: '[data-step="10"]', intro: "Botón ingresar número de oficio" },
+                { element: '[data-step="11"]', intro: "Formulario de oficio" },
+                { element: '[data-step="12"]', intro: "Ingrese su número de oficio" },
+                { element: '[data-step="13"]', intro: "Botones guardar / cancelar oficio" },
+                { element: '[data-step="14"]', intro: "Botón ingresar firma" },
+                { element: '[data-step="15"]', intro: "Formulario de firma" },
+                { element: '[data-step="16"]', intro: "Sube la imagen de tu firma" },
+                { element: '[data-step="17"]', intro: "Casilla para firma permanente" },
+                { element: '[data-step="18"]', intro: "Si no marcas, la firma es temporal" },
+                { element: '[data-step="19"]', intro: "Botón final de guardar asistencias" },
+                { element: '[data-step="20"]', intro: "Vista previa del PDF para MINEDU" },
+                { element: '[data-step="21"]', intro: "Número de expediente" },
+                { element: '[data-step="22"]', intro: "Formulario de expediente" },
+                { element: '[data-step="23"]', intro: "Ingresa solo tu número de expediente" },
+                { element: '[data-step="24"]', intro: "Botones para expediente" }
+            ].map((step) => {
+                if (typeof step.element === 'string') {
+                    step.element = document.querySelector(step.element);
+                }
+                return step;
+            }).filter(step => step.element)
+        });
 
-        if (element === sextoDni) {
-            sextoDni?.click();
-        }
+        tour.onafterchange((element) => {
+            const paso = tour._currentStep;
 
-        if (element?.id === 'modalForm') {
-            const modal = document.getElementById('modalForm');
-            if (modal?.classList.contains('hidden')) {
+            if (element === sextoDni) {
                 sextoDni?.click();
-                setTimeout(() => {
-                    tour.goToStepNumber(4).start();
-                }, 150);
             }
-        }
 
-        if (paso === 10) {
-            cerrarModal('modalForm');
-            abrirModal('modalOficio');
-        }
+            if (element?.id === 'modalForm') {
+                const modal = document.getElementById('modalForm');
+                if (modal?.classList.contains('hidden')) {
+                    sextoDni?.click();
+                    setTimeout(() => {
+                        tour.goToStepNumber(4).start();
+                    }, 150);
+                }
+            }
 
-        if (paso === 14) {
-            cerrarModal('modalOficio');
-            abrirModal('modalFirma');
-        }
+            if (paso === 10) {
+                cerrarModal('modalForm');
+                abrirModal('modalOficio');
+            }
 
-        if (paso === 19) {
+            if (paso === 14) {
+                cerrarModal('modalOficio');
+                abrirModal('modalFirma');
+            }
+
+            if (paso === 19) {
+                cerrarModal('modalFirma');
+            }
+
+            if (paso === 22) {
+                abrirModal('modalExpediente');
+                setTimeout(() => {
+                    tour.refresh();
+                }, 10);
+            }
+
+            if (paso === 25) {
+                cerrarModal('modalExpediente');
+            }
+        });
+
+        tour.oncomplete(() => {
+        Swal.fire({
+            title: "🎉 ¡Tutorial finalizado!",
+            html: `
+                <div style="text-align: center;">
+                    <p style="margin-bottom: 12px; font-size: 16px;">
+                        Si tienes dudas puedes repetir el recorrido cuando gustes.
+                    </p>
+                    <img src="https://media.giphy.com/media/v1.Y2lkPWVjZjA1ZTQ3a3JjbnJlMnl5a2I0bzRpcHl3cDdiaWVlaWxycGZjbWtjbnl2YmlrNSZlcD12MV9naWZzX3JlbGF0ZWQmY3Q9Zw/VTKW1mIHKlBTWWkUWI/giphy.gif"
+                        style="display: block; margin: 10px auto 0 auto; width: 100%; max-width: 300px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                </div>
+            `,
+            icon: "success",
+            confirmButtonText: "👍 Entendido",
+            customClass: {
+                popup: 'rounded-xl'
+            }
+        });
+
             cerrarModal('modalFirma');
-        }
-
-        if (paso === 22) {
-            abrirModal('modalExpediente');
-            setTimeout(() => {
-                tour.refresh();
-            }, 10);
-        }
-
-        if (paso === 25) {
+            cerrarModal('modalOficio');
+            cerrarModal('modalForm');
             cerrarModal('modalExpediente');
+        });
+
+
+
+        tour.start();
+
+        function abrirModal(id) {
+            const modal = document.getElementById(id);
+            if (modal) modal.classList.remove('hidden');
         }
-    });
 
-    tour.oncomplete(() => {
-    Swal.fire({
-        title: "🎉 ¡Tutorial finalizado!",
-        html: `
-            <div style="text-align: center;">
-                <p style="margin-bottom: 12px; font-size: 16px;">
-                    Si tienes dudas puedes repetir el recorrido cuando gustes.
-                </p>
-                <img src="https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExZHMxN3dpajBybDE5cnV5bjJxZXV1NXl2cWRkeWk0Zmgyb3VneW11eiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/E6jscXfv3AkWQ/giphy.gif"
-                     style="display: block; margin: 10px auto 0 auto; width: 100%; max-width: 300px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-            </div>
-        `,
-        icon: "success",
-        confirmButtonText: "👍 Entendido",
-        customClass: {
-            popup: 'rounded-xl'
+        function cerrarModal(id) {
+            const modal = document.getElementById(id);
+            if (modal) modal.classList.add('hidden');
         }
-    });
-
-        cerrarModal('modalFirma');
-        cerrarModal('modalOficio');
-        cerrarModal('modalForm');
-        cerrarModal('modalExpediente');
-    });
-
-
-
-    tour.start();
-
-    function abrirModal(id) {
-        const modal = document.getElementById(id);
-        if (modal) modal.classList.remove('hidden');
     }
 
-    function cerrarModal(id) {
-        const modal = document.getElementById(id);
-        if (modal) modal.classList.add('hidden');
-    }
-}
+    const feriados = ['2025-07-28','2025-07-29','2025-08-06','2025-08-30','2025-10-08' ,'2025-11-01','2025-12-08','2025-12-09','2025-12-25','2025-12-26']; 
+    const diasSemana = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
+    const codigosValidos = ['A', 'I', 'J', 'L', 'P', 'T', 'H', 'F'];
 
-
-
-
-const feriados = ['2025-07-28','2025-07-29','2025-08-06','2025-08-30']; 
-const diasSemana = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
-const codigosValidos = ['A', 'I', 'J', 'L', 'P', 'T', 'H', 'F'];
-
-const urlGuardarFirma = document.querySelector('meta[name="guardar-firma-url"]').content;
+    const urlGuardarFirma = document.querySelector('meta[name="guardar-firma-url"]').content;
 
     let firmaBase64 = null;
 
@@ -805,7 +896,6 @@ const urlGuardarFirma = document.querySelector('meta[name="guardar-firma-url"]')
         reader.readAsDataURL(file);
     }
 
-
     document.addEventListener('DOMContentLoaded', function () {
         const nroOficio = document.getElementById('oficio_guardado').value.trim();
         if (nroOficio) {
@@ -813,6 +903,7 @@ const urlGuardarFirma = document.querySelector('meta[name="guardar-firma-url"]')
             document.getElementById('btnOficio').innerText = 'Editar número de oficio';
         }
     });
+
     function openModal2() {
         const currentNro = document.getElementById('oficio_guardado').value.trim();
         document.getElementById('numeroOficio').value = currentNro;
@@ -851,13 +942,13 @@ const urlGuardarFirma = document.querySelector('meta[name="guardar-firma-url"]')
     }
 
 
-let dniActual = '';
-let fechaActual = new Date();
-let mes = fechaActual.getMonth() + 1;
-let anio = fechaActual.getFullYear();
-let numeroOficio = null;
-let numeroExpediente = null;
-let codActual = '';
+    let dniActual = '';
+    let fechaActual = new Date();
+    let mes = fechaActual.getMonth() + 1;
+    let anio = fechaActual.getFullYear();
+    let numeroOficio = null;
+    let numeroExpediente = null;
+    let codActual = '';
 
     function openModal(dni, nombres, cod) {
         dniActual = dni;
@@ -1045,9 +1136,26 @@ let codActual = '';
         const inputs = document.querySelectorAll('.asistencia-input');
         const diasEnMes = new Date(anio, mes, 0).getDate();
 
-        if (tipoObservacion === 'Licencia') {
-            const fInicio = document.getElementById('fechaInicioLicencia').value;
-            const fFin = document.getElementById('fechaFinLicencia').value;
+        if (tipoObservacion === 'Licencia' || 
+            tipoObservacion === 'Inasistencia' || 
+            tipoObservacion === 'PermisoSinGoce' || 
+            tipoObservacion === 'Vacaciones') {
+
+            let fInicio, fFin;
+
+            if (tipoObservacion === 'Licencia') {
+                fInicio = document.getElementById('fechaInicioLicencia').value;
+                fFin = document.getElementById('fechaFinLicencia').value;
+            } else if (tipoObservacion === 'Inasistencia') {
+                fInicio = document.getElementById('fechaInicioInasistencia').value;
+                fFin = document.getElementById('fechaFinInasistencia').value;
+            } else if (tipoObservacion === 'PermisoSinGoce') {
+                fInicio = document.getElementById('fechaInicioPermiso').value;
+                fFin = document.getElementById('fechaFinPermiso').value;
+            } else if (tipoObservacion === 'Vacaciones') {
+                fInicio = document.getElementById('fechaInicioVacaciones').value;
+                fFin = document.getElementById('fechaFinVacaciones').value;
+            }
 
             if (fInicio && fFin) {
                 const [anioI, mesI, diaI] = fInicio.split('-').map(Number);
@@ -1065,7 +1173,6 @@ let codActual = '';
 
                 for (let d = primerDia; d <= ultimoDia; d++) {
                     const celda = fila.querySelector(`.asistencia-celda[data-id="${dniActual}"][data-dia="${d}"]`);
-
                     if (celda) celda.remove();
                 }
 
@@ -1089,10 +1196,9 @@ let codActual = '';
                 }
 
             } else {
-                alert("Debe indicar el rango de fechas para la licencia.");
+                alert(`Debe indicar el rango de fechas para ${tipoObservacion}.`);
                 return;
             }
-
         } else if (observacion !== '') {
             let celda = fila.children[6];
             while (celda) {
@@ -1139,17 +1245,16 @@ let codActual = '';
     });
 
     // Guardar datos a la BD
-    document.getElementById('guardarTodo').addEventListener('click', function () {
-        // const numeroOficio = document.getElementById('oficio_guardado').value.trim();
-        // const numeroExpediente = document.getElementById('campoNumeroExpediente').value.trim();
+    document.getElementById('guardarTodo').addEventListener('click', async function () {
+        const boton = this;
+        const loader = document.getElementById('loader');
 
-        // if (!numeroOficio || !numeroExpediente) {
-        //     alert("Debe ingresar el número de oficio y expediente antes de guardar.");
-        //     return;
-        // }
+        // Deshabilitar botón y mostrar loader
+        boton.disabled = true;
+        boton.classList.add('opacity-50', 'cursor-not-allowed');
+        loader.classList.remove('hidden');
 
         const filas = document.querySelectorAll('tr[data-dni]');
-        
         const docentes = [];
 
         filas.forEach(fila => {
@@ -1166,53 +1271,48 @@ let codActual = '';
 
             const celdaObservacion = fila.querySelector('td[colspan]');
             if (celdaObservacion) {
-                observacion = celdaObservacion.textContent.trim();
+            observacion = celdaObservacion.textContent.trim();
             }
 
-            // Paso 1: Días con licencia
             let diasLicencia = [];
             if (tipo_observacion === "Licencia" && observacion) {
-                const match = observacion.match(/del\s+(\d{1,2})\s+al\s+(\d{1,2})/i);
-                if (match) {
-                    const inicio = parseInt(match[1], 10);
-                    const fin = parseInt(match[2], 10);
-                    for (let d = inicio; d <= fin; d++) {
-                        diasLicencia.push(d);
-                    }
+            const match = observacion.match(/del\s+(\d{1,2})\s+al\s+(\d{1,2})/i);
+            if (match) {
+                const inicio = parseInt(match[1], 10);
+                const fin = parseInt(match[2], 10);
+                for (let d = inicio; d <= fin; d++) {
+                diasLicencia.push(d);
                 }
             }
+            }
 
-            // Paso 2: Obtener número de días del mes actual
             const hoy = new Date();
             const anio = hoy.getFullYear();
             const mes = hoy.getMonth(); // Ej. 5 para junio
+            const diasEnMes = new Date(anio, mes + 1, 0).getDate();
 
-            const diasEnMes = new Date(anio, mes + 1, 0).getDate(); // Ej. 30
-
-            // Leer asistencia directamente desde el DOM
             for (let dia = 1; dia <= diasEnMes; dia++) {
-                const celda = fila.querySelector(`td[data-dia='${dia}']`);
-                const valorSpan = celda ? celda.querySelector('.asistencia-valor') : null;
-                let valor = valorSpan ? valorSpan.textContent.trim() : '';
+            const celda = fila.querySelector(`td[data-dia='${dia}']`);
+            const valorSpan = celda ? celda.querySelector('.asistencia-valor') : null;
+            let valor = valorSpan ? valorSpan.textContent.trim() : '';
 
-                if ((!valor || valor === '') && diasLicencia.includes(dia)) {
-                    valor = 'L'; // Forzar valor 'L' si está dentro del rango de licencia
-                }
+            if ((!valor || valor === '') && diasLicencia.includes(dia)) {
+                valor = 'L';
+            }
 
-                asistencia.push(valor || null);
-
+            asistencia.push(valor || null);
             }
 
             docentes.push({
-                dni,
-                nombres,
-                cargo,
-                condicion,
-                jornada,
-                cod,
-                asistencia,
-                observacion,
-                tipo_observacion
+            dni,
+            nombres,
+            cargo,
+            condicion,
+            jornada,
+            cod,
+            asistencia,
+            observacion,
+            tipo_observacion
             });
         });
 
@@ -1225,50 +1325,58 @@ let codActual = '';
             docentes: docentes
         };
 
-        fetch('{{ route("guardar.reporte.masivo") }}', {
+        try {
+            const response = await fetch('{{ route("guardar.reporte.masivo") }}', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': '{{ csrf_token() }}'
             },
             body: JSON.stringify(payload)
-        })
-        .then(async response => {
+            });
+
             const text = await response.text();
 
             if (!response.ok) {
-                console.error("Error HTTP:", response.status, text);
-                alert("Error del servidor (" + response.status + "). Ver consola para detalles.");
-                //location.reload();
-                return;
+            console.error("Error HTTP:", response.status, text);
+            alert("Error del servidor (" + response.status + "). Ver consola para detalles.");
+            return;
             }
 
             try {
-                const data = JSON.parse(text);
-                if (data.success) {
-                    alert("Guardado exitoso.");
-                } else {
-                    console.warn("Guardado con advertencias:", data);
-                    alert("Guardado con observaciones. Ver consola.");
-                }
-            } catch (e) {
-                console.error("No se pudo parsear JSON:", text);
-                alert("Guardado completado, pero la respuesta del servidor no fue JSON válido.");
+            const data = JSON.parse(text);
+            if (data.success) {
+                alert("Guardado exitoso.");
+            } else {
+                console.warn("Guardado con advertencias:", data);
+                alert("Guardado con observaciones. Ver consola.");
             }
-            //location.reload();
-        })
-        .catch(error => {
+            } catch (e) {
+            console.error("No se pudo parsear JSON:", text);
+            alert("Guardado completado, pero la respuesta del servidor no fue JSON válido.");
+            }
+
+        } catch (error) {
             console.error("Error de red o excepción del fetch:", error);
             alert("Guardado exitoso 111");
-            return false;
-
-        });
+        } finally {
+            // Siempre ocultar loader y habilitar botón
+            boton.disabled = false;
+            boton.classList.remove('opacity-50', 'cursor-not-allowed');
+            loader.classList.add('hidden');
+        }
     });
 
     // guardar el tipo de observacion
     document.getElementById('tipo_observacion').addEventListener('change', function () {
         const esLicencia = this.value === 'Licencia';
+        const esInasistencia = this.value === 'Inasistencia';
+        const esPermiso = this.value === 'PermisoSinGoce';
+        const esVacaciones = this.value === 'Vacaciones';
         const contenedor = document.getElementById('rangoFechasLicencia');
+        const contenedor2 = document.getElementById('rangoFechasInasistencia');
+        const contenedor3 = document.getElementById('rangoFechasPermisos');
+        const contenedor4 = document.getElementById('rangoFechasVacaciones');
 
         if (esLicencia) {
             contenedor.classList.remove('hidden');
@@ -1277,15 +1385,46 @@ let codActual = '';
             document.getElementById('fechaInicioLicencia').value = '';
             document.getElementById('fechaFinLicencia').value = '';
         }
+        if (esInasistencia) {
+            contenedor2.classList.remove('hidden');
+        } else {
+            contenedor2.classList.add('hidden');
+            document.getElementById('fechaInicioInasistencia').value = '';
+            document.getElementById('fechaFinInasistencia').value = '';
+        }
+        if (esPermiso) {
+            contenedor3.classList.remove('hidden');
+        } else {
+            contenedor3.classList.add('hidden');
+            document.getElementById('fechaInicioPermiso').value = '';
+            document.getElementById('fechaFinPermiso').value = '';
+        }
+        if (esVacaciones) {
+            contenedor4.classList.remove('hidden');
+        } else {
+            contenedor4.classList.add('hidden');
+            document.getElementById('fechaInicioVacaciones').value = '';
+            document.getElementById('fechaFinVacaciones').value = '';
+        }
     });
 
+    const tipoObservacion = document.getElementById('tipo_observacion');
+    const fechaInicio = document.getElementById('fechaInicioLicencia');
+    const fechaFin = document.getElementById('fechaFinLicencia');
+    const observacionTextarea = document.getElementById('observacion');
+    const contenedorFechas = document.getElementById('rangoFechasLicencia');
 
-const tipoObservacion = document.getElementById('tipo_observacion');
-const fechaInicio = document.getElementById('fechaInicioLicencia');
-const fechaFin = document.getElementById('fechaFinLicencia');
-const observacionTextarea = document.getElementById('observacion');
-const contenedorFechas = document.getElementById('rangoFechasLicencia');
+    const fechaInicioI = document.getElementById('fechaInicioInasistencia');
+    const fechaFinI = document.getElementById('fechaFinInasistencia');
+    const contenedorFechasI = document.getElementById('rangoFechasInasistencia');
 
+    const fechaInicioP = document.getElementById('fechaInicioPermiso');
+    const fechaFinP = document.getElementById('fechaFinPermiso');
+    const contenedorFechasP = document.getElementById('rangoFechasPermisos');
+
+    const fechaInicioV = document.getElementById('fechaInicioVacaciones');
+    const fechaFinV = document.getElementById('fechaFinVacaciones');
+    const contenedorFechasV = document.getElementById('rangoFechasVacaciones');
 
     tipoObservacion.addEventListener('change', function () {
         const isLicencia = this.value === 'Licencia';
@@ -1326,6 +1465,82 @@ const contenedorFechas = document.getElementById('rangoFechasLicencia');
         const [a, m, d] = fechaStr.split('-');
         return `${d}`;
     }
+
+    const opciones = {
+        Inasistencia: [
+            "Licencia por incapacidad temporal",
+            "Licencia por familiar directo con enfermedad grave o terminal o accidente grave",
+            "Licencia por maternidad",
+            "Licencia por paternidad",
+            "Licencia por adopción",
+            "Licencia por fallecimiento de padres, cónyuge o hijos",
+            "Licencia por siniestros",
+            "Licencia por estudios de posgrado, especialización o perfeccionamiento",
+            "Licencia por capacitación organizada por el Minedu o gobiernos regionales",
+            "Licencia por asumir representación oficial del Estado Peruano",
+            "Licencia por citación expresa, judicial, militar o policial",
+            "Licencia por representación sindical",
+            "Licencia por desempeño de cargos de consejero regional o regidor municipal",
+            "Licencia por asistencia médica y terapia de rehabilitación de personas con discapacidad",
+            "Licencia para realizar exámenes oncológicos preventivos anuales",
+            "Permiso por enfermedad",
+            "Permiso por maternidad",
+            "Permiso por lactancia",
+            "Permiso por capacitación oficializada",
+            "Permiso por citación expresa judicial, militar o policial",
+            "Permiso por onomástico",
+            "Permiso por el día del maestro",
+            "Permiso para ejercer docencia superior o universitaria",
+            "Permiso por representación sindical"
+        ],
+        Licencia: [
+            "Licencia por motivos particulares",
+            "Licencia por capacitación no oficializada",
+            "Licencia por desempeño de funciones públicas por elección o asumir cargos políticos o de confianza",
+            "Licencia por enfermedad grave de padres, cónyuge, conviviente reconocido judicialmente o hijos",
+            "Conclusión anticipada de la licencia"
+        ],
+        PermisoSinGoce: [
+            "Permiso por motivos particulares",
+            "Permiso por capacitación no oficializada",
+            "Permiso por enfermedad grave de padres, cónyuge, conviviente o hijos"
+        ],
+        Vacaciones: [
+            "Disposiciones generales",
+            "Programación de vacaciones",
+            "Reprogramación de vacaciones",
+            "Fraccionamiento del descanso vacacional",
+            "Adelanto del descanso vacacional",
+            "Vacaciones truncas"
+        ],
+        Cese: [
+            "Cese por límite de edad",
+            "Cese por invalidez",
+            "Cese por fallecimiento"
+        ],
+        AbandonoCargo: [
+            "Abandono injustificado de funciones"
+        ]
+    };
+
+    document.getElementById('tipo_observacion').addEventListener('change', function() {
+        const tipo = this.value;
+        const subSelect = document.getElementById('tipo_especifico');
+
+        subSelect.innerHTML = "";
+        if (opciones[tipo]) {
+            subSelect.disabled = false;
+            opciones[tipo].forEach(opt => {
+                const option = document.createElement('option');
+                option.value = opt;
+                option.textContent = opt;
+                subSelect.appendChild(option);
+            });
+        } else {
+            subSelect.disabled = true;
+            subSelect.innerHTML = '<option value="">-- Seleccione un tipo observación primero --</option>';
+        }
+    });
 
 </script>
 

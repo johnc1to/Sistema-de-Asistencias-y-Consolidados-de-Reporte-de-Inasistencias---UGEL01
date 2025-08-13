@@ -2,6 +2,10 @@
 
 @section('html')
 <script src="https://cdn.tailwindcss.com"></script>
+<!-- Intro.js CSS y JS -->
+<link rel="stylesheet" href="https://unpkg.com/intro.js@4.2.2/minified/introjs.min.css">
+<script src="https://unpkg.com/intro.js@4.2.2/minified/intro.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <style>
         #modalInasistencia {
             z-index: 9999; 
@@ -13,9 +17,11 @@
     <div class="w-full max-w-full mx-auto bg-white rounded-xl shadow-md p-6">
         <h1 class="text-2xl font-bold text-center mb-4 uppercase">ANEXO 04 - {{ mb_strtoupper(\Carbon\Carbon::now()->subMonth()->translatedFormat('F '), 'UTF-8') }}</h1>
         <h1 class="text-2xl font-bold text-center mb-4 uppercase">Formato 02: REPORTE CONSOLIDADO DE INASISTENCIAS, TARDANZAS Y PERMISOS SIN GOCE DE REMUNERACIONES</h1>
-
+        <button onclick="iniciarTutorial()" class="mb-4 px-4 py-2 bg-emerald-600 text-white rounded bg-violet-600 hover:bg-violet-700">
+            Ver tutorial
+        </button>
         <!-- Información de la institución y nivel -->
-        <div class="mb-4 flex flex-wrap justify-between items-center gap-4">
+        <div class="mb-4 flex flex-wrap justify-between items-center gap-4" data-step="1">
             <!-- Columna izquierda: UGEL, IE, Nivel -->
         <div class="flex-1 min-w-[250px]">
             <p class="text-sm font-medium">{{ $registros->first()->ugel ?? 'N/A' }}</p>
@@ -34,13 +40,20 @@
             <p class="text-sm font-medium">Turno: {{ $d_cod_tur }}</p>
         </div>
 
-        <button id="guardarTodoInasistencia" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+        <button id="guardarTodoInasistencia" type="button" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700" data-step="17">
             Guardar Reporte de Consolidado Masiva
         </button>
-
+        <div id="loader" class="hidden flex items-center justify-center space-x-2 text-blue-600 mt-4">
+                <svg class="animate-spin h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor"
+                        d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                </svg>
+                <span>Guardando asistencia...</span>
+        </div>
 
         <form method="GET" action="{{ url('/reporte_anexo04') }}" class="flex flex-wrap items-center gap-4">
-            <div class="flex items-center ml-auto">
+            <div class="flex items-center ml-auto" data-step="2">
                 <label for="nivel" class="text-sm font-medium mr-2">Nivel:</label>
                 <select id="nivel" name="nivel" onchange="this.form.submit()"
                         class="border border-gray-300 rounded px-2 py-1 text-sm"
@@ -54,7 +67,7 @@
         </div>
 
     <!-- Contenedor exclusivo para la tabla -->
-    <div class="mb-4">
+    <div class="mb-4" data-step="3">
         <div class="overflow-auto border rounded max-h-[500px] w-full">
             <div class="min-w-[1200px] w-full">
                 <table class="min-w-[1200px] w-full text-sm table-auto border-collapse">
@@ -135,7 +148,7 @@
                         data-jornada="{{ $r->jornada }}">
                         
                         <td class="border px-2 py-1">{{ $index + 1 }}</td>
-                        <td class="border px-2 py-1 cursor-pointer text-blue-500" onclick="abrirModalInasistencia('{{ $r->dni }}', '{{ $r->nombres }}')">{{ $r->dni }}</td>
+                        <td class="border px-2 py-1 cursor-pointer text-blue-500 dni-tour dni-tour-clickable" onclick="prepararYabrirModal('{{ $r->dni }}', '{{ $r->nombres }}')">{{ $r->dni }}</td>
                         <td class="border px-2 py-1 text-left">{{ $r->nombres }}</td>
                         <td class="border px-2 py-1">{{ $r->cargo }}</td>
                         <td class="border px-2 py-1">{{ $r->condicion }}</td>
@@ -173,7 +186,7 @@
     <div class="flex items-start gap-4">
 
     {{-- Botón ingresar oficio + vista previa --}}
-    <div class="flex flex-col items-center">
+    <div class="flex flex-col items-center" data-step="7">
         <button id="btnOficio" onclick="openModal2()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
             Ingresar número de oficio
         </button>
@@ -181,7 +194,7 @@
     </div>
     {{-- Firma: Botón y vista previa --}}
 
-    <div class="flex flex-col items-center">
+    <div class="flex flex-col items-center" data-step="11">
         <button onclick="openFirmaModal()"
             class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-700">
             Ingresar firma
@@ -194,21 +207,38 @@
             <img id="firmaPreview" src="" alt="Firma temporal" class="hidden mt-2" style="height: 80px;">
         @endif
     </div>
-    
-    {{-- Botón de exportar PDF --}}
-    <form id="exportarForm" method="POST" action="{{ route('inasistencia.exportar.pdf', ['nivel' => $nivelSeleccionado]) }}" target="_blank">
-        @csrf
-        <input type="hidden" name="numero_oficio" id="campoNumeroOficio">
-        <input type="hidden" name="firma_base64" id="campoFirmaBase64">
+<form id="exportarFormPreliminar" method="POST"
+      action="{{ route('inasistenciapreliminar.exportar.pdf', [
+          'mes' => $mes,
+          'anio' => $anio,
+          'codlocal' => $codlocal,
+          'nivel' => $nivelSeleccionado
+      ]) }}"
+      target="_blank">
+    @csrf
+    <input type="hidden" name="detalle_inasistencias" id="campoDetalleInasistencias">
+    <!-- <input type="hidden" name="firma_base64" id="campoFirmaBase64"> -->
+    <div class="flex flex-col items-center" data-step="16">
+        <button type="submit" onclick="antesDeExportarPreliminar()"
+            class="bg-sky-500 text-white px-4 py-2 rounded hover:bg-sky-600">
+            Exportar en PDF PRELIMINAR
+        </button>
+    </div>
+</form>
 
-        <div class="flex flex-col items-center">
-            <button type="submit"
-                onclick="antesDeExportar()"
-                class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">
-                Exportar en PDF
-            </button>
-        </div>
-    </form>
+<form id="exportarFormOficial" method="POST"
+      action="{{ route('inasistencia.exportar.pdf', ['nivel' => $nivelSeleccionado]) }}"
+      target="_blank">
+    @csrf
+    <input type="hidden" name="numero_oficio" id="campoNumeroOficio">
+    <input type="hidden" name="firma_base64" id="campoFirmaBase64">
+    <div class="flex flex-col items-center" data-step="16">
+        <button type="submit" onclick="antesDeExportar()"
+            class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">
+            Exportar en PDF
+        </button>
+    </div>
+</form>
 
     <!-- Botón ingresar expediente + vista previa -->
         <div class="flex flex-col items-center">
@@ -222,10 +252,10 @@
     {{-- CSRF para JS --}}
     <meta name="csrf-token" content="{{ csrf_token() }}">
     {{-- Campo oculto --}}
-    <input type="hidden" id="oficio_guardado">
+    <input type="hidden" id="oficio_guardado" value="{{ $numeroOficio ?? '' }}">
 
     {{-- Modal para subir la firma --}}
-    <div id="modalFirma" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 hidden">
+    <div id="modalFirma" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 hidden" data-step="12">
         <div class="bg-white rounded-lg shadow-lg w-full max-w-md p-6 relative">
             <h2 class="text-xl font-semibold mb-4 text-center">Subir firma</h2>
 
@@ -234,9 +264,9 @@
             </div>
 
             <input type="file" id="firmaInput" accept="image/*"
-                class="w-full border border-gray-300 rounded px-3 py-2 mb-4">
+                class="w-full border border-gray-300 rounded px-3 py-2 mb-4" data-step="13">
 
-            <div class="mb-4">
+            <div class="mb-4" data-step="14">
                 <label class="flex items-start space-x-2">
                     <input type="checkbox" id="guardarFirmaCheck" class="mt-1">
                     <span class="text-sm text-gray-700">
@@ -248,7 +278,7 @@
                 </label>
             </div>
 
-            <div class="flex justify-end space-x-2">
+            <div class="flex justify-end space-x-2" data-step="15">
                 <button onclick="closeFirmaModal()" class="bg-red-500 text-white hover:bg-red-600 px-4 py-2 rounded">Cancelar</button>
                 <button onclick="guardarFirma()" class="bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded">Guardar</button>
             </div>
@@ -256,7 +286,7 @@
     </div>
 
     <!-- Modal Oficio-->
-    <div id="modalOficio" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 hidden">
+    <div id="modalOficio" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 hidden" data-step="8">
         <div class="bg-white rounded-lg shadow-lg w-full max-w-md p-6 relative">
             <h2 class="text-xl font-semibold mb-4 text-center">Número de Oficio</h2>
 
@@ -266,9 +296,9 @@
             <input type="number" id="numeroOficio"
                     class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
                     oninput="this.value = this.value.replace(/[^0-9]/g, '')"
-                    min="0">
+                    min="0" data-step="9">
 
-            <div class="flex justify-end space-x-2">
+            <div class="flex justify-end space-x-2" data-step="10">
                 <button onclick="closeModal()" class="bg-red-500 text-white hover:bg-red-600 px-4 py-2 rounded">Cancelar</button>
                 <button onclick="guardarOficio()" class="bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded">Guardar</button>
             </div>
@@ -294,11 +324,16 @@
     <div id="modalInasistencia" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 hidden">
         <div class="bg-white w-full max-w-3xl rounded-lg shadow-lg p-0 relative flex flex-col max-h-[90vh]">
 
-            <!-- Cabecera fija -->
+            <!-- Cabecera fija mejorada -->
             <div class="p-4 border-b bg-white sticky top-0 z-10 shadow-sm">
-            <h2 class="text-base font-semibold">Registrar inasistencia para:</h2>
-            <div class="text-blue-600 font-bold text-sm" id="nombreDocente">—</div>
-            <input type="hidden" id="dniSeleccionado" name="dniSeleccionado">
+              <h2 class="text-base font-semibold">Registrar descuento en mérito al <strong>RSG-326-2017-MINEDU</strong> para:</h2>
+              <div class="text-blue-600 font-bold text-sm" id="nombreDocente">—</div>
+              <input type="hidden" id="dniSeleccionado" name="dniSeleccionado">
+
+              <!-- NUEVO: Estado de cumplimiento dinámico -->
+              <div id="estadoBloques" class="mt-2 text-sm text-gray-700 bg-yellow-100 border border-yellow-400 rounded p-2">
+                Estado de cumplimiento: <span id="resumenBloques">Correcto</span>
+              </div>
             </div>
 
             <!-- Contenido scrollable -->
@@ -307,14 +342,14 @@
             </div>
 
             <!-- Botón Añadir -->
-            <div class="px-6 pb-4 border-t bg-white sticky bottom-[70px] z-10">
+            <div class="px-6 pb-4 border-t bg-white sticky bottom-[70px] z-10" data-step="4">
             <button type="button" id="addDiaBtn" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 w-full">
                 + Añadir Consolidado 
             </button>
             </div>
 
             <!-- Footer fijo -->
-            <div class="flex justify-end gap-2 p-4 border-t bg-white sticky bottom-0 z-10">
+            <div class="flex justify-end gap-2 p-4 border-t bg-white sticky bottom-0 z-10" data-step="6">
             <button type="button" id="cerrarModalBtn" class="bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-500">Cancelar</button>
             <button type="button" id="guardarInasistenciaBtn" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Guardar</button>
             </div>
@@ -472,7 +507,37 @@
         document.getElementById('campoNumeroOficio').value = document.getElementById('oficio_guardado').value;
         document.getElementById('campoFirmaBase64').value = firmaBase64 ?? '';
     }
-    
+  
+    function antesDeExportarPreliminar() {
+      // Recorrer todos los inputs ocultos con detalle de inasistencia
+      const datos = [];
+      document.getElementById('campoFirmaBase64').value = firmaBase64 ?? '';
+      document.querySelectorAll('input.detalle-inasistencia-json').forEach(input => {
+          const dni = input.dataset.dni;
+          let detalle = {};
+          try {
+              detalle = JSON.parse(input.value || '{}');
+          } catch (e) {
+              console.warn("Error parseando JSON de " + dni, e);
+          }
+
+          const fila = document.querySelector(`tr[data-dni="${dni}"]`);
+          if (fila) {
+              datos.push({
+                  dni: dni,
+                  nombres: fila.dataset.nombres,
+                  cargo: fila.dataset.cargo,
+                  condicion: fila.dataset.condicion,
+                  jornada: fila.dataset.jornada,
+                  detalle: detalle
+              });
+          }
+      });
+
+      // Guardar en el campo oculto como string JSON
+      document.getElementById('campoDetalleInasistencias').value = JSON.stringify(datos);
+  }
+
     function getAllSelectedFechas(actualInput) {
       const fechas = [];
       document.querySelectorAll('.fecha-dia').forEach(input => {
@@ -490,6 +555,7 @@
       fecha.setMonth(fecha.getMonth() - 1);
       return fecha;
     }
+const listaFeriados = ["2025-07-28","2025-07-29","2025-08-06","2025-08-30","2025-10-08" ,"2025-11-01","2025-12-08","2025-12-09","2025-12-25","2025-12-26"];
 
 document.addEventListener('DOMContentLoaded', function () {
   const modal = document.getElementById('modalInasistencia');
@@ -501,61 +567,134 @@ document.addEventListener('DOMContentLoaded', function () {
   const nombreSpan = document.getElementById('nombreDocente');
   const dniInput = document.getElementById('dniSeleccionado');
 
- window.abrirModalInasistencia = function(dni, nombre, datos = []) {
+    const bloques = [
+    { tipo: "GESTIÓN", inicio: "2025-03-03", fin: "2025-03-14" },
+    { tipo: "LECTIVA",  inicio: "2025-03-17", fin: "2025-05-16" },
+    { tipo: "GESTIÓN", inicio: "2025-05-19", fin: "2025-05-23" },
+    { tipo: "LECTIVA",  inicio: "2025-05-26", fin: "2025-07-25" },
+    { tipo: "GESTIÓN", inicio: "2025-07-28", fin: "2025-08-08" },
+    { tipo: "LECTIVA",  inicio: "2025-08-11", fin: "2025-10-10" },
+    { tipo: "GESTIÓN", inicio: "2025-10-13", fin: "2025-10-17" },
+    { tipo: "LECTIVA",  inicio: "2025-10-20", fin: "2025-12-19" },
+    { tipo: "GESTIÓN", inicio: "2025-12-22", fin: "2025-12-31" }
+  ];
+  function detectarBloque(fechaStr) {
+    const fecha = new Date(fechaStr);
+    for (let bloque of bloques) {
+      const inicio = new Date(bloque.inicio);
+      const fin = new Date(bloque.fin);
+      if (fecha >= inicio && fecha <= fin) {
+        return bloque.tipo;
+      }
+    }
+    return null; 
+  }
+
+  let conteoBloques = { "GESTIÓN": 0, "LECTIVA": 0 };
+  function esDiaNoLaborable(fechaStr) {
+    const fecha = new Date(fechaStr + 'T00:00:00'); 
+    const diaSemana = fecha.getDay(); 
+
+    const esFinDeSemana = (diaSemana === 0 || diaSemana === 6);
+    const esFeriado = listaFeriados.includes(fechaStr);
+
+    return esFinDeSemana || esFeriado;
+  }
+
+  function actualizarResumenBloques(fechas, contenedor) {
+    let conteoBloques = { "GESTIÓN": 0, "LECTIVA": 0 };
+
+    fechas.forEach(f => {
+      if (!esDiaNoLaborable(f)) {
+        const tipo = detectarBloque(f);
+        if (tipo && conteoBloques[tipo] !== undefined) {
+          conteoBloques[tipo]++;
+        }
+      }
+    });
+
+    const totalLectiva = conteoBloques["LECTIVA"];
+    const totalGestion = conteoBloques["GESTIÓN"];
+
+    const estado = [];
+
+    if (totalLectiva > 0 && totalLectiva < 5) estado.push("Incumple semana lectiva");
+    if (totalGestion > 0 && totalGestion < 5) estado.push("Incumple semana de gestión");
+
+    let resumen = `Inasistencias válidas — Gestión: ${totalGestion} día(s), Lectiva: ${totalLectiva} día(s).`;
+    
+    const estadoBloques = document.getElementById("estadoBloques");
+    const resumenBloques = document.getElementById("resumenBloques");
+
+    if (totalLectiva === 0 && totalGestion === 0) {
+      resumen = "✅ Cumple con ambas semanas. Sin inasistencias válidas.";
+      estadoBloques.className = "mt-2 text-sm text-green-700 bg-green-100 border border-green-400 rounded p-2";
+    } else if (estado.length > 0) {
+      resumen += ` ⚠️ ${estado.join(" e ")}`;
+      estadoBloques.className = "mt-2 text-sm text-yellow-700 bg-yellow-100 border border-red-400 rounded p-2";
+    } else {
+      resumen += ` ⚠️ Tiene inasistencias, que incumple semanas completas.`;
+      estadoBloques.className = "mt-2 text-sm text-red-800 bg-red-100 border border-yellow-400 rounded p-2";
+    }
+
+    resumenBloques.innerText = resumen;
+  }
+
+  function getFechasSeleccionadas() {
+    const entradas = container.querySelectorAll('.dia-entry');
+    const todasFechas = [];
+
+    entradas.forEach(entry => {
+      const tipo = entry.querySelector('.tipo-dia').value;
+      const fechaInput = entry.querySelector('.fecha-dia');
+      const fechas = fechaInput.value.split(',').map(f => f.trim()).filter(f => f);
+      todasFechas.push(...fechas);
+    });
+
+    
+    return [...new Set(todasFechas)];
+  }
+
+  window.abrirModalInasistencia = function(dni, nombre, datos = []) {
   dniInput.value = dni;
   nombreSpan.textContent = nombre;
 
-  // Destruir flatpickr de todos los inputs dentro del container antes de limpiar
+  // Resetear estado
+  document.getElementById('resumenBloques').textContent = 'Correcto';
   container.querySelectorAll('.fecha-dia').forEach(input => {
     if (input._flatpickr) {
       input._flatpickr.destroy();
     }
   });
+  container.innerHTML = '';
 
-  container.innerHTML = ''; // limpiar entradas anteriores
-
-  // Por cada entrada, agregar un bloque con las fechas y tipo que corresponden
-  datos.forEach(({fecha, tipo, horas = 0, minutos = 0}) => {
+  // Cargar datos del docente
+  datos.forEach(({ fecha, tipo, horas = 0, minutos = 0 }) => {
     const newEntry = document.createElement('div');
     newEntry.innerHTML = template(fecha, tipo, horas, minutos);
     container.appendChild(newEntry);
 
     const fechaInput = newEntry.querySelector('.fecha-dia');
-    const tipoSelect = newEntry.querySelector('.tipo-dia');
-    const detalle = newEntry.querySelector('.detalle-dia');
 
-    // Inicializar flatpickr para este input con fechas y tipo
     flatpickr(fechaInput, {
       mode: (tipo === 'inasistencia' || tipo === 'huelga') ? "multiple" : "single",
       dateFormat: "Y-m-d",
       locale: 'es',
       defaultDate: (tipo === 'inasistencia' || tipo === 'huelga') ? fecha : (fecha && fecha.length > 0 ? fecha[0] : null),
-      disable: getAllSelectedFechas(fechaInput),
-      onOpen: function(_, __, instance) {
-        instance.set('disable', getAllSelectedFechas(fechaInput));
-      
+      disable: getAllSelectedFechas( fechaInput),
+      onOpen: function (_, __, instance) {
+        instance.set('disable', getAllSelectedFechas( fechaInput));
       },
-      onReady: function(selectedDates, _, instance) {
-        const baseFecha = selectedDates.length > 0 ? selectedDates[0] : new Date();
-        const mostrarFecha = restarUnMes(baseFecha);
-        instance.jumpToDate(mostrarFecha);
+      onChange: function () {
+        actualizarResumenBloques(getFechasSeleccionadas(), document.getElementById('modalInasistencia'));
       }
     });
-
-    if (tipo === 'tardanza' || tipo === 'permiso_sg') {
-      detalle.classList.remove('hidden');
-      detalle.querySelector('.horas-dia').value = horas;
-      detalle.querySelector('.minutos-dia').value = minutos;
-    } else {
-      detalle.classList.add('hidden');
-    }
   });
+  
+  actualizarResumenBloques(getFechasSeleccionadas(), document.getElementById('modalInasistencia'));
 
-
-    modal.classList.remove('hidden');
+  modal.classList.remove('hidden');
   };
-
-
 
   cerrarBtn.addEventListener('click', () => {
     modal.classList.add('hidden');
@@ -564,27 +703,24 @@ document.addEventListener('DOMContentLoaded', function () {
   const template = (fechas = [], tipo = '', horas = 0, minutos = 0) => {
   const idFecha = `fecha-${Date.now()}`;
   return `
-    <div class="dia-entry border p-4 rounded bg-gray-50 relative">
+    <div class="dia-entry border p-4 rounded bg-gray-50 relative" data-step="5">
       <button type="button" class="remove-dia-entry absolute top-2 right-2 text-red-500 hover:text-red-700 text-sm">✕</button>
 
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm items-end">
-        <div class="fecha-wrapper">
-          <label>Fecha:</label>
-          <input type="date" name="fecha[]" class="fecha-dia w-full border rounded p-2" placeholder="Seleccione fecha(s)" required>
-
-        </div>
-
         <div>
-          <label>Tipo de inasistencia:</label>
+          <label>Tipo de descuento:</label>
           <select name="tipo[]" class="tipo-dia w-full border rounded p-2" required>
             <option value="">-- Seleccione --</option>
-            <option value="inasistencia" ${tipo === 'inasistencia' ? 'selected' : ''}>Inasistencia</option>
-            <option value="tardanza" ${tipo === 'tardanza' ? 'selected' : ''}>Tardanza</option>
-            <option value="permiso_sg" ${tipo === 'permiso_sg' ? 'selected' : ''}>Permiso SG</option>
+            <option value="inasistencia" ${tipo === 'inasistencia' ? 'selected' : ''}>Inasistencias</option>
+            <option value="tardanza" ${tipo === 'tardanza' ? 'selected' : ''}>Tardanzas</option>
+            <option value="permiso_sg" ${tipo === 'permiso_sg' ? 'selected' : ''}>Permisos SG</option>
             <option value="huelga" ${tipo === 'huelga' ? 'selected' : ''}>Huelga/Paro</option>
           </select>
         </div>
-
+        <div class="fecha-wrapper">
+          <label>Fecha:</label>
+          <input type="date" name="fecha[]" class="fecha-dia w-full border rounded p-2" placeholder="Seleccione fecha(s)" required>
+        </div>
         <div class="detalle-dia flex gap-4 ${tipo === 'tardanza' || tipo === 'permiso_sg' ? '' : 'hidden'}">
           <div class="flex flex-col w-1/2">
               <label class="text-sm font-medium mb-1">Horas:</label>
@@ -609,20 +745,27 @@ document.addEventListener('DOMContentLoaded', function () {
     const tipoSelect = newEntry.querySelector('.tipo-dia');
     const fechaInput = newEntry.querySelector('.fecha-dia');
 
-    // Inicializar con modo simple inicialmente
-    flatpickr(fechaInput, {
-      dateFormat: "Y-m-d",
-      locale: 'es',
-      disable: getAllSelectedFechas(fechaInput),
-      onOpen: function(_, __, instance) {
-        instance.set('disable', getAllSelectedFechas(fechaInput));
-      },
-      onReady: function(selectedDates, _, instance) {
-        const baseFecha = selectedDates.length > 0 ? selectedDates[0] : new Date();
-        const mostrarFecha = restarUnMes(baseFecha);
-        instance.jumpToDate(mostrarFecha);
-      }
-    });
+      // Inicializar con modo simple inicialmente
+      flatpickr(fechaInput, {
+        dateFormat: "Y-m-d",
+        locale: 'es',
+        disable: getAllSelectedFechas(fechaInput),
+        onOpen: function(_, __, instance) {
+          instance.set('disable', getAllSelectedFechas(fechaInput));
+        },
+        onReady: function(selectedDates, _, instance) {
+          const baseFecha = selectedDates.length > 0 ? selectedDates[0] : new Date();
+          const mostrarFecha = restarUnMes(baseFecha);
+          instance.jumpToDate(mostrarFecha);
+        },
+        onChange: function () {
+          const fechas = getFechasSeleccionadas();
+          const modalContainer = document.getElementById('modalInasistencia');
+
+          actualizarResumenBloques(fechas, modalContainer);
+        }
+
+      });
 
     tipoSelect.addEventListener('change', () => {
       const tipo = tipoSelect.value;
@@ -639,12 +782,16 @@ document.addEventListener('DOMContentLoaded', function () {
           const baseFecha = selectedDates.length > 0 ? selectedDates[0] : new Date();
           const mostrarFecha = restarUnMes(baseFecha);
           instance.jumpToDate(mostrarFecha);
+        },
+        onChange: function () {
+          const fechas = getFechasSeleccionadas();
+          const modalContainer = document.getElementById('modalInasistencia');
+
+          actualizarResumenBloques(fechas, modalContainer);
         }
       });
     });
   });
-
-
 
   container.addEventListener('change', function (e) {
       if (e.target.classList.contains('tipo-dia')) {
@@ -668,6 +815,12 @@ document.addEventListener('DOMContentLoaded', function () {
               const baseFecha = selectedDates.length > 0 ? selectedDates[0] : new Date();
               const mostrarFecha = restarUnMes(baseFecha);
               instance.jumpToDate(mostrarFecha);
+            },
+            onChange: function () {
+              const fechas = getFechasSeleccionadas();
+              const modalContainer = document.getElementById('modalInasistencia');
+
+              actualizarResumenBloques(fechas, modalContainer);
             }
           });
 
@@ -688,12 +841,16 @@ document.addEventListener('DOMContentLoaded', function () {
               const baseFecha = selectedDates.length > 0 ? selectedDates[0] : new Date();
               const mostrarFecha = restarUnMes(baseFecha);
               instance.jumpToDate(mostrarFecha);
+            },
+            onChange: function () {
+              const fechas = getFechasSeleccionadas();
+              const modalContainer = document.getElementById('modalInasistencia');
+              actualizarResumenBloques(fechas, modalContainer);
             }
           });
         }
       }
     });
-
 
     // Eliminar entrada de inasistencia (delegado al container)
     container.addEventListener('click', function (e) {
@@ -780,145 +937,168 @@ document.addEventListener('DOMContentLoaded', function () {
       if (inputDetalle) {
         inputDetalle.value = JSON.stringify(detalle);
       }
-      // Mostrar en consola el detalle completo por si quieres revisar
-        console.log('Detalle generado para DNI:', dni, detalle);
       modal.classList.add('hidden');
     });
 });
 
+window.prepararYabrirModal = function(dni, nombre) {
+    const inputDetalle = document.querySelector(`input.detalle-inasistencia-json[data-dni="${dni}"]`);
+    let datos = [];
 
-document.getElementById('guardarTodoInasistencia').addEventListener('click', async () => {
-  const filas = document.querySelectorAll('tbody tr[data-dni]');
-  const data = [];
+    if (inputDetalle && inputDetalle.value) {
+        try {
+            const detalle = JSON.parse(inputDetalle.value);
 
-  // Solo un modal con id
-  const modal = document.getElementById('modalInasistencia');
-  const dniModal = modal ? modal.querySelector('#dniSeleccionado').value : null;
-  // const numeroOficio = document.getElementById('oficio_guardado').value.trim();
-  // const numeroExpediente = document.getElementById('campoNumeroExpediente').value.trim();
-
-  //   if (!numeroOficio || !numeroExpediente) {
-  //     alert("Debe ingresar el número de oficio y expediente antes de guardar.");
-  //     return;
-  //    }  
-  
-  filas.forEach(tr => {
-    const dni = tr.dataset.dni;
-    const nombres = tr.dataset.nombres;
-    const cargo = tr.dataset.cargo;
-    const condicion = tr.dataset.condicion;
-    const jornada = tr.dataset.jornada;
-
-    const persona = { dni, nombres, cargo, condicion, jornada };
-
-    const inasistencias = {
-      inasistencia: [],
-      tardanza: [],
-      permiso_sg: [],
-      huelga: [],
-      inasistencia_total: 0,
-      huelga_total: 0,
-      tardanza_total: { horas: 0, minutos: 0 },
-      permiso_sg_total: { horas: 0, minutos: 0 },
-      detalle: {
-        inasistencia: [],
-        tardanza: [],
-        permiso_sg: [],
-        huelga: []
-      }
-    };
-
-    let horasTardanza = 0;
-    let minutosTardanza = 0;
-    let horasPermiso = 0;
-    let minutosPermiso = 0;
-    let obs = '';
-
-    tr.querySelectorAll('[data-tipo]').forEach(td => {
-      const tipo = td.dataset.tipo;
-      const valor = td.textContent.trim();
-
-      if (tipo === 'inasistencias_dias') {
-        inasistencias.inasistencia_total = parseInt(valor) || 0;
-      } else if (tipo === 'tardanzas_horas') {
-        horasTardanza = parseInt(valor) || 0;
-      } else if (tipo === 'tardanzas_minutos') {
-        minutosTardanza = parseInt(valor) || 0;
-      } else if (tipo === 'permisos_sg_horas') {
-        horasPermiso = parseInt(valor) || 0;
-      } else if (tipo === 'permisos_sg_minutos') {
-        minutosPermiso = parseInt(valor) || 0;
-      } else if (tipo === 'huelga_paro_dias') {
-        inasistencias.huelga_total = parseInt(valor) || 0;
-      } else if (tipo === 'observaciones') {
-        obs = valor;
-      }
-    });
-
-    
-    inasistencias.tardanza_total = { horas: horasTardanza, minutos: minutosTardanza };
-    inasistencias.permiso_sg_total = { horas: horasPermiso, minutos: minutosPermiso };
-
-    // Solo si el modal está abierto y corresponde a este DNI, extraer detalle
-    if (modal && dniModal === dni) {
-      const detalles = modal.querySelectorAll('.dia-entry');
-
-      inasistencias.detalle = {
-        inasistencia: [],
-        tardanza: [],
-        permiso_sg: [],
-        huelga: []
-      };
-
-      detalles.forEach(entry => {
-        const fechaInput = entry.querySelector('.fecha-dia');
-        const tipoInput = entry.querySelector('.tipo-dia');
-        const horasInput = entry.querySelector('.horas-dia');
-        const minutosInput = entry.querySelector('.minutos-dia');
-
-        const tipo = tipoInput.value;
-        if (!tipo) return;
-
-        const fecha = fechaInput.value.trim();
-        if (!fecha) return;
-
-        if (tipo === 'inasistencia' || tipo === 'huelga') {
-          const fechas = fecha.split(',').map(f => f.trim()).filter(f => f);
-          inasistencias[tipo].push(...fechas);
-          inasistencias.detalle[tipo].push(...fechas);
-        } else if (tipo === 'tardanza' || tipo === 'permiso_sg') {
-          const obj = {
-            fecha,
-            horas: parseInt(horasInput.value) || 0,
-            minutos: parseInt(minutosInput.value) || 0
-          };
-          inasistencias[tipo].push(obj);
-          inasistencias.detalle[tipo].push(obj);
+            if (detalle.inasistencia) {
+                detalle.inasistencia.forEach(f => datos.push({ fecha: f, tipo: 'inasistencia' }));
+            }
+            if (detalle.huelga) {
+                detalle.huelga.forEach(f => datos.push({ fecha: f, tipo: 'huelga' }));
+            }
+            if (detalle.tardanza) {
+                detalle.tardanza.forEach(({ fecha, horas, minutos }) => {
+                    if (fecha) {
+                        datos.push({ fecha: [fecha], tipo: 'tardanza', horas, minutos });
+                    }
+                });
+            }
+            if (detalle.permiso_sg) {
+                detalle.permiso_sg.forEach(({ fecha, horas, minutos }) => {
+                    if (fecha) {
+                        datos.push({ fecha: [fecha], tipo: 'permiso_sg', horas, minutos });
+                    }
+                });
+            }
+        } catch (e) {
+            console.warn('No se pudo parsear JSON de inasistencia:', e);
         }
-      });
-
-      const obsInput = modal.querySelector('.observaciones-textarea');
-      if (obsInput) obs = obsInput.value.trim();
     }
 
-    console.log(`Detalle FINAL enviado para DNI ${dni}:`, inasistencias.detalle);
+    abrirModalInasistencia(dni, nombre, datos);
 
-    data.push({
-      persona,
-      inasistencia: inasistencias,
-      observacion: obs,
-      detalle: inasistencias.detalle
-    });
-  });
+    try {
+        let conteoBloques = { "GESTIÓN": 0, "LECTIVA": 0 };
 
-  console.log('Datos que se enviarán al backend:', {
-    mes: {{ $mes }},
-    anio: {{ $anio }},
-    codlocal: '{{ $codlocal }}',
-    nivel: '{{ $nivel }}',
-    personas: data
-  });
+        datos.forEach(d => {
+            if (!esDiaNoLaborable(d.fecha)) {
+                const tipo = detectarBloque(d.fecha);
+                if (tipo && conteoBloques[tipo] !== undefined) {
+                    conteoBloques[tipo]++;
+                }
+            }
+        });
+
+        const totalLectiva = conteoBloques["LECTIVA"];
+        const totalGestion = conteoBloques["GESTIÓN"];
+        const estado = [];
+
+        if (totalLectiva > 0 && totalLectiva < 5) estado.push("Incumple semana lectiva");
+        if (totalGestion > 0 && totalGestion < 5) estado.push("Incumple semana de gestión");
+
+        let resumen = `Inasistencias válidas — Gestión: ${totalGestion} día(s), Lectiva: ${totalLectiva} día(s).`;
+
+        const estadoBloques = document.getElementById("estadoBloques");
+        const resumenBloques = document.getElementById("resumenBloques");
+
+        if (estadoBloques && resumenBloques) {
+            if (totalLectiva === 0 && totalGestion === 0) {
+                resumen = "✅ Cumple con las semanas.";
+                estadoBloques.className = "mt-2 text-sm text-green-700 bg-green-100 border border-green-400 rounded p-2";
+            } else if (estado.length > 0) {
+                resumen += ` ⚠️ ${estado.join(" e ")}`;
+                estadoBloques.className = "mt-2 text-sm text-yellow-700 bg-yellow-100 border border-red-400 rounded p-2";
+            } else {
+                resumen += ` ⚠️ Tiene inasistencias, que incumple semanas completas.`;
+                estadoBloques.className = "mt-2 text-sm text-red-800 bg-red-100 border border-yellow-400 rounded p-2";
+            }
+
+            resumenBloques.innerText = resumen;
+        }
+    } catch (err) {
+        console.warn("Error al calcular resumen de bloques:", err);
+    }
+};
+
+document.getElementById('guardarTodoInasistencia').addEventListener('click', async function () {
+  const boton = this;
+  const loader = document.getElementById('loader');
+
+  boton.disabled = true;
+  boton.classList.add('opacity-50', 'cursor-not-allowed');
+  loader.classList.remove('hidden');
+
   try {
+    const filas = document.querySelectorAll('tbody tr[data-dni]');
+    const data = [];
+
+    const modal = document.getElementById('modalInasistencia');
+    const dniModal = modal ? modal.querySelector('#dniSeleccionado').value : null;
+
+    filas.forEach(tr => {
+      const dni = tr.dataset.dni;
+      const nombres = tr.dataset.nombres;
+      const cargo = tr.dataset.cargo;
+      const condicion = tr.dataset.condicion;
+      const jornada = tr.dataset.jornada;
+
+      const persona = { dni, nombres, cargo, condicion, jornada };
+
+      const inasistencias = {
+        inasistencia: [],
+        tardanza: [],
+        permiso_sg: [],
+        huelga: [],
+        inasistencia_total: 0,
+        huelga_total: 0,
+        tardanza_total: { horas: 0, minutos: 0 },
+        permiso_sg_total: { horas: 0, minutos: 0 },
+        detalle: { inasistencia: [], tardanza: [], permiso_sg: [], huelga: [] }
+      };
+
+      let horasTardanza = 0;
+      let minutosTardanza = 0;
+      let horasPermiso = 0;
+      let minutosPermiso = 0;
+      let obs = '';
+
+      tr.querySelectorAll('[data-tipo]').forEach(td => {
+        const tipo = td.dataset.tipo;
+        const valor = td.textContent.trim();
+
+        if (tipo === 'inasistencias_dias') inasistencias.inasistencia_total = parseInt(valor) || 0;
+        else if (tipo === 'tardanzas_horas') horasTardanza = parseInt(valor) || 0;
+        else if (tipo === 'tardanzas_minutos') minutosTardanza = parseInt(valor) || 0;
+        else if (tipo === 'permisos_sg_horas') horasPermiso = parseInt(valor) || 0;
+        else if (tipo === 'permisos_sg_minutos') minutosPermiso = parseInt(valor) || 0;
+        else if (tipo === 'huelga_paro_dias') inasistencias.huelga_total = parseInt(valor) || 0;
+        else if (tipo === 'observaciones') obs = valor;
+      });
+
+      inasistencias.tardanza_total = { horas: horasTardanza, minutos: minutosTardanza };
+      inasistencias.permiso_sg_total = { horas: horasPermiso, minutos: minutosPermiso };
+
+      const inputDetalle = document.querySelector(`input.detalle-inasistencia-json[data-dni="${dni}"]`);
+      if (inputDetalle && inputDetalle.value) {
+        try {
+          const detalleGuardado = JSON.parse(inputDetalle.value);
+          inasistencias.detalle = detalleGuardado;
+          inasistencias.inasistencia = detalleGuardado.inasistencia || [];
+          inasistencias.tardanza = detalleGuardado.tardanza || [];
+          inasistencias.permiso_sg = detalleGuardado.permiso_sg || [];
+          inasistencias.huelga = detalleGuardado.huelga || [];
+        } catch (e) {
+          console.warn('No se pudo parsear detalle guardado:', e);
+        }
+      }
+
+      data.push({
+        persona,
+        inasistencia: inasistencias,
+        observacion: obs,
+        detalle: inasistencias.detalle
+      });
+    });
+
     const response = await fetch('{{ route("anexo04.storeMasivo") }}', {
       method: 'POST',
       headers: {
@@ -938,18 +1118,21 @@ document.getElementById('guardarTodoInasistencia').addEventListener('click', asy
 
     if (response.ok) {
       alert('Guardado correctamente.');
-      location.reload();
     } else {
       const error = await response.json();
       console.error('Error en respuesta:', error);
       alert('Error al guardar: ' + error.message);
     }
+
   } catch (error) {
     console.error('Error en fetch:', error);
     alert('Error en la comunicación: ' + error.message);
+  } finally {
+    boton.disabled = false;
+    boton.classList.remove('opacity-50', 'cursor-not-allowed');
+    loader.classList.add('hidden');
   }
 });
-
 
 
 

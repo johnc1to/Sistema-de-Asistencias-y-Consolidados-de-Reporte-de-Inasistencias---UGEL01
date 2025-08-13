@@ -142,7 +142,7 @@
                                 // Buscar el rango continuo de 'L'
                                 for ($j = $d + 1; $j <= $diasEnMes; $j++) {
                                     $valorSiguiente = $asistencia[$j - 1] ?? '';
-                                    if ($valorSiguiente === 'L' || $valorSiguiente === null || trim($valorSiguiente) === '') {
+                                    if ($valorSiguiente === 'L') {
                                         $fin = $j;
                                     } else {
                                         break;
@@ -168,7 +168,7 @@
                                     $estilo = 'text-align: center;';
 
                                     if ($esFeriado) {
-                                        $estilo .= 'background-color:rgb(239, 252, 205);'; // Rojo claro
+                                        $estilo .= 'background-color:rgb(239, 252, 205);'; // Amarillo claro
                                     } elseif ($esFinDeSemana) {
                                         $estilo .= 'background-color:rgb(198, 201, 204);'; // Gris claro
                                     }

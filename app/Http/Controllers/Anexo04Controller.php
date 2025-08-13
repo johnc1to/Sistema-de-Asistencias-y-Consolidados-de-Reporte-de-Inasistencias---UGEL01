@@ -132,10 +132,9 @@ class Anexo04Controller extends Controller
             ->whereIn('id_anexo04', $idsAnexo04)
             ->get()
             ->mapWithKeys(function ($item) {
-                // Primera decodificación
+                
                 $json = json_decode($item->persona_json);
 
-                // Si el resultado aún es un string, hacer segunda decodificación
                 if (is_string($json)) {
                     $json = json_decode($json);
                 }
@@ -152,7 +151,6 @@ class Anexo04Controller extends Controller
             ->get()
             ->mapWithKeys(function ($item) {
                 $decoded = json_decode($item->inasistencia, true);
-                // Si $decoded sigue siendo string (JSON anidado), decodifica otra vez
                 if (is_string($decoded)) {
                     $decoded = json_decode($decoded, true);
                 }
@@ -204,7 +202,6 @@ class Anexo04Controller extends Controller
 
             return $persona;
         });
-
 
             return view('reporteAnexo04.formulario04', [
                 'registros' => $filtrados,
@@ -423,6 +420,185 @@ class Anexo04Controller extends Controller
     }
 
 
+    public function exportarInasistenciaPDFPreliminar(Request $request)
+    {
+        $director = session('siic01');
+        $firmaBase64 = $request->input('firma_base64');
+        
+        if (!$director || empty($director['conf_permisos'][0]['codlocal'])) {
+            return redirect()->back()->with('error', 'No se encontró la sesión del director o el codlocal.');
+        }
+
+        $codlocal = $director['conf_permisos'][0]['codlocal'];
+
+        // Datos institución
+        $institucion = Iiee_a_evaluar_rie::select('modalidad', 'institucion')->where('codlocal', $codlocal)->first();
+        $d_cod_tur = DB::table('escale')->where('codlocal', $codlocal)->value('d_cod_tur');
+        $logoBD = Iiee_a_evaluar_rie::where('codlocal', $codlocal)->value('logo');
+        $nombreLogo = $logoBD ? basename($logoBD) : null;
+        $rutaLogoWeb = $nombreLogo ? 'storage/logoie/' . $nombreLogo : null;
+
+        $firmaGuardada = DB::connection('siic_anexos')->table('anexo03')
+            ->where('id_contacto', $director['id_contacto'])
+            ->value('firma');
+
+        $anio = now()->subMonth()->year;
+        $mes = now()->subMonth()->month;
+
+        // Personal de la IE
+        $personal = DB::table('nexus')
+            ->select(
+                'nexus.numdocum as dni',
+                DB::raw("CONCAT(nexus.apellipat, ' ', nexus.apellimat, ', ', nexus.nombres) as nombres"),
+                'nexus.descargo as cargo',
+                'nexus.situacion as condicion',
+                'nexus.jornlab as jornada',
+                'nexus.descniveduc as nivel'
+            )
+            ->where('nexus.codlocal', $codlocal)
+            ->whereNotNull('nexus.numdocum')
+            ->where('nexus.numdocum', '!=', 'VACANTE')
+            ->where('nexus.situacion', '!=', 'VACANTE')
+            ->where('nexus.estado', 1)
+            ->get();
+
+        $niveles = $personal->pluck('nivel')->unique()->sort()->values();
+
+        // Traer registros con resumen y detalle
+        $registros = Anexo04Inasistencia::whereHas('persona.anexo04', function($q) use ($mes, $anio, $codlocal) {
+                $q->where('mes', $mes)
+                ->where('anio', $anio)
+                ->where('codlocal', $codlocal);
+            })
+            ->with(['persona' => function($q) {
+                $q->select('id', 'persona_json');
+            }])
+            ->get();
+
+        // Mapear datos inasistencias con detalle
+        $datosInasistenciaPorDni = [];
+        foreach ($registros as $r) {
+            $persona_data = json_decode($r->persona->persona_json, true);
+            $dni = $persona_data['dni'] ?? null;
+            if (!$dni) continue;
+
+            $resumen = json_decode($r->inasistencia, true) ?? [];
+            $detalle = json_decode($r->detalle, true) ?? [
+                'inasistencia' => [],
+                'tardanza' => [],
+                'permiso_sg' => [],
+                'huelga' => [],
+            ];
+
+            $datosInasistenciaPorDni[$dni] = [
+                'inasistencia_total' => $resumen['inasistencia_total'] ?? 0,
+                'huelga_total' => $resumen['huelga_total'] ?? 0,
+                'tardanza_total' => $resumen['tardanza_total'] ?? ['horas' => 0, 'minutos' => 0],
+                'permiso_sg_total' => $resumen['permiso_sg_total'] ?? ['horas' => 0, 'minutos' => 0],
+
+                // Detalles por fecha
+                'inasistencia_fechas' => $detalle['inasistencia'] ?? [],
+                'tardanza_fechas' => $detalle['tardanza'] ?? [],
+                'permiso_sg_fechas' => $detalle['permiso_sg'] ?? [],
+                'huelga_fechas' => $detalle['huelga'] ?? [],
+            ];
+        }
+
+        // PDF
+        $mpdf = new \Mpdf\Mpdf(['format' => 'A4-L']);
+        // $headerVertical = '
+        //     <div style="position: fixed; top: 18%; right: 0; transform: translateY(-50%) rotate(180deg);
+        //         writing-mode: vertical-rl; text-orientation: mixed; width: 40px; font-weight: bold;
+        //         font-size: 23px; line-height: 1.2; color: #999; text-align: center;">
+        //         R<br>S<br>G<br>-<br>3<br>2<br>6<br>-<br>2<br>0<br>1<br>7<br>-<br>M<br>I<br>N<br>E<br>D<br>U
+        //     </div>';
+
+        foreach ($niveles as $nivel) {
+            $filtrados = $personal
+                ->where('nivel', $nivel)
+                ->map(function ($persona) use ($datosInasistenciaPorDni) {
+                    $dni = $persona->dni;
+                    $inasistencia = $datosInasistenciaPorDni[$dni] ?? null;
+
+                    $persona->inasistencias_dias = $inasistencia['inasistencia_total'] ?? 0;
+                    $persona->huelga_paro_dias = $inasistencia['huelga_total'] ?? 0;
+                    $persona->tardanzas_horas = $inasistencia['tardanza_total']['horas'] ?? 0;
+                    $persona->tardanzas_minutos = $inasistencia['tardanza_total']['minutos'] ?? 0;
+                    $persona->permisos_sg_horas = $inasistencia['permiso_sg_total']['horas'] ?? 0;
+                    $persona->permisos_sg_minutos = $inasistencia['permiso_sg_total']['minutos'] ?? 0;
+
+                    $persona->detalle_inasistencia = [
+                        'inasistencia_fechas' => $inasistencia['inasistencia_fechas'] ?? [],
+                        'tardanza_fechas' => $inasistencia['tardanza_fechas'] ?? [],
+                        'permiso_sg_fechas' => $inasistencia['permiso_sg_fechas'] ?? [],
+                        'huelga_fechas' => $inasistencia['huelga_fechas'] ?? [],
+                    ];
+
+                    return $persona;
+                })
+                ->sort(function ($a, $b) {
+                    // Prioridad por jerarquía del cargo
+                    $prioridadCargo = function ($cargo) {
+                        $cargo = strtoupper(trim($cargo));
+                        if (Str::startsWith($cargo, 'DIRECTOR')) return 1;
+                        if (Str::startsWith($cargo, 'SUB-DIRECTOR')) return 2;
+                        if (Str::startsWith($cargo, 'JEFE')) return 3;
+                        if (Str::startsWith($cargo, 'COORDINADOR')) return 4;
+                        if (Str::startsWith($cargo, 'PROFESOR')) return 5;
+                        if (Str::startsWith($cargo, 'AUXILIAR')) return 6;
+                        return 99;
+                    };
+
+                    // Prioridad por condición laboral
+                    $prioridadCondicion = function ($condicion) {
+                        $condicion = strtoupper(trim($condicion));
+                        if ($condicion === 'NOMBRADO') return 1;
+                        if ($condicion === 'CONTRATADO') return 2;
+                        if (in_array($condicion, ['ASIGNADO', 'ASIGNADA'])) return 3;
+                        return 99;
+                    };
+
+                    $pa = $prioridadCargo($a->cargo);
+                    $pb = $prioridadCargo($b->cargo);
+                    if ($pa !== $pb) return $pa <=> $pb;
+
+                    $ca = $prioridadCondicion($a->condicion);
+                    $cb = $prioridadCondicion($b->condicion);
+                    if ($ca !== $cb) return $ca <=> $cb;
+
+                    $ja = $a->jornada ?? 0;
+                    $jb = $b->jornada ?? 0;
+                    if ($ja !== $jb) return $jb <=> $ja;
+
+                    return strcmp($a->nombres, $b->nombres);
+                })
+                ->values();
+
+            $data = [
+                'registros' => $filtrados,
+                'nivelSeleccionado' => $nivel,
+                'modalidad' => $institucion->modalidad ?? '',
+                'institucion' => $institucion->institucion ?? '',
+                'anio' => $anio,
+                'mes' => $mes,
+                'codlocal' => $codlocal,
+                'd_cod_tur' => $d_cod_tur,
+                'logo' => $rutaLogoWeb,
+                'firmaBase64' => $firmaBase64,
+                'firmaGuardada' => $firmaGuardada,
+                'datos_inasistencias' => $datosInasistenciaPorDni,
+            ];
+
+            $html = View::make('reporteAnexo04.formulario04_pdfpreliminar', $data)->render();
+            $mpdf->AddPage('L');
+            $mpdf->WriteHTML($html);
+        }
+
+        return response($mpdf->Output('reporte_inasistencia_preliminar.pdf', 'I'), 200)
+            ->header('Content-Type', 'application/pdf');
+    }
+
+    
     public function exportarInasistenciaPDF(Request $request)
     {
             $director = session('siic01');

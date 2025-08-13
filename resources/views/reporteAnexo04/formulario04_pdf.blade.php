@@ -143,12 +143,36 @@
                 <td>{{ $r->jornada }}</td>
 
                 {{-- Valores desde datos_inasistencias --}}
-                <td class="border px-2 py-1 text-center">{{ $datos['inasistencia_total'] ?? '' }}</td>
-                <td class="border px-2 py-1 text-center">{{ $datos['tardanza_total']['horas'] ?? '' }}</td>
-                <td class="border px-2 py-1 text-center">{{ $datos['tardanza_total']['minutos'] ?? '' }}</td>
-                <td class="border px-2 py-1 text-center">{{ $datos['permiso_sg_total']['horas'] ?? '' }}</td>
-                <td class="border px-2 py-1 text-center">{{ $datos['permiso_sg_total']['minutos'] ?? '' }}</td>
-                <td class="border px-2 py-1 text-center">{{ $datos['huelga_total'] ?? '' }}</td>
+                <td class="border px-2 py-1 text-center">
+                    @php $valor = $datos['inasistencia_total'] ?? 0; @endphp
+                    {!! $valor > 0 ? '<strong>' . $valor . '</strong>' : $valor !!}
+                </td>
+
+                <td class="border px-2 py-1 text-center">
+                    @php $valor = $datos['tardanza_total']['horas'] ?? 0; @endphp
+                    {!! $valor > 0 ? '<strong>' . $valor . '</strong>' : $valor !!}
+                </td>
+
+                <td class="border px-2 py-1 text-center">
+                    @php $valor = $datos['tardanza_total']['minutos'] ?? 0; @endphp
+                    {!! $valor > 0 ? '<strong>' . $valor . '</strong>' : $valor !!}
+                </td>
+
+                <td class="border px-2 py-1 text-center">
+                    @php $valor = $datos['permiso_sg_total']['horas'] ?? 0; @endphp
+                    {!! $valor > 0 ? '<strong>' . $valor . '</strong>' : $valor !!}
+                </td>
+
+                <td class="border px-2 py-1 text-center">
+                    @php $valor = $datos['permiso_sg_total']['minutos'] ?? 0; @endphp
+                    {!! $valor > 0 ? '<strong>' . $valor . '</strong>' : $valor !!}
+                </td>
+
+                <td class="border px-2 py-1 text-center">
+                    @php $valor = $datos['huelga_total'] ?? 0; @endphp
+                    {!! $valor > 0 ? '<strong>' . $valor . '</strong>' : $valor !!}
+                </td>
+
                 <td class="border px-2 py-1">{{ e($r->observaciones ?? '') }}</td>
             </tr>
         @endforeach

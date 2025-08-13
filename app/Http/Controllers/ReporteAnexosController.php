@@ -14,6 +14,8 @@ use Illuminate\Support\Facades\View;
 use Illuminate\Support\Str;
 use \Mpdf\Mpdf;
 
+use App\Exports\ObservacionesCriticasExport;
+
 use DB;
 use PDF;
 
@@ -50,6 +52,18 @@ class ReporteAnexosController extends Controller
             ->get()
             ->keyBy('codlocal');
 
+        // Obtener coordenadas desde la tabla escale
+        $coordenadas = DB::table('escale')
+            ->whereIn('codlocal', $codlocales)
+            ->select('codlocal', 'nlat_ie', 'nlong_ie')
+            ->get()
+            ->map(function ($item) {
+                $item->nlat_ie = floatval(str_replace(',', '.', $item->nlat_ie));
+                $item->nlong_ie = floatval(str_replace(',', '.', $item->nlong_ie));
+                return $item;
+            })
+            ->keyBy('codlocal');
+
         // Filtrar en memoria según los filtros del request (distrito e institución)
         $reportes = $reportes->filter(function ($reporte) use ($iiees, $filtroDistrito, $filtroInstitucion) {
             $iiee = $iiees[$reporte->codlocal] ?? null;
@@ -72,9 +86,10 @@ class ReporteAnexosController extends Controller
             ->keyBy('id_contacto');
 
         // Enriquecer cada reporte con datos de contacto e institución
-        $reportes = $reportes->map(function ($reporte) use ($contactos, $iiees) {
+        $reportes = $reportes->map(function ($reporte) use ($contactos, $iiees, $coordenadas) {
             $contacto = $contactos[$reporte->id_contacto] ?? null;
             $iiee = $iiees[$reporte->codlocal] ?? null;
+            $coord = $coordenadas[$reporte->codlocal] ?? null;
 
             $reporte->dni = $contacto->dni ?? null;
             $reporte->nombres = $contacto->nombres ?? null;
@@ -87,6 +102,10 @@ class ReporteAnexosController extends Controller
             $reporte->correo_inst = $iiee->correo_inst ?? null;
             $reporte->distrito = $iiee->distrito ?? null;
 
+            // Coordenadas para Leaflet
+            $reporte->latitud = $coord->nlat_ie ?? null;
+            $reporte->longitud = $coord->nlong_ie ?? null;
+            
             return $reporte;
         });
 
@@ -123,13 +142,64 @@ class ReporteAnexosController extends Controller
             ->orderBy('c.apellipat')
             ->get();
 
+        $observacionesCriticas = DB::connection('siic_anexos')->table('anexo03_asistencia as a')
+        ->join('anexo03_persona as p', 'a.id_persona', '=', 'p.id')
+        ->join('anexo03 as x', 'p.id_anexo03', '=', 'x.id_anexo03')
+    
+        ->select(
+            'a.tipo_observacion',
+            'a.observacion',
+            DB::raw("JSON_UNQUOTE(JSON_EXTRACT(p.persona_json, '$.dni')) as dni"),
+            DB::raw("JSON_UNQUOTE(JSON_EXTRACT(p.persona_json, '$.nombres')) as nombres"),
+            DB::raw("JSON_UNQUOTE(JSON_EXTRACT(p.persona_json, '$.cargo')) as cargo"),
+            DB::raw("JSON_UNQUOTE(JSON_EXTRACT(p.persona_json, '$.condicion')) as condicion"),
+            DB::raw("JSON_UNQUOTE(JSON_EXTRACT(p.persona_json, '$.cod')) as codplaza"),
+            'x.nivel',
+            'x.codlocal',
+            'x.id_contacto', 
+            'x.fecha_creacion'
+        )
+        ->whereIn(DB::raw('UPPER(a.tipo_observacion)'), [
+            'RENUNCIA', 'ABANDONO DE CARGO', 'VACACIONES', 'LICENCIA', 'CESE'
+        ])
+        ->orderBy('x.fecha_creacion', 'desc')
+        ->get();
+
+        $contactos = DB::table('contacto')
+        ->select('id_contacto') 
+        ->get()
+        ->keyBy('id_contacto');
+        $iiees = DB::table('iiee_a_evaluar_rie')
+        ->select('codlocal', 'institucion', 'distrito','red')
+        ->get()
+        ->keyBy('codlocal');
+
+        $observacionesCriticas->transform(function ($item) use ($contactos, $iiees, $coordenadas) {
+            // Agrega datos de contacto
+            $contacto = $contactos[$item->id_contacto] ?? null;
+            $item->distrito_contacto = $contacto?->distrito ?? null;
+            $item->red_contacto = $contacto?->red ?? null;
+
+            // Agrega datos de IIEE
+            $iiee = $iiees[$item->codlocal] ?? null;
+            $item->institucion = $iiee?->institucion ?? null;
+            $item->distrito_iiee = $iiee?->distrito ?? null;
+            $item->red_iiee = $iiee?->red ?? null;
+
+            $coord = $coordenadas[$item->codlocal] ?? null;
+            $item->latitud = $coord->nlat_ie ?? null;
+            $item->longitud = $coord->nlong_ie ?? null;
+            return $item;
+        });
+
         return view('reporteAnexos.reporteanexos03', compact(
             'session',
             'reportes',
             'distritos',
             'instituciones',
             'niveles',
-            'directoresSinAnexo03'
+            'directoresSinAnexo03',
+            'observacionesCriticas'
         ));
     }
 

@@ -7,6 +7,8 @@
         display:none !important;
     }
 </style>
+<!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     @if($directoresSinAnexo03->count())
         <div x-data="{ open: false }" class="mb-6">
             <button 
@@ -173,11 +175,71 @@
             </table>
         </div>
     @endif
-
-
-
-
-        
+    
+    @if($observacionesCriticas->count())
+        <div class="mt-10">
+            <h2 class="text-xl font-bold text-red-600 mb-4">⚠️ Alertas de Docentes con Observaciones Críticas</h2>
+            <div class="overflow-x-auto">
+                <table class="min-w-full border rounded-xl text-sm">
+                    <thead class="bg-red-100 text-red-800 uppercase text-xs text-center">
+                        <tr>
+                            <th class="px-2 py-1 border">DNI</th>
+                            <th class="px-2 py-1 border">Nombre</th>
+                            <th class="px-2 py-1 border">Cargo</th>
+                            <th class="px-2 py-1 border">Condición</th>
+                            <th class="px-2 py-1 border">Tipo Observación</th>
+                            <th class="px-2 py-1 border">Observación</th>
+                            <th class="px-2 py-1 border">Nivel</th>
+                            <th class="px-2 py-1 border">RED</th>
+                            <th class="px-2 py-1 border">IIEE</th>
+                            <th class="px-2 py-1 border">Distrito</th>
+                            <th class="px-2 py-1 border">Fecha Reporte</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-center">
+                        @foreach($observacionesCriticas as $item)
+                            <tr class="hover:bg-red-50">
+                                <td class="px-2 py-1 border">{{ $item->dni }}</td>
+                                <td class="px-2 py-1 border">{{ $item->nombres }}</td>
+                                <td class="px-2 py-1 border">{{ $item->cargo }}</td>
+                                <td class="px-2 py-1 border">{{ $item->condicion }}</td>
+                                <td class="px-2 py-1 border font-semibold text-red-600">{{ $item->tipo_observacion }}</td>
+                                <td class="px-2 py-1 border">{{ $item->observacion }}</td>
+                                <td class="px-2 py-1 border">{{ $item->nivel }}</td>
+                                <td class="px-2 py-1 border">{{ $item->red_iiee }}</td>
+                                <td class="px-2 py-1 border text-blue-600 underline cursor-pointer nombre-colegio"
+                                    data-lat="{{ $item->latitud }}"
+                                    data-lng="{{ $item->longitud }}"
+                                    data-institucion="{{ $item->institucion }}"
+                                    data-distrito="{{ $item->distrito_iiee }}"
+                                    data-dni="{{ $item->dni }}"
+                                    data-nombres="{{ $item->nombres }}"
+                                    data-cargo="{{ $item->cargo }}"
+                                    data-condicion="{{ $item->condicion }}"
+                                    data-tipo-observacion="{{ $item->tipo_observacion }}"
+                                    data-observacion="{{ $item->observacion }}"
+                                    data-nivel="{{ $item->nivel }}"
+                                    data-red="{{ $item->red_iiee }}"
+                                    data-fecha="{{ \Carbon\Carbon::parse($item->fecha_creacion)->format('d/m/Y') }}"
+                                >
+                                {{ $item->institucion }}</td>
+                                <td class="px-2 py-1 border">{{ $item->distrito_iiee }}</td>
+                                <td class="px-2 py-1 border">{{ \Carbon\Carbon::parse($item->fecha_creacion)->format('d/m/Y') }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    @endif
+    <!-- Modal -->
+    <div id="mapModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white rounded-lg shadow-lg p-4 w-full max-w-3xl relative">
+            <button id="closeModal" class="absolute top-2 right-2 text-gray-500 hover:text-gray-700">&times;</button>
+            <h2 id="modalTitle" class="text-lg font-bold mb-4"></h2>
+            <div id="mapContainer" style="height: 500px;"></div>
+        </div>
+    </div>
 
 <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
@@ -192,7 +254,8 @@
 
 <!-- Select2 JS -->
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-
+<!-- Carga de Leaflet -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <!-- Inicialización -->
 <script>
     $(document).ready(function() {
@@ -220,6 +283,58 @@
             }
         });
     });
+
+    let mapInstance;
+
+    document.querySelectorAll('.nombre-colegio').forEach(cell => {
+        cell.addEventListener('click', function () {
+            const lat = parseFloat(this.dataset.lat);
+            const lng = parseFloat(this.dataset.lng);
+
+            if (isNaN(lat) || isNaN(lng)) {
+                alert("No hay coordenadas para este colegio");
+                return;
+            }
+
+            document.getElementById('modalTitle').textContent = this.dataset.institucion + " - " + this.dataset.distrito;
+            document.getElementById('mapModal').classList.remove('hidden');
+
+            if (mapInstance) {
+                mapInstance.remove();
+            }
+
+            mapInstance = L.map('mapContainer').setView([lat, lng], 16);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19
+            }).addTo(mapInstance);
+
+            const popupContent = `
+                <div style="font-size:14px;">
+                    <strong><b>${this.dataset.institucion}</b></strong><br>
+                    <b>DNI:</b> ${this.dataset.dni}<br>
+                    <b>Nombre:</b> ${this.dataset.nombres}<br>
+                    <b>Cargo:</b> ${this.dataset.cargo}<br>
+                    <b>Condición:</b> ${this.dataset.condicion}<br>
+                    <b>Tipo Observación:</b> <span style="color:red;font-weight:bold;">${this.dataset.tipoObservacion}</span><br>
+                    <b>Observación:</b> ${this.dataset.observacion}<br>
+                    <b>Nivel:</b> ${this.dataset.nivel}<br>
+                    <b>RED:</b> ${this.dataset.red}<br>
+                    <b>Fecha Reporte:</b> ${this.dataset.fecha}
+                </div>
+            `;
+
+            L.marker([lat, lng])
+                .addTo(mapInstance)
+                .bindPopup(popupContent)
+                .openPopup();
+        });
+    });
+
+    document.getElementById('closeModal').addEventListener('click', () => {
+        document.getElementById('mapModal').classList.add('hidden');
+    });
+
 </script>
 
 

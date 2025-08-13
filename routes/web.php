@@ -504,10 +504,12 @@ Route::get('/reporte_anexo04', [Anexo04Controller::class, 'mostrarInasistenciaDe
 Route::post('/guardar-reporte-consolidado-masivo', [Anexo04Controller::class, 'storeMasivo'])->name('anexo04.storeMasivo');
 Route::post('/guardar-firma-director', [Anexo04Controller::class, 'guardarFirma'])->name('guardar.firma.director');
 Route::POST('/inasistencia/pdf', [Anexo04Controller::class, 'exportarInasistenciaPDF'])->name('inasistencia.exportar.pdf');
+Route::POST('/inasistenciapreliminar/pdf', [Anexo04Controller::class, 'exportarInasistenciaPDFPreliminar'])->name('inasistenciapreliminar.exportar.pdf');
 //Vista ESP - ANEXOS - 13-06-2025
 Route::get('/reportes_anexo03',[ReporteAnexosController::class,'mostrarReporteAnexos03'])->name('reporte.anexos03');
 Route::get('/reportes_anexo04',[ReporteAnexosController::class,'mostrarReporteAnexos04'])->name('reporte.anexos04');
 
+Route::get('/exportar-observaciones', [ReporteAnexosController::class, 'exportarObservaciones'])->name('exportar.observaciones');
 
 
 
