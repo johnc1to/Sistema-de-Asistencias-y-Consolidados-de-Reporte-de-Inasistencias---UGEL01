@@ -21,6 +21,8 @@ class Anexo04 extends Model
         'nivel',
         'mes',
         'anio',
+        'oficio',
+        'expediente', 
         'firma',
         'fecha_creacion',
         'fecha_actualizacion',

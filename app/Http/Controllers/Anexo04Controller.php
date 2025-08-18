@@ -150,11 +150,20 @@ class Anexo04Controller extends Controller
             ->whereIn('id_persona', $personasAnexo04->values()->all())
             ->get()
             ->mapWithKeys(function ($item) {
-                $decoded = json_decode($item->inasistencia, true);
-                if (is_string($decoded)) {
-                    $decoded = json_decode($decoded, true);
+                $totales = json_decode($item->inasistencia, true);
+                if (is_string($totales)) {
+                    $totales = json_decode($totales, true);
                 }
-                return [$item->id_persona => $decoded];
+
+                $detalle = json_decode($item->detalle, true);
+                if (is_string($detalle)) {
+                    $detalle = json_decode($detalle, true);
+                }
+
+                return [$item->id_persona => [
+                    'totales' => $totales,
+                    'detalle' => $detalle
+                ]];
             });
         
 
@@ -187,21 +196,28 @@ class Anexo04Controller extends Controller
         }
 
         // Combinar con personas filtradas
-        $filtrados = $filtrados->map(function ($persona) use ($datosInasistenciaPorDni) {
+       $filtrados = $filtrados->map(function ($persona) use ($datosInasistenciaPorDni, $inasistencias, $personasAnexo04) {
             $dni = $persona->dni;
-            $inasistencia = $datosInasistenciaPorDni[$dni] ?? null;
+            $id_persona = $personasAnexo04[$dni] ?? null;
 
-            $persona->inasistencias_dias = $inasistencia['inasistencia_total'] ?? 0;
-            $persona->huelga_paro_dias = $inasistencia['huelga_total'] ?? 0;
+            if ($id_persona && isset($inasistencias[$id_persona]['totales'])) {
+                $tot = $inasistencias[$id_persona]['totales'];
+                $persona->inasistencias_dias = $tot['inasistencia_total'] ?? 0;
+                $persona->huelga_paro_dias = $tot['huelga_total'] ?? 0;
+                $persona->tardanzas_horas = $tot['tardanza_total']['horas'] ?? 0;
+                $persona->tardanzas_minutos = $tot['tardanza_total']['minutos'] ?? 0;
+                $persona->permisos_sg_horas = $tot['permiso_sg_total']['horas'] ?? 0;
+                $persona->permisos_sg_minutos = $tot['permiso_sg_total']['minutos'] ?? 0;
+            }
 
-            $persona->tardanzas_horas = $inasistencia['tardanza_total']['horas'] ?? 0;
-            $persona->tardanzas_minutos = $inasistencia['tardanza_total']['minutos'] ?? 0;
+            // Pasar el detalle al Blade
+            $detalle = $inasistencias[$id_persona]['detalle'] ?? null;
+            $persona->detalle_inasistencia_json = $detalle ?: null;
 
-            $persona->permisos_sg_horas = $inasistencia['permiso_sg_total']['horas'] ?? 0;
-            $persona->permisos_sg_minutos = $inasistencia['permiso_sg_total']['minutos'] ?? 0;
 
             return $persona;
         });
+
 
             return view('reporteAnexo04.formulario04', [
                 'registros' => $filtrados,
@@ -234,23 +250,59 @@ class Anexo04Controller extends Controller
             'personas.*.persona' => 'required|array',
             'personas.*.inasistencia' => 'required|array',
             'personas.*.observacion' => 'nullable|string',
+            'numero_oficio' => 'nullable|string',
+            'numero_expediente' => 'nullable|string',
         ]);
 
         DB::beginTransaction();
 
         try {
-            $anexo = Anexo04::create([
-                'id_contacto' => session('siic01')['id_contacto'],
-                'codlocal' => $request->codlocal,
-                'nivel' => $request->nivel,
-                'mes' => $request->mes,
-                'anio' => $request->anio,
-                'oficio' => $request->numero_oficio,
-                'expediente' => $request->numero_expediente,
-                'fecha_creacion' => now(),
-                'fecha_actualizacion' => now(),
-            ]);
+            // --- 1. Encontrar o crear bloque Anexo04 ---
+            if ($request->numero_oficio) {
+                $borrador = Anexo04::where('codlocal', $request->codlocal)
+                    ->where('nivel', $request->nivel)
+                    ->where('mes', $request->mes)
+                    ->where('anio', $request->anio)
+                    ->whereNull('oficio')
+                    ->first();
 
+                if ($borrador) {
+                    $borrador->oficio = $request->numero_oficio;
+                    $borrador->expediente = $request->numero_expediente;
+                    $borrador->fecha_actualizacion = now();
+                    $borrador->save();
+                }
+
+                $anexo = Anexo04::create([
+                    'id_contacto' => session('siic01')['id_contacto'],
+                    'codlocal' => $request->codlocal,
+                    'nivel' => $request->nivel,
+                    'mes' => $request->mes,
+                    'anio' => $request->anio,
+                    'oficio' => null,
+                    'expediente' => null,
+                    'fecha_creacion' => now(),
+                    'fecha_actualizacion' => now(),
+                ]);
+
+            } else {
+                $anexo = Anexo04::firstOrCreate(
+                    [
+                        'codlocal' => $request->codlocal,
+                        'nivel' => $request->nivel,
+                        'mes' => $request->mes,
+                        'anio' => $request->anio,
+                        'oficio' => null,
+                    ],
+                    [
+                        'id_contacto' => session('siic01')['id_contacto'],
+                        'fecha_creacion' => now(),
+                        'fecha_actualizacion' => now(),
+                    ]
+                );
+            }
+
+            // --- 2. Funciones auxiliares ---
             $normalizeDetalle = function (&$inasistencia) {
                 if (!isset($inasistencia['detalle'])) {
                     $inasistencia['detalle'] = [
@@ -269,110 +321,74 @@ class Anexo04Controller extends Controller
                 return ['horas' => $horas, 'minutos' => $minutos];
             };
 
-            foreach ($request->personas as $p) {
-            // Log del tipo para confirmar que es array
-            \Log::info('tipo de persona:', ['tipo' => gettype($p['persona'])]);
-            
-            // Log con el contenido antes de codificar
-            \Log::info('persona antes de json_encode:', ['persona' => $p['persona']]);
-
-            // Codificamos el array a JSON
-            $persona_json = json_encode($p['persona']);
-
-            if ($persona_json === false) {
-                \Log::error('Error al json_encode persona:', ['error' => json_last_error_msg()]);
-                continue; // Salta esta persona si falla codificación JSON
+            // --- 3. Cargar todas las personas existentes del bloque ---
+            $personasExistentes = Anexo04Persona::where('id_anexo04', $anexo->id)->get();
+            $personasMap = [];
+            foreach ($personasExistentes as $pe) {
+            $data = is_string($pe->persona_json) ? json_decode($pe->persona_json, true) : $pe->persona_json;
+                if (isset($data['dni'])) {
+                    $personasMap[$data['dni']] = $pe;
+                }
             }
 
-            // Guardamos en base de datos
-            $persona = Anexo04Persona::create([
-                'id_anexo04' => $anexo->id,
-                'persona_json' => $persona_json,
-            ]);
+            // --- 4. Recorrer personas del request ---
+            foreach ($request->personas as $p) {
+                $dni = $p['persona']['dni'];
+                $persona_json = $p['persona']; 
 
+
+                // Buscar persona por DNI
+                if (isset($personasMap[$dni])) {
+                    $persona = $personasMap[$dni];
+                    $persona->persona_json = $persona_json;
+                    $persona->save();
+                } else {
+                    $persona = Anexo04Persona::create([
+                        'id_anexo04' => $anexo->id,
+                        'persona_json' => $persona_json,
+                    ]);
+                    $personasMap[$dni] = $persona;
+                }
+
+                // --- 5. Guardar o actualizar inasistencia ---
                 $inasistenciaExistente = Anexo04Inasistencia::where('id_persona', $persona->id)->first();
-
                 $normalizeDetalle($p['inasistencia']);
 
+                $nuevoInasistencia = $p['inasistencia'];
+                $detalle = $nuevoInasistencia['detalle'] ?? [
+                    'inasistencia' => [], 
+                    'tardanza' => [], 
+                    'permiso_sg' => [], 
+                    'huelga' => []
+                ];
+
+                $inasistenciaData = [
+                    'inasistencia_total' => $nuevoInasistencia['inasistencia_total'] ?? 0,
+                    'huelga_total' => $nuevoInasistencia['huelga_total'] ?? 0,
+                    'tardanza_total' => $normalizeHorasMinutos(
+                        $nuevoInasistencia['tardanza_total']['horas'] ?? 0,
+                        $nuevoInasistencia['tardanza_total']['minutos'] ?? 0
+                    ),
+                    'permiso_sg_total' => $normalizeHorasMinutos(
+                        $nuevoInasistencia['permiso_sg_total']['horas'] ?? 0,
+                        $nuevoInasistencia['permiso_sg_total']['minutos'] ?? 0
+                    ),
+                ];
+
                 if ($inasistenciaExistente) {
-                    $inasistenciaData = json_decode($inasistenciaExistente->inasistencia, true);
-                    $detalleData = json_decode($inasistenciaExistente->detalle ?? '{}', true);
+                    $inasistenciaExistente->inasistencia = $inasistenciaData;
+                    $inasistenciaExistente->detalle = $detalle;
 
-                    $normalizeDetalle($inasistenciaData);
-                    $normalizeDetalle($detalleData);
-
-                    // Combinar detalle (array merge) 
-                    foreach (['inasistencia', 'tardanza', 'permiso_sg', 'huelga'] as $key) {
-                        $detalleData['detalle'][$key] = array_merge_recursive(
-                            $detalleData['detalle'][$key] ?? [],
-                            $p['inasistencia']['detalle'][$key] ?? []
-                        );
-                    }
-
-
-                    // Sumar solo los totales en la raíz
-                    $inasistenciaData['inasistencia_total'] = 
-                        ($inasistenciaData['inasistencia_total'] ?? 0) + ($p['inasistencia']['inasistencia_total'] ?? 0);
-
-                    $inasistenciaData['huelga_total'] = 
-                        ($inasistenciaData['huelga_total'] ?? 0) + ($p['inasistencia']['huelga_total'] ?? 0);
-
-                    $tardanza = $normalizeHorasMinutos(
-                        ($inasistenciaData['tardanza_total']['horas'] ?? 0) + ($p['inasistencia']['tardanza_total']['horas'] ?? 0),
-                        ($inasistenciaData['tardanza_total']['minutos'] ?? 0) + ($p['inasistencia']['tardanza_total']['minutos'] ?? 0)
-                    );
-                    $inasistenciaData['tardanza_total'] = $tardanza;
-
-                    $permiso = $normalizeHorasMinutos(
-                        ($inasistenciaData['permiso_sg_total']['horas'] ?? 0) + ($p['inasistencia']['permiso_sg_total']['horas'] ?? 0),
-                        ($inasistenciaData['permiso_sg_total']['minutos'] ?? 0) + ($p['inasistencia']['permiso_sg_total']['minutos'] ?? 0)
-                    );
-                    $inasistenciaData['permiso_sg_total'] = $permiso;
-
-                    // Eliminar claves raíz que no deben estar en la raíz
-                    unset(
-                        $inasistenciaData['inasistencia'],
-                        $inasistenciaData['tardanza'],
-                        $inasistenciaData['permiso_sg'],
-                        $inasistenciaData['huelga']
-                    );
-
-                    if (!empty($p['observacion'])) {
-                        $inasistenciaExistente->observacion = $p['observacion'];
-                    }
-
-                    // Guardar resumen en inasistencia y detalle combinado en detalle
-                    $inasistenciaExistente->inasistencia = json_encode($inasistenciaData);
-                    $inasistenciaExistente->detalle = json_encode($detalleData['detalle']);
+                    $inasistenciaExistente->observacion = $p['observacion'] ?? null;
                     $inasistenciaExistente->save();
-
                 } else {
-                    $nuevoInasistencia = $p['inasistencia'];
-                    $normalizeDetalle($nuevoInasistencia);
-
-                    // Extraer detalle
-                    $detalle = $nuevoInasistencia['detalle'] ?? [
-                        'inasistencia' => [],
-                        'tardanza' => [],
-                        'permiso_sg' => [],
-                        'huelga' => [],
-                    ];
-
-                    // Eliminar claves raíz que no deben estar en la raíz
-                    unset(
-                        $nuevoInasistencia['detalle'],
-                        $nuevoInasistencia['inasistencia'],
-                        $nuevoInasistencia['tardanza'],
-                        $nuevoInasistencia['permiso_sg'],
-                        $nuevoInasistencia['huelga']
-                    );
-
                     Anexo04Inasistencia::create([
                         'id_persona' => $persona->id,
-                        'inasistencia' => json_encode($nuevoInasistencia),
-                        'detalle' => json_encode($detalle),
+                        'inasistencia' => $inasistenciaData,
+                        'detalle' => $detalle,
                         'observacion' => $p['observacion'] ?? null,
                     ]);
+
                 }
             }
 
@@ -380,9 +396,9 @@ class Anexo04Controller extends Controller
             return response()->json(['message' => 'Guardado correctamente.']);
 
         } catch (\Exception $e) {
-            \Log::error('Error al guardar Anexo04 masivo: ' . $e->getMessage());
+            \Log::error('Error al guardar Anexo04 masivo: '.$e->getMessage());
             DB::rollBack();
-            return response()->json(['message' => 'Error al guardar: ' . $e->getMessage()], 500);
+            return response()->json(['message' => 'Error al guardar: '.$e->getMessage()], 500);
         }
     }
 

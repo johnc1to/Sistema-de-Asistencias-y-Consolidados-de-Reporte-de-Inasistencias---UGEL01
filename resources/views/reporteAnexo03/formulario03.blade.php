@@ -215,7 +215,17 @@
                             @endfor
                         </tr>
                     </thead>
-
+                                    @php
+                                    function obtenerTextoPorCodigo($codigo) {
+                                        return match($codigo) {
+                                            'L' => 'Licencia',
+                                            'I' => 'Incapacidad',
+                                            'P' => 'Permiso',
+                                            'V' => 'Vacaciones',
+                                            default => 'Observación'
+                                        };
+                                    }
+                                    @endphp
                     <tbody class="bg-white" >
                         @forelse ($registros as $index => $r)
                                 @php
@@ -235,6 +245,15 @@
                                             @endif
                                             @if (!empty($asistenciaPersona['tipo_observacion']))
                                                 data-tipo-observacion="{{ $asistenciaPersona['tipo_observacion'] }}"
+                                            @endif
+                                            @if (!empty($asistenciaPersona['observacion_detalle']))
+                                                data-observacion-detalle="{{ $asistenciaPersona['observacion_detalle'] }}"
+                                            @endif
+                                            @if (!empty($asistenciaPersona['fecha_inicio']))
+                                                data-fecha-inicio="{{ \Carbon\Carbon::parse($asistenciaPersona['fecha_inicio'])->format('Y-m-d') }}"
+                                            @endif
+                                            @if (!empty($asistenciaPersona['fecha_fin']))
+                                                data-fecha-fin="{{ \Carbon\Carbon::parse($asistenciaPersona['fecha_fin'])->format('Y-m-d') }}"
                                             @endif
                                         @endif
                                     >
@@ -308,9 +327,10 @@
                                         @php
                                             $valor = $asistencia[$d - 1] ?? null;
                                         @endphp
+                                        
 
-                                        {{-- Detectar inicio de bloque de licencia --}}
-                                        @if ($valor === 'L')
+                                        {{-- Detectar inicio de bloque especial con observación --}}
+                                        @if (in_array($valor, ['L', 'I', 'P', 'V']))
                                             @php
                                                 $inicio = $d;
                                                 $fin = $d;
@@ -318,7 +338,7 @@
                                                 for ($j = $d + 1; $j <= $diasEnMes; $j++) {
                                                     $valorJ = $asistencia[$j - 1] ?? null;
 
-                                                    if ($valorJ === 'L') {
+                                                    if ($valorJ === $valor) {
                                                         $fin = $j;
                                                     } else {
                                                         break;
@@ -330,11 +350,11 @@
 
                                             <td colspan="{{ $colspan }}"
                                                 class="text-center text-red-600 font-semibold italic bg-red-50 border px-1 py-1 text-sm">
-                                                {{ $observacion ?? 'Licencia' }}
+                                                {{ $observacion ?? obtenerTextoPorCodigo($valor) }}
                                             </td>
 
                                             @php
-                                                $d = $fin + 1; // saltamos al siguiente después del último combinado
+                                                $d = $fin + 1;
                                             @endphp
                                             @continue
                                         @endif
@@ -578,11 +598,13 @@
                 <select id="tipo_observacion" name="tipo_observacion" class="w-full border rounded p-2 text-sm">
                     <option value="" selected>-- Seleccione --</option>
                     <option value="Cese">Cese</option>
-                    <option value="Inasistencia">Inasistencia Justificada (Licencia / Permiso)</option>
+                    <option value="InasistenciaJustificada">Inasistencia Justificada (Licencia / Permiso)</option>
                     <option value="Licencia">Licencia sin goce de remuneraciones</option>
                     <option value="PermisoSinGoce">Permiso sin goce de remuneraciones</option>
                     <option value="AbandonoCargo">Abandono de Cargo</option>
                     <option value="Vacaciones">Vacaciones</option>
+                    <option value="Encargatura">Encargatura</option>
+                    <option value="Designacion">Designacion</option>
                 </select>
             </div>
             <!-- Subtipo -->
@@ -951,12 +973,29 @@
     let codActual = '';
 
     function openModal(dni, nombres, cod) {
+        document.getElementById('observacion').value = '';
+        document.getElementById('tipo_observacion').value = '';
+        
+            // 🔹 Resetear subtipo
+        const subSelect = document.getElementById('tipo_especifico');
+        subSelect.innerHTML = "<option value=''>-- Seleccione un tipo observación primero --</option>";
+        subSelect.disabled = true;
+
+        // 🔹 Ocultar todos los rangos de fechas primero
+        document.getElementById("rangoFechasLicencia").classList.add("hidden");
+        document.getElementById("rangoFechasInasistencia").classList.add("hidden");
+        document.getElementById("rangoFechasPermisos").classList.add("hidden");
+        document.getElementById("rangoFechasVacaciones").classList.add("hidden");
+
+            // 🔹 Vaciar inputs de fechas
+        document.querySelectorAll("#rangoFechasLicencia input, #rangoFechasInasistencia input, #rangoFechasPermisos input, #rangoFechasVacaciones input")
+            .forEach(inp => inp.value = "");
+
         dniActual = dni;
         codActual = cod;
         const title = document.getElementById('modalTitle');
         const filaNumeros = document.getElementById('dias-numeros');
         const filaLetras = document.getElementById('dias-letras');
-
         const filaInputs = document.getElementById('fila-asistencia');
 
         title.textContent = `Modificar Asistencia de ${nombres} `;
@@ -978,23 +1017,17 @@
             filaNumeros.innerHTML += `<th class="border px-1">${dia}</th>`;
             filaLetras.innerHTML += `<th class="border px-1">${diasSemana[diaSemana]}</th>`;
 
-            // Buscar valor actual en la tabla principal
             const fila = document.querySelector(`tr[data-dni="${dni}"][data-cod="${cod}"]`);
             const celda = fila ? fila.querySelector(`.asistencia-celda[data-id="${dni}"][data-dia="${dia}"] .asistencia-valor`) : null;
 
             let valor = celda ? celda.textContent.trim().toUpperCase() : '';
 
-            // Si es feriado, forzar valor "F"
             if (esFeriado) valor = 'F';
 
             if (isFinSemana) {
                 filaInputs.innerHTML += `
                     <td class="border px-1 bg-gray-100">
-                        <input 
-                            type="text" 
-                            class="w-10 text-center bg-transparent focus:outline-none" 
-                            readonly 
-                        />
+                        <input type="text" class="w-10 text-center bg-transparent focus:outline-none" readonly />
                     </td>`;
             } else {
                 filaInputs.innerHTML += `
@@ -1019,18 +1052,57 @@
             }
         }
 
-        // Limpiar checkboxes de patrón
         document.querySelectorAll('.dia-patron').forEach(cb => cb.checked = false);
 
-        // Recuperar observación y tipo de observación si existen en el <tr>
-        const fila = document.querySelector(`tr[data-dni="${dni}"]`);
+        // 🔹 Recuperar observación y fechas
+        const fila = document.querySelector(`tr[data-dni="${dni}"][data-cod="${cod}"]`);
         if (fila) {
             const obs = fila.getAttribute('data-observacion') || '';
             const tipoObs = fila.getAttribute('data-tipo-observacion') || '';
+            const detalleObs = fila.getAttribute('data-observacion-detalle') || '';
+            const fechaInicio = fila.getAttribute('data-fecha-inicio') || '';
+            const fechaFin = fila.getAttribute('data-fecha-fin') || '';
 
             document.getElementById('observacion').value = obs;
             document.getElementById('tipo_observacion').value = tipoObs;
+
+            // 🔹 Rellenar subtipo si existe
+            if (opciones[tipoObs]) {
+                subSelect.innerHTML = "";
+                subSelect.disabled = false;
+                opciones[tipoObs].forEach(opt => {
+                    const option = document.createElement('option');
+                    option.value = opt;
+                    option.textContent = opt;
+                    if (opt === detalleObs) option.selected = true;
+                    subSelect.appendChild(option);
+                });
+            }
+
+            // 🔹 Mostrar y rellenar el rango de fechas correcto
+            if (tipoObs === "Licencia") {
+                document.getElementById("rangoFechasLicencia").classList.remove("hidden");
+                document.getElementById("fechaInicioLicencia").value = fechaInicio;
+                document.getElementById("fechaFinLicencia").value = fechaFin;
+            }
+            if (tipoObs === "InasistenciaJustificada") {
+                document.getElementById("rangoFechasInasistencia").classList.remove("hidden");
+                document.getElementById("fechaInicioInasistencia").value = fechaInicio;
+                document.getElementById("fechaFinInasistencia").value = fechaFin;
+            }
+            if (tipoObs === "PermisoSinGoce") {
+                document.getElementById("rangoFechasPermisos").classList.remove("hidden");
+                document.getElementById("fechaInicioPermiso").value = fechaInicio;
+                document.getElementById("fechaFinPermiso").value = fechaFin;
+            }
+            if (tipoObs === "Vacaciones") {
+                document.getElementById("rangoFechasVacaciones").classList.remove("hidden");
+                document.getElementById("fechaInicioVacaciones").value = fechaInicio;
+                document.getElementById("fechaFinVacaciones").value = fechaFin;
+            }
         }
+        // Finalmente mostrar modal
+        document.getElementById('modalForm').classList.remove('hidden');
     }
 
 
@@ -1137,7 +1209,7 @@
         const diasEnMes = new Date(anio, mes, 0).getDate();
 
         if (tipoObservacion === 'Licencia' || 
-            tipoObservacion === 'Inasistencia' || 
+            tipoObservacion === 'InasistenciaJustificada' || 
             tipoObservacion === 'PermisoSinGoce' || 
             tipoObservacion === 'Vacaciones') {
 
@@ -1146,7 +1218,7 @@
             if (tipoObservacion === 'Licencia') {
                 fInicio = document.getElementById('fechaInicioLicencia').value;
                 fFin = document.getElementById('fechaFinLicencia').value;
-            } else if (tipoObservacion === 'Inasistencia') {
+            } else if (tipoObservacion === 'InasistenciaJustificada') {
                 fInicio = document.getElementById('fechaInicioInasistencia').value;
                 fFin = document.getElementById('fechaFinInasistencia').value;
             } else if (tipoObservacion === 'PermisoSinGoce') {
@@ -1257,6 +1329,14 @@
         const filas = document.querySelectorAll('tr[data-dni]');
         const docentes = [];
 
+        // Mapeo de letras por tipo de observación
+        const letraPorTipo = {
+            Licencia: "L",
+            InasistenciaJustificada: "I",
+            PermisoSinGoce: "P",
+            Vacaciones: "V"
+        };
+
         filas.forEach(fila => {
             const dni = fila.getAttribute('data-dni');
             const nombres = fila.getAttribute('data-nombres');
@@ -1269,50 +1349,85 @@
             let observacion = null;
             let tipo_observacion = fila.getAttribute('data-tipo-observacion') || null;
 
-            const celdaObservacion = fila.querySelector('td[colspan]');
-            if (celdaObservacion) {
-            observacion = celdaObservacion.textContent.trim();
-            }
+            // Obtenemos el texto del option seleccionado
+            const selectDetalle = fila.querySelector('.tipo_especifico');
+            let observacion_detalle = fila.getAttribute('data-observacion-detalle') || null;
 
-            let diasLicencia = [];
-            if (tipo_observacion === "Licencia" && observacion) {
-            const match = observacion.match(/del\s+(\d{1,2})\s+al\s+(\d{1,2})/i);
-            if (match) {
-                const inicio = parseInt(match[1], 10);
-                const fin = parseInt(match[2], 10);
-                for (let d = inicio; d <= fin; d++) {
-                diasLicencia.push(d);
+            if (selectDetalle && selectDetalle.options.length > 0) {
+                const opcionSeleccionada = selectDetalle.options[selectDetalle.selectedIndex];
+                if (opcionSeleccionada && opcionSeleccionada.textContent.trim() !== '') {
+                    observacion_detalle = opcionSeleccionada.textContent.trim();
                 }
             }
+
+            const celdaObservacion = fila.querySelector('td[colspan]');
+            if (celdaObservacion) {
+                observacion = celdaObservacion.textContent.trim();
             }
+    
+            let fecha_inicio = null;
+            let fecha_fin = null;
+
+            if (tipo_observacion === "Licencia") {
+                fecha_inicio = document.getElementById('fechaInicioLicencia').value || null;
+                fecha_fin = document.getElementById('fechaFinLicencia').value || null;
+            }
+            if (tipo_observacion === "InasistenciaJustificada") {
+                fecha_inicio = document.getElementById('fechaInicioInasistencia').value || null;
+                fecha_fin = document.getElementById('fechaFinInasistencia').value || null;
+            }
+            if (tipo_observacion === "PermisoSinGoce") {
+                fecha_inicio = document.getElementById('fechaInicioPermiso').value || null;
+                fecha_fin = document.getElementById('fechaFinPermiso').value || null;
+            }
+            if (tipo_observacion === "Vacaciones") {
+                fecha_inicio = document.getElementById('fechaInicioVacaciones').value || null;
+                fecha_fin = document.getElementById('fechaFinVacaciones').value || null;
+            }
+
+        
+            let diasMarcados = [];
+            if (letraPorTipo[tipo_observacion] && fecha_inicio && fecha_fin) {
+                const inicio = parseInt(fecha_inicio.split("-")[2], 10);
+                const fin = parseInt(fecha_fin.split("-")[2], 10);
+
+                for (let d = inicio; d <= fin; d++) {
+                    diasMarcados.push(d);
+                }
+            }
+
 
             const hoy = new Date();
             const anio = hoy.getFullYear();
-            const mes = hoy.getMonth(); // Ej. 5 para junio
+            const mes = hoy.getMonth();
             const diasEnMes = new Date(anio, mes + 1, 0).getDate();
 
             for (let dia = 1; dia <= diasEnMes; dia++) {
-            const celda = fila.querySelector(`td[data-dia='${dia}']`);
-            const valorSpan = celda ? celda.querySelector('.asistencia-valor') : null;
-            let valor = valorSpan ? valorSpan.textContent.trim() : '';
+                const celda = fila.querySelector(`td[data-dia='${dia}']`);
+                const valorSpan = celda ? celda.querySelector('.asistencia-valor') : null;
+                let valor = valorSpan ? valorSpan.textContent.trim() : '';
 
-            if ((!valor || valor === '') && diasLicencia.includes(dia)) {
-                valor = 'L';
-            }
+                if ((!valor || valor === '') && diasMarcados.includes(dia)) {
+                    valor = letraPorTipo[tipo_observacion] || null;
+                }
 
-            asistencia.push(valor || null);
+                asistencia.push(valor || null);
             }
 
             docentes.push({
-            dni,
-            nombres,
-            cargo,
-            condicion,
-            jornada,
-            cod,
-            asistencia,
-            observacion,
-            tipo_observacion
+                dni,
+                nombres,
+                cargo,
+                condicion,
+                jornada,
+                cod,
+                asistencia,
+                observacion,
+                tipo_observacion,
+                observacion_detalle,
+                fecha_inicio,   
+                fecha_fin     
+
             });
         });
 
@@ -1327,33 +1442,33 @@
 
         try {
             const response = await fetch('{{ route("guardar.reporte.masivo") }}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': '{{ csrf_token() }}'
-            },
-            body: JSON.stringify(payload)
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify(payload)
             });
 
             const text = await response.text();
 
             if (!response.ok) {
-            console.error("Error HTTP:", response.status, text);
-            alert("Error del servidor (" + response.status + "). Ver consola para detalles.");
-            return;
+                console.error("Error HTTP:", response.status, text);
+                alert("Error del servidor (" + response.status + "). Ver consola para detalles.");
+                return;
             }
 
             try {
-            const data = JSON.parse(text);
-            if (data.success) {
-                alert("Guardado exitoso.");
-            } else {
-                console.warn("Guardado con advertencias:", data);
-                alert("Guardado con observaciones. Ver consola.");
-            }
+                const data = JSON.parse(text);
+                if (data.success) {
+                    alert("Guardado exitoso.");
+                } else {
+                    console.warn("Guardado con advertencias:", data);
+                    alert("Guardado con observaciones. Ver consola.");
+                }
             } catch (e) {
-            console.error("No se pudo parsear JSON:", text);
-            alert("Guardado completado, pero la respuesta del servidor no fue JSON válido.");
+                console.error("No se pudo parsear JSON:", text);
+                alert("Guardado completado, pero la respuesta del servidor no fue JSON válido.");
             }
 
         } catch (error) {
@@ -1370,7 +1485,7 @@
     // guardar el tipo de observacion
     document.getElementById('tipo_observacion').addEventListener('change', function () {
         const esLicencia = this.value === 'Licencia';
-        const esInasistencia = this.value === 'Inasistencia';
+        const esInasistencia = this.value === 'InasistenciaJustificada';
         const esPermiso = this.value === 'PermisoSinGoce';
         const esVacaciones = this.value === 'Vacaciones';
         const contenedor = document.getElementById('rangoFechasLicencia');
@@ -1408,10 +1523,10 @@
         }
     });
 
-    const tipoObservacion = document.getElementById('tipo_observacion');
+    
     const fechaInicio = document.getElementById('fechaInicioLicencia');
     const fechaFin = document.getElementById('fechaFinLicencia');
-    const observacionTextarea = document.getElementById('observacion');
+    
     const contenedorFechas = document.getElementById('rangoFechasLicencia');
 
     const fechaInicioI = document.getElementById('fechaInicioInasistencia');
@@ -1426,48 +1541,89 @@
     const fechaFinV = document.getElementById('fechaFinVacaciones');
     const contenedorFechasV = document.getElementById('rangoFechasVacaciones');
 
-    tipoObservacion.addEventListener('change', function () {
-        const isLicencia = this.value === 'Licencia';
-        contenedorFechas.classList.toggle('hidden', !isLicencia);
+    const tipoObservacion = document.getElementById('tipo_observacion');
+    const observacionTextarea = document.getElementById('observacion');
 
-        if (!isLicencia) {
-            fechaInicio.value = '';
-            fechaFin.value = '';
-            limpiarFechasEnObservacion();
+    // Mapa de tipos con sus inputs y contenedores
+    const fechaConfig = {
+        Licencia: {
+            inicio: document.getElementById('fechaInicioLicencia'),
+            fin: document.getElementById('fechaFinLicencia'),
+            contenedor: document.getElementById('rangoFechasLicencia'),
+            etiqueta: 'L'
+        },
+        InasistenciaJustificada: {
+            inicio: document.getElementById('fechaInicioInasistencia'),
+            fin: document.getElementById('fechaFinInasistencia'),
+            contenedor: document.getElementById('rangoFechasInasistencia'),
+            etiqueta: 'I'
+        },
+        PermisoSinGoce: {
+            inicio: document.getElementById('fechaInicioPermiso'),
+            fin: document.getElementById('fechaFinPermiso'),
+            contenedor: document.getElementById('rangoFechasPermisos'),
+            etiqueta: 'P'
+        },
+        Vacaciones: {
+            inicio: document.getElementById('fechaInicioVacaciones'),
+            fin: document.getElementById('fechaFinVacaciones'),
+            contenedor: document.getElementById('rangoFechasVacaciones'),
+            etiqueta: 'V'
         }
-        });
+    };
 
-        [fechaInicio, fechaFin].forEach(input => {
+    // Evento al cambiar tipo de observación
+    tipoObservacion.addEventListener('change', function () {
+        const tipo = this.value;
+
+        // Mostrar solo el contenedor del tipo actual y ocultar los demás
+        for (let key in fechaConfig) {
+            fechaConfig[key].contenedor.classList.toggle('hidden', key !== tipo);
+            if (key !== tipo) {
+                fechaConfig[key].inicio.value = '';
+                fechaConfig[key].fin.value = '';
+                limpiarFechasEnObservacion(key);
+            }
+        }
+    });
+
+    // Escuchar cambios en fechas para todos los tipos
+    for (let key in fechaConfig) {
+        [fechaConfig[key].inicio, fechaConfig[key].fin].forEach(input => {
             input.addEventListener('change', function () {
-                if (fechaInicio.value && fechaFin.value) {
-                    insertarFechasEnObservacion();
+                if (fechaConfig[key].inicio.value && fechaConfig[key].fin.value) {
+                    insertarFechasEnObservacion(key);
                 }
             });
         });
+    }
 
+    function insertarFechasEnObservacion(tipo) {
+        const inicio = formatFecha(fechaConfig[tipo].inicio.value);
+        const fin = formatFecha(fechaConfig[tipo].fin.value);
 
-        function insertarFechasEnObservacion() {
-        const inicio = formatFecha(fechaInicio.value);
-        const fin = formatFecha(fechaFin.value);
-
-        limpiarFechasEnObservacion();
+        limpiarFechasEnObservacion(tipo);
 
         if (inicio && fin) {
-            observacionTextarea.value = observacionTextarea.value.trim() + ` L del ${inicio} al ${fin}`;
+            observacionTextarea.value = observacionTextarea.value.trim() + 
+                ` ${fechaConfig[tipo].etiqueta} del ${inicio} al ${fin}`;
         }
     }
 
-    function limpiarFechasEnObservacion() {
-        observacionTextarea.value = observacionTextarea.value.replace(/\[Licencia del .*? al .*?\]/g, '').trim();
+    function limpiarFechasEnObservacion(tipo) {
+        const etiqueta = fechaConfig[tipo].etiqueta;
+        const regex = new RegExp(`\\${etiqueta} del .*? al .*?`, 'g');
+        observacionTextarea.value = observacionTextarea.value.replace(regex, '').trim();
     }
 
     function formatFecha(fechaStr) {
+        if (!fechaStr) return '';
         const [a, m, d] = fechaStr.split('-');
         return `${d}`;
     }
 
     const opciones = {
-        Inasistencia: [
+        InasistenciaJustificada: [
             "Licencia por incapacidad temporal",
             "Licencia por familiar directo con enfermedad grave o terminal o accidente grave",
             "Licencia por maternidad",
@@ -1520,7 +1676,10 @@
         ],
         AbandonoCargo: [
             "Abandono injustificado de funciones"
-        ]
+        ],
+        Encargatura: [
+            "Cambio de colegio"
+        ],
     };
 
     document.getElementById('tipo_observacion').addEventListener('change', function() {
@@ -1540,6 +1699,27 @@
             subSelect.disabled = true;
             subSelect.innerHTML = '<option value="">-- Seleccione un tipo observación primero --</option>';
         }
+    });
+    document.getElementById('tipo_especifico').addEventListener('change', function () {
+        const dni = dniActual; 
+        const cod = codActual; 
+        const fila = document.querySelector(`tr[data-dni="${dni}"][data-cod="${cod}"]`);
+        if (fila) {
+            fila.setAttribute('data-observacion-detalle', this.options[this.selectedIndex].textContent.trim());
+        }
+    });
+    document.querySelectorAll("#fechaInicioLicencia, #fechaFinLicencia, #fechaInicioInasistencia, #fechaFinInasistencia, #fechaInicioPermiso, #fechaFinPermiso, #fechaInicioVacaciones, #fechaFinVacaciones")
+        .forEach(input => {
+            input.addEventListener("change", function() {
+                const fila = document.querySelector(`tr[data-dni="${dniActual}"][data-cod="${codActual}"]`);
+                if (fila) {
+                    if (this.id.includes("Inicio")) {
+                        fila.setAttribute("data-fecha-inicio", this.value);
+                    } else if (this.id.includes("Fin")) {
+                        fila.setAttribute("data-fecha-fin", this.value);
+                    }
+                }
+            });
     });
 
 </script>

@@ -121,28 +121,28 @@
                 @if ($asistenciaVacia)
                     {{-- Mostrar observación centrada si no hay asistencia --}}
                     <td colspan="{{ $diasEnMes }}" style="text-align: center; font-style: italic; background-color: #fee2e2;">
-
                         {{ $observacion }}
                     </td>
                 @else
                     {{-- Mostrar la asistencia día por día --}}
                     @php
                         $d = 1;
+                        $codigosConObservacion = ['L', 'I', 'V', 'P']; // ahora incluye todos
                     @endphp
 
                     @while ($d <= $diasEnMes)
                         @php
                             $valor = $asistencia[$d - 1] ?? '';
 
-                            // Detectar inicio de bloque "L"
-                            if ($valor === 'L') {
+                            // Detectar inicio de bloque con observación
+                            if (in_array($valor, $codigosConObservacion)) {
                                 $inicio = $d;
                                 $fin = $d;
 
-                                // Buscar el rango continuo de 'L'
+                                // Buscar el rango continuo del mismo valor
                                 for ($j = $d + 1; $j <= $diasEnMes; $j++) {
                                     $valorSiguiente = $asistencia[$j - 1] ?? '';
-                                    if ($valorSiguiente === 'L') {
+                                    if ($valorSiguiente === $valor) {
                                         $fin = $j;
                                     } else {
                                         break;
@@ -151,33 +151,31 @@
                                 $colspan = $fin - $inicio + 1;
                         @endphp
                             <td colspan="{{ $colspan }}" style="text-align: center; font-style: italic; background-color: #fee2e2;">
-                                {{ $observacion ?? 'Licencia' }}
+                                {{ $observacion ?? $valor }}
                             </td>
-                            @php
+                        @php
                                 $d = $fin + 1;
                                 continue;
-                            @endphp
+                            } else {
+                        @endphp
                             @php
-                                } else {
-                            @endphp
-                                @php
-                                    $fechaActual = Carbon::create($anio, $mes, $d);
-                                    $esFeriado = in_array($fechaActual->toDateString(), $feriados ?? []);
-                                    $esFinDeSemana = $fechaActual->isWeekend();
+                                $fechaActual = Carbon::create($anio, $mes, $d);
+                                $esFeriado = in_array($fechaActual->toDateString(), $feriados ?? []);
+                                $esFinDeSemana = $fechaActual->isWeekend();
 
-                                    $estilo = 'text-align: center;';
+                                $estilo = 'text-align: center;';
 
-                                    if ($esFeriado) {
-                                        $estilo .= 'background-color:rgb(239, 252, 205);'; // Amarillo claro
-                                    } elseif ($esFinDeSemana) {
-                                        $estilo .= 'background-color:rgb(198, 201, 204);'; // Gris claro
-                                    }
-                                @endphp
-                                <td style="{{ $estilo }}">{{ $valor }}</td>
-                            @php
-                                $d++;
+                                if ($esFeriado) {
+                                    $estilo .= 'background-color:rgb(239, 252, 205);'; // Amarillo claro
+                                } elseif ($esFinDeSemana) {
+                                    $estilo .= 'background-color:rgb(198, 201, 204);'; // Gris claro
                                 }
                             @endphp
+                            <td style="{{ $estilo }}">{{ $valor }}</td>
+                        @php
+                                $d++;
+                            }
+                        @endphp
                     @endwhile
                 @endif
             </tr>

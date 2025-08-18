@@ -139,37 +139,37 @@
                     </thead>
 
                     <tbody class="bg-white">
-                    @forelse ($registros as $index => $r)
-                    <tr class="hover:bg-gray-100"
-                        data-dni="{{ $r->dni }}"
-                        data-nombres="{{ $r->nombres }}"
-                        data-cargo="{{ $r->cargo }}"
-                        data-condicion="{{ $r->condicion }}"
-                        data-jornada="{{ $r->jornada }}">
-                        
-                        <td class="border px-2 py-1">{{ $index + 1 }}</td>
-                        <td class="border px-2 py-1 cursor-pointer text-blue-500 dni-tour dni-tour-clickable" onclick="prepararYabrirModal('{{ $r->dni }}', '{{ $r->nombres }}')">{{ $r->dni }}</td>
-                        <td class="border px-2 py-1 text-left">{{ $r->nombres }}</td>
-                        <td class="border px-2 py-1">{{ $r->cargo }}</td>
-                        <td class="border px-2 py-1">{{ $r->condicion }}</td>
-                        <td class="border px-2 py-1">{{ $r->jornada }}</td>
-                        <td class="border px-2 py-1 text-center" data-tipo="inasistencias_dias">{{ $r->inasistencias_dias ?? '' }}</td>
-                        <td class="border px-2 py-1 text-center" data-tipo="tardanzas_horas">{{ $r->tardanzas_horas ?? '' }}</td>
-                        <td class="border px-2 py-1 text-center" data-tipo="tardanzas_minutos">{{ $r->tardanzas_minutos ?? '' }}</td>
-                        <td class="border px-2 py-1 text-center" data-tipo="permisos_sg_horas">{{ $r->permisos_sg_horas ?? '' }}</td>
-                        <td class="border px-2 py-1 text-center" data-tipo="permisos_sg_minutos">{{ $r->permisos_sg_minutos ?? '' }}</td>
-                        <td class="border px-2 py-1 text-center" data-tipo="huelga_paro_dias">{{ $r->huelga_paro_dias ?? '' }}</td>
-                        <td class="border px-2 py-1" data-tipo="observaciones">{{ e($r->observaciones ?? '') }}</td>
+                      @forelse ($registros as $index => $r)
+                      <tr class="hover:bg-gray-100"
+                          data-dni="{{ $r->dni }}"
+                          data-nombres="{{ $r->nombres }}"
+                          data-cargo="{{ $r->cargo }}"
+                          data-condicion="{{ $r->condicion }}"
+                          data-jornada="{{ $r->jornada }}">
+                          
+                          <td class="border px-2 py-1">{{ $index + 1 }}</td>
+                          <td class="border px-2 py-1 cursor-pointer text-blue-500 dni-tour dni-tour-clickable" onclick="prepararYabrirModal('{{ $r->dni }}', '{{ $r->nombres }}')">{{ $r->dni }}</td>
+                          <td class="border px-2 py-1 text-left">{{ $r->nombres }}</td>
+                          <td class="border px-2 py-1">{{ $r->cargo }}</td>
+                          <td class="border px-2 py-1">{{ $r->condicion }}</td>
+                          <td class="border px-2 py-1">{{ $r->jornada }}</td>
+                          <td class="border px-2 py-1 text-center" data-tipo="inasistencias_dias">{{ $r->inasistencias_dias ?? '' }}</td>
+                          <td class="border px-2 py-1 text-center" data-tipo="tardanzas_horas">{{ $r->tardanzas_horas ?? '' }}</td>
+                          <td class="border px-2 py-1 text-center" data-tipo="tardanzas_minutos">{{ $r->tardanzas_minutos ?? '' }}</td>
+                          <td class="border px-2 py-1 text-center" data-tipo="permisos_sg_horas">{{ $r->permisos_sg_horas ?? '' }}</td>
+                          <td class="border px-2 py-1 text-center" data-tipo="permisos_sg_minutos">{{ $r->permisos_sg_minutos ?? '' }}</td>
+                          <td class="border px-2 py-1 text-center" data-tipo="huelga_paro_dias">{{ $r->huelga_paro_dias ?? '' }}</td>
+                          <td class="border px-2 py-1" data-tipo="observaciones">{{ e($r->observaciones ?? '') }}</td>
 
-                        <td class="hidden">
-                            <input type="hidden" name="detalleInasistencia[{{ $r->dni }}]" class="detalle-inasistencia-json" data-dni="{{ $r->dni }}">
-                        </td>
-                    </tr>
-                    @empty
-                    <tr>
-                        <td colspan="13" class="text-center py-2">No hay registros disponibles.</td>
-                    </tr>
-                    @endforelse
+                          <td class="hidden">
+                              <input type="hidden" name="detalleInasistencia[{{ $r->dni }}]" class="detalle-inasistencia-json" data-dni="{{ $r->dni }}" value='@json($r->detalle_inasistencia_json)'>
+                          </td>
+                      </tr>
+                      @empty
+                      <tr>
+                          <td colspan="13" class="text-center py-2">No hay registros disponibles.</td>
+                      </tr>
+                      @endforelse
                     </tbody>
 
                 </table>
@@ -947,7 +947,7 @@ window.prepararYabrirModal = function(dni, nombre) {
 
     if (inputDetalle && inputDetalle.value) {
         try {
-            const detalle = JSON.parse(inputDetalle.value);
+            const detalle = JSON.parse(inputDetalle.value) || {};
 
             if (detalle.inasistencia) {
                 detalle.inasistencia.forEach(f => datos.push({ fecha: f, tipo: 'inasistencia' }));
@@ -1031,8 +1031,8 @@ document.getElementById('guardarTodoInasistencia').addEventListener('click', asy
     const filas = document.querySelectorAll('tbody tr[data-dni]');
     const data = [];
 
-    const modal = document.getElementById('modalInasistencia');
-    const dniModal = modal ? modal.querySelector('#dniSeleccionado').value : null;
+    // Nivel dinámico
+    const nivelSeleccionado = document.getElementById('nivel')?.value || '';
 
     filas.forEach(tr => {
       const dni = tr.dataset.dni;
@@ -1041,7 +1041,14 @@ document.getElementById('guardarTodoInasistencia').addEventListener('click', asy
       const condicion = tr.dataset.condicion;
       const jornada = tr.dataset.jornada;
 
-      const persona = { dni, nombres, cargo, condicion, jornada };
+      const persona = {
+        dni: dni,
+        nombres: nombres,
+        cargo: cargo,
+        condicion: condicion,
+        jornada: jornada
+      };
+
 
       const inasistencias = {
         inasistencia: [],
@@ -1099,6 +1106,9 @@ document.getElementById('guardarTodoInasistencia').addEventListener('click', asy
       });
     });
 
+    const numeroOficio = document.getElementById('oficio_guardado')?.value.trim() || null;
+    const numeroExpediente = document.getElementById('campoNumeroExpediente')?.value.trim() || null;
+
     const response = await fetch('{{ route("anexo04.storeMasivo") }}', {
       method: 'POST',
       headers: {
@@ -1109,10 +1119,10 @@ document.getElementById('guardarTodoInasistencia').addEventListener('click', asy
         mes: {{ $mes }},
         anio: {{ $anio }},
         codlocal: '{{ $codlocal }}',
-        nivel: '{{ $nivel }}',
+        nivel: nivelSeleccionado,
         personas: data,
-        numero_oficio: document.getElementById('oficio_guardado').value.trim(),
-        numero_expediente: document.getElementById('campoNumeroExpediente').value.trim()
+        numero_oficio: numeroOficio,
+        numero_expediente: numeroExpediente
       })
     });
 
@@ -1133,6 +1143,7 @@ document.getElementById('guardarTodoInasistencia').addEventListener('click', asy
     loader.classList.add('hidden');
   }
 });
+
 
 
 

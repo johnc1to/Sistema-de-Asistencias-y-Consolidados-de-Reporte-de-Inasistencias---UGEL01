@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\Str;
 use \Mpdf\Mpdf;
-
+use Illuminate\Support\Arr;
 use App\Exports\ObservacionesCriticasExport;
 
 use DB;
@@ -149,6 +149,7 @@ class ReporteAnexosController extends Controller
         ->select(
             'a.tipo_observacion',
             'a.observacion',
+            'a.observacion_detalle',
             DB::raw("JSON_UNQUOTE(JSON_EXTRACT(p.persona_json, '$.dni')) as dni"),
             DB::raw("JSON_UNQUOTE(JSON_EXTRACT(p.persona_json, '$.nombres')) as nombres"),
             DB::raw("JSON_UNQUOTE(JSON_EXTRACT(p.persona_json, '$.cargo')) as cargo"),
@@ -160,7 +161,7 @@ class ReporteAnexosController extends Controller
             'x.fecha_creacion'
         )
         ->whereIn(DB::raw('UPPER(a.tipo_observacion)'), [
-            'RENUNCIA', 'ABANDONO DE CARGO', 'VACACIONES', 'LICENCIA', 'CESE'
+            'INASISTENCIAJUSTIFICADA', 'ABANDONOCARGO', 'VACACIONES', 'LICENCIA', 'CESE','PERMISOSINGOCE'
         ])
         ->orderBy('x.fecha_creacion', 'desc')
         ->get();
@@ -205,7 +206,7 @@ class ReporteAnexosController extends Controller
 
 
     public function mostrarReporteAnexos04(Request $request)
-        {
+    {
             if (!session()->get('siic01_admin')) {
                 return response('Sesión terminada', 401);
             }
@@ -224,7 +225,9 @@ class ReporteAnexosController extends Controller
                     'id_contacto',
                     'fecha_creacion',
                     'codlocal',
-                    'nivel'
+                    'nivel',
+                    'oficio',
+                    'expediente'
                 )
                 ->get();
 
@@ -305,14 +308,86 @@ class ReporteAnexosController extends Controller
                 ->orderBy('c.apellipat')
                 ->get();
 
+            $personasConInasistencia = DB::connection('siic_anexos')
+                ->table('anexo04_persona as p')
+                ->join('anexo04_inasistencia as i', 'i.id_persona', '=', 'p.id')
+                ->join('anexo04 as a', 'a.id', '=', 'p.id_anexo04')
+                ->select('a.codlocal', 'a.nivel', 'p.persona_json', 'i.inasistencia', 'i.detalle')
+                ->get()
+                ->map(function($r) {
+                    // Limpiar todas las comillas externas
+                    $jsonPersona = preg_replace('/^"+|"+$/', '', $r->persona_json);
+
+                    // Decodificar persona y asignar campos básicos
+                    $persona = json_decode($jsonPersona, true) ?? [];
+                    $r->dni = $persona['dni'] ?? '';
+                    $r->nombres = $persona['nombres'] ?? '';
+                    $r->cargo = $persona['cargo'] ?? '';
+
+                    // Decodificar inasistencia
+                    $inasistencia = json_decode($r->inasistencia, true) ?? [];
+                    $r->inasistencia = [
+                        'inasistencia_total' => $inasistencia['inasistencia_total'] ?? 0,
+                        'tardanza_total' => [
+                            'horas' => $inasistencia['tardanza_total']['horas'] ?? 0,
+                            'minutos' => $inasistencia['tardanza_total']['minutos'] ?? 0,
+                        ],
+                        'permiso_sg_total' => [
+                            'horas' => $inasistencia['permiso_sg_total']['horas'] ?? 0,
+                            'minutos' => $inasistencia['permiso_sg_total']['minutos'] ?? 0,
+                        ],
+                        'huelga_total' => $inasistencia['huelga_total'] ?? 0,
+                    ];
+
+                    return $r;
+                })
+                // Filtrar solo los que tengan algo registrado
+                ->filter(function($r) {
+                    $detalle = json_decode($r->detalle, true) ?? [];
+                    return !empty($detalle['inasistencia'])
+                        || !empty($detalle['tardanza'])
+                        || !empty($detalle['permiso_sg'])
+                        || !empty($detalle['huelga']);
+                })
+                ->values();
+
+            //dd($personasConInasistencia);
+
+            // Traer información de IIEE solo para los codlocal-nivel que necesitamos
+            $codlocalNivel = $personasConInasistencia->map(fn($r) => "{$r->codlocal}-{$r->nivel}")->unique();
+            $iiees = Iiee_a_evaluar_rie::whereIn(DB::raw("CONCAT(codlocal,'-',nivel)"), $codlocalNivel)
+                ->get()
+                ->keyBy(fn($i) => "{$i->codlocal}-{$i->nivel}");
+
+            // Asignar datos de IIEE
+            $personasConInasistencia = $personasConInasistencia->map(function($r) use ($iiees) {
+                $key = "{$r->codlocal}-{$r->nivel}";
+                $iiee = $iiees[$key] ?? null;
+                $r->institucion = $iiee->institucion ?? '';
+                $r->distrito = $iiee->distrito ?? '';
+                $r->red = $iiee->red ?? '';
+                return $r;
+            })
+            
+            // Aplicar filtros opcionales
+            ->filter(function($r) use ($filtroDistrito, $filtroInstitucion, $filtroNivel) {
+                if ($filtroDistrito && $r->distrito !== $filtroDistrito) return false;
+                if ($filtroInstitucion && $r->institucion !== $filtroInstitucion) return false;
+                if ($filtroNivel && $r->nivel !== $filtroNivel) return false;
+                return true;
+            })
+            ->values();
+            
+            
             return view('reporteAnexos.reporteanexos04', compact(
                 'session',
                 'reportes',
                 'distritos',
                 'instituciones',
                 'niveles',
-                'directoresSinAnexo04'
+                'directoresSinAnexo04',
+                'personasConInasistencia',
             ));
-        }
+    }
 
 }

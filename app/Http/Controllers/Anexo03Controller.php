@@ -90,7 +90,7 @@ class Anexo03Controller extends Controller
 
         // Filtra por nivel
         $filtrados = $personal->where('nivel', $nivelSeleccionado)->values();
-
+        
         $filtrados = $filtrados->sort(function ($a, $b) {
         // Prioridad por jerarquía del cargo
         $prioridadCargo = function ($cargo) {
@@ -145,7 +145,7 @@ class Anexo03Controller extends Controller
 
                 // Asegúrate que codplaza exista en el JSON
                 $dni = $persona->dni ?? null;
-                $codplaza = $persona->cod ?? ($persona->cod ?? null); // por si el campo se llama 'cod'
+                $codplaza = $persona->cod ?? ($persona->cod ?? null); 
 
                 // Si no hay codplaza, usar solo DNI, pero idealmente siempre debería haber
                 $clave = $codplaza ? "{$dni}_{$codplaza}" : $dni;
@@ -154,23 +154,26 @@ class Anexo03Controller extends Controller
                 
             });
 
-
         // Obtén la asistencia y observación para las personas que están en el reporte
         $asistencias = DB::connection('siic_anexos')->table('anexo03_asistencia')
             ->whereIn('id_persona', $personasReporte->values()->all())
-            ->select('id_persona', 'asistencia', 'observacion')
+            ->select('id_persona', 'asistencia', 'observacion','tipo_observacion','observacion_detalle','fecha_inicio','fecha_fin')
             ->get()
             ->mapWithKeys(function ($item) {
                 return [$item->id_persona => [
                     'asistencia' => json_decode($item->asistencia),
                     'observacion' => $item->observacion,
+                    'tipo_observacion' => $item->tipo_observacion,
+                    'observacion_detalle' => $item->observacion_detalle,
+                    'fecha_inicio' => $item->fecha_inicio,
+                    'fecha_fin' => $item->fecha_fin,
                 ]];
             });
 
         // Finalmente construye un array para usar en la vista que relacione DNI con asistencia y observacion
         $datosAsistenciaPorDni = [];
         foreach ($personasReporte as $clave => $id_persona) {
-            $datosAsistenciaPorDni[$clave] = $asistencias[$id_persona] ?? ['asistencia' => [], 'observacion' => null];
+            $datosAsistenciaPorDni[$clave] = $asistencias[$id_persona] ?? ['asistencia' => [], 'observacion' => null,'tipo_observacion' => null,'observacion_detalle' => null];
         }
        
         return view('reporteAnexo03.formulario03', [
@@ -195,52 +198,124 @@ class Anexo03Controller extends Controller
     {
         DB::beginTransaction();
         try {
-            // Insertar cabecera con nivel
-            $idAnexo03 = DB::connection('siic_anexos')->table('anexo03')->insertGetId([
-                'id_contacto' => $request->id_contacto,
-                'codlocal' => $request->codlocal,
-                'nivel' => $request->nivel,
-                'oficio' => $request->numero_oficio,
-                'expediente' => $request->numero_expediente,
-                'fecha_creacion' => now(),
-            ]);
+            // Buscar si ya existe un anexo03 para ese contacto + local + nivel
+            $anexoExistente = DB::connection('siic_anexos')->table('anexo03')
+                ->where('id_contacto', $request->id_contacto)
+                ->where('codlocal', $request->codlocal)
+                ->where('nivel', $request->nivel)
+                ->orderByDesc('fecha_creacion')
+                ->first();
 
+            $idAnexo03 = null;
+
+            if ($anexoExistente) {
+                if (is_null($anexoExistente->oficio)) {
+                    // Caso 1: Es borrador → actualizar oficio si lo mandan
+                    DB::connection('siic_anexos')->table('anexo03')
+                        ->where('id_anexo03', $anexoExistente->id_anexo03)
+                        ->update([
+                            'oficio' => $request->numero_oficio,
+                            'expediente' => $request->numero_expediente,
+                        ]);
+
+                    $idAnexo03 = $anexoExistente->id_anexo03;
+
+                } else {
+                    // Caso 2: Ya existe oficial → crear un nuevo bloque (nuevo borrador)
+                    $idAnexo03 = DB::connection('siic_anexos')->table('anexo03')->insertGetId([
+                        'id_contacto' => $request->id_contacto,
+                        'codlocal' => $request->codlocal,
+                        'nivel' => $request->nivel,
+                        'oficio' => $request->numero_oficio, // puede venir NULL → sigue como borrador
+                        'expediente' => $request->numero_expediente,
+                        'fecha_creacion' => now(),
+                    ]);
+                }
+            } else {
+                // Caso 3: No existe ninguno → crear primero
+                $idAnexo03 = DB::connection('siic_anexos')->table('anexo03')->insertGetId([
+                    'id_contacto' => $request->id_contacto,
+                    'codlocal' => $request->codlocal,
+                    'nivel' => $request->nivel,
+                    'oficio' => $request->numero_oficio,
+                    'expediente' => $request->numero_expediente,
+                    'fecha_creacion' => now(),
+                ]);
+            }
+
+            // Guardar docentes (sin duplicar)
             foreach ($request->docentes as $docente) {
-                // REGISTRA EN LOGS EL DOCENTE ACTUAL
-                // \Log::info('Procesando docente:', $docente);
-
-                // VALIDACIÓN BÁSICA
                 if (!isset($docente['dni']) || !isset($docente['asistencia'])) {
                     throw new \Exception("Datos incompletos para docente: " . json_encode($docente));
                 }
 
-                // INSERTAR EN anexo03_persona
-                $idPersona = DB::connection('siic_anexos')->table('anexo03_persona')->insertGetId([
-                    'id_anexo03' => $idAnexo03,
-                    'persona_json' => json_encode([
-                        'dni' => $docente['dni'],
-                        'nombres' => $docente['nombres'] ?? '',
-                        'cargo' => $docente['cargo'] ?? '',
-                        'condicion' => $docente['condicion'] ?? '',
-                        'jornada' => $docente['jornada'] ?? '',
-                        'cod' => $docente['cod'] ?? '',
-                    ]),
-                ]);
+                // Buscar si ya existe esa persona en este anexo03
+                $personaExistente = DB::connection('siic_anexos')->table('anexo03_persona')
+                    ->where('id_anexo03', $idAnexo03)
+                    ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(persona_json, '$.dni')) = ?", [$docente['dni']])
+                    ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(persona_json, '$.cod')) = ?", [$docente['cod']])
+                    ->first();
 
-                // INSERTAR EN anexo03_asistencia
-                DB::connection('siic_anexos')->table('anexo03_asistencia')->insert([
-                    'id_persona' => $idPersona, // Relacionamos con la tabla anexo03_persona
-                    'asistencia' => json_encode($docente['asistencia']),
-                    'observacion' => $docente['observacion'] ?? null, // puede ser texto o null
-                    'tipo_observacion' => $docente['tipo_observacion'] ?? null, // nuevo campo, puede ser null si no viene
-                ]);
+                if ($personaExistente) {
+                    // Actualizar persona_json
+                    DB::connection('siic_anexos')->table('anexo03_persona')
+                        ->where('id', $personaExistente->id)
+                        ->update([
+                            'persona_json' => json_encode([
+                                'dni' => $docente['dni'],
+                                'nombres' => $docente['nombres'] ?? '',
+                                'cargo' => $docente['cargo'] ?? '',
+                                'condicion' => $docente['condicion'] ?? '',
+                                'jornada' => $docente['jornada'] ?? '',
+                                'cod' => $docente['cod'] ?? '',
+                            ]),
+                        ]);
+
+                    $idPersona = $personaExistente->id;
+
+                    // Actualizar asistencia
+                    DB::connection('siic_anexos')->table('anexo03_asistencia')
+                        ->where('id_persona', $idPersona)
+                        ->update([
+                            'asistencia' => json_encode($docente['asistencia']),
+                            'observacion' => $docente['observacion'] ?? null,
+                            'tipo_observacion' => $docente['tipo_observacion'] ?? null,
+                            'observacion_detalle' => $docente['observacion_detalle'] ?? null,
+                            'fecha_inicio' => $docente['fecha_inicio'] ?? null,
+                            'fecha_fin' => $docente['fecha_fin'] ?? null,
+                        ]);
+                } else {
+                    // Crear persona nueva
+                    $idPersona = DB::connection('siic_anexos')->table('anexo03_persona')->insertGetId([
+                        'id_anexo03' => $idAnexo03,
+                        'persona_json' => json_encode([
+                            'dni' => $docente['dni'],
+                            'nombres' => $docente['nombres'] ?? '',
+                            'cargo' => $docente['cargo'] ?? '',
+                            'condicion' => $docente['condicion'] ?? '',
+                            'jornada' => $docente['jornada'] ?? '',
+                            'cod' => $docente['cod'] ?? '',
+                        ]),
+                    ]);
+
+                    // Crear asistencia nueva
+                    DB::connection('siic_anexos')->table('anexo03_asistencia')->insert([
+                        'id_persona' => $idPersona,
+                        'asistencia' => json_encode($docente['asistencia']),
+                        'observacion' => $docente['observacion'] ?? null,
+                        'tipo_observacion' => $docente['tipo_observacion'] ?? null,
+                        'observacion_detalle' => $docente['observacion_detalle'] ?? null,
+                        'fecha_inicio' => $docente['fecha_inicio'] ?? null,
+                        'fecha_fin' => $docente['fecha_fin'] ?? null,
+                    ]);
+                }
             }
 
             DB::commit();
             return response()->json(['success' => true]);
+
         } catch (\Exception $e) {
             DB::rollBack();
-           // \Log::error('Error al guardar reporte masivo: ' . $e->getMessage());
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }

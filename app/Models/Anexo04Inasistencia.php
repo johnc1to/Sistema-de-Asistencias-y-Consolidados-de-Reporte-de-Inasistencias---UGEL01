@@ -18,6 +18,7 @@ class Anexo04Inasistencia extends Model
     public $timestamps = false;
     protected $casts = [
         'inasistencia' => 'array',
+        'detalle' => 'array',
     ];
 
     public function persona(): BelongsTo
