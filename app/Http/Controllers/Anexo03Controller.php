@@ -18,7 +18,7 @@ use PDF;
 use App\Models\Anexo03Persona;
 use App\Models\Anexo03;
 use App\Models\Iiee_a_evaluar_rie;
-
+use Illuminate\Support\Facades\Storage;
 
 
 class Anexo03Controller extends Controller
@@ -27,15 +27,32 @@ class Anexo03Controller extends Controller
     public function mostrarAsistenciaDetallada(Request $request)
     {
         $director = session('siic01');
-
+        //dd($director);
         if (!$director || empty($director['conf_permisos'][0]['codlocal'])) {
             return redirect()->back()->with('error', 'No se encontró la sesión del director o el codlocal.');
         }
 
         $codlocal = $director['conf_permisos'][0]['codlocal'];
 
-        $institucion = Iiee_a_evaluar_rie::select('modalidad', 'institucion')
+        $institucion = Iiee_a_evaluar_rie::join('conf_permisos as P', 'P.esc_codmod', '=', 'iiee_a_evaluar_rie.codmod')
+            ->join('contacto as C', 'C.id_contacto', '=', 'P.id_contacto')
+            ->where('C.dni', $director['dni'])
+            ->where('C.estado', 1)
+            ->where('C.flg', 1)
+            ->where('P.estado', 1)
+            ->where('iiee_a_evaluar_rie.estado', 1)
+            ->select('iiee_a_evaluar_rie.*')
+            ->first();
+
+        if ($institucion && empty($institucion->dni_director)) {
+            $institucion->dni_director = $director['dni'];
+            $institucion->save();
+        }
+
+        // Ahora ya consultamos con dni seguro
+        $institucion = Iiee_a_evaluar_rie::select('idmodalidad','modalidad','institucion')
             ->where('codlocal', $codlocal)
+            ->where('dni_director', $director['dni'])
             ->first();
 
         //Obtener turno 
@@ -58,9 +75,20 @@ class Anexo03Controller extends Controller
             $expedienteguardado = DB::connection('siic_anexos')->table('anexo03')
             ->where('id_contacto', $director['id_contacto'])
             ->value('expediente');
-            
-        
+
         //Lista de docentes desde nexus (para control de acceso)
+        if (!$institucion) {
+            return redirect()->back()->with('error', 'No se encontró institución para este director.');
+        }
+
+        //  Aquí ya tenemos idmodalidad de frente
+        $idModalidad = $institucion->idmodalidad;
+
+        //  Ahora ya tenemos el idmodalidad de la institución directamente
+        $idnivelesModalidad = DB::table('niveles')
+            ->where('Idmodalidad', $idModalidad)
+            ->pluck('idnivel');
+        //dd($idnivelesModalidad);
         $personal = DB::table('nexus')
             ->select(
                 'nexus.numdocum as dni',
@@ -70,15 +98,22 @@ class Anexo03Controller extends Controller
                 'nexus.jornlab as jornada',
                 'nexus.descniveduc as nivel',
                 'nexus.nombreooii as ugel',
-                'nexus.codplaza as cod'
+                'nexus.codplaza as cod',
+                //28-08-25 
+                'nexus.obser as obser',
+                'nexus.descmovim as mov',
+                'nexus.fecinicio as finicio',
+                'nexus.fectermino as ftermino',
             )
             ->where('nexus.codlocal', $codlocal)
+            ->whereIn('nexus.idnivel', $idnivelesModalidad)
             ->whereNotNull('nexus.numdocum')
             ->where('nexus.numdocum', '!=', 'VACANTE')
             ->where('nexus.situacion', '!=', 'VACANTE')
             ->where('nexus.estado', 1)
             ->get();
 
+        //dd($personal);
         // Niveles únicos
         $niveles = $personal->pluck('nivel')->unique()->sort()->values();
 
@@ -151,7 +186,6 @@ class Anexo03Controller extends Controller
                 $clave = $codplaza ? "{$dni}_{$codplaza}" : $dni;
 
                 return [$clave => $item->id];
-                
             });
 
         // Obtén la asistencia y observación para las personas que están en el reporte
@@ -175,7 +209,7 @@ class Anexo03Controller extends Controller
         foreach ($personasReporte as $clave => $id_persona) {
             $datosAsistenciaPorDni[$clave] = $asistencias[$id_persona] ?? ['asistencia' => [], 'observacion' => null,'tipo_observacion' => null,'observacion_detalle' => null];
         }
-       
+
         return view('reporteAnexo03.formulario03', [
             'registros' => $filtrados,
             'niveles' => $niveles,
@@ -348,7 +382,7 @@ class Anexo03Controller extends Controller
         return $registros;
     }
 
-    
+
     public function obtenerPersonalSesion()
     {
         $director = session('siic01');
@@ -360,10 +394,22 @@ class Anexo03Controller extends Controller
         $codlocal = $director['conf_permisos'][0]['codlocal'];
 
         // Obtener datos únicos de la institución
-        $institucion = Iiee_a_evaluar_rie::select('modalidad', 'institucion')
+        $institucion = Iiee_a_evaluar_rie::select('idmodalidad','modalidad', 'institucion')
             ->where('codlocal', $codlocal)
+            ->where('dni_director', $director['dni'])
             ->first();
 
+        //Lista de docentes desde nexus (para control de acceso)
+        if (!$institucion) {
+            return redirect()->back()->with('error', 'No se encontró institución para este director.');
+        }
+        //  Aquí ya tenemos idmodalidad de frente
+        $idModalidad = $institucion->idmodalidad;
+        //  Ahora ya tenemos el idmodalidad de la institución directamente
+        $idnivelesModalidad = DB::table('niveles')
+            ->where('Idmodalidad', $idModalidad)
+            ->pluck('idnivel');
+        
         // Obtener trabajadores filtrando VACANTE y DNI vacío
         $personal = DB::table('nexus')
             ->select(
@@ -376,6 +422,7 @@ class Anexo03Controller extends Controller
                 'nexus.nombreooii as ugel'
             )
             ->where('nexus.codlocal', $codlocal)
+            ->whereIn('nexus.idnivel', $idnivelesModalidad)
             ->whereNotNull('nexus.numdocum')
             ->where('nexus.numdocum', '!=', '')
             ->where('nexus.numdocum', '!=', 'VACANTE')
@@ -412,8 +459,9 @@ class Anexo03Controller extends Controller
         $codlocal = $director['conf_permisos'][0]['codlocal'];
 
         // Obtener datos de la institución
-        $institucion = Iiee_a_evaluar_rie::select('modalidad', 'institucion', 'direccion_ie', 'distrito')
+        $institucion = Iiee_a_evaluar_rie::select('idmodalidad','modalidad', 'institucion', 'direccion_ie', 'distrito')
             ->where('codlocal', $codlocal)
+            ->where('dni_director', $director['dni'])
             ->first();
 
         // Obtener director UGEL 01
@@ -468,11 +516,22 @@ class Anexo03Controller extends Controller
         $nombreLogo = $logoBD ? basename($logoBD) : null;
         $rutaLogoWeb = $nombreLogo ? 'storage/logoie/' . $nombreLogo : null;
 
-
         //Obtener firma
         $firmaGuardada = DB::connection('siic_anexos')->table('anexo03')
         ->where('id_contacto', $director['id_contacto'])
         ->value('firma');
+
+
+        //Lista de docentes desde nexus (para control de acceso)
+            if (!$institucion) {
+                return redirect()->back()->with('error', 'No se encontró institución para este director.');
+            }
+            //  Aquí ya tenemos idmodalidad de frente
+            $idModalidad = $institucion->idmodalidad;
+            //  Ahora ya tenemos el idmodalidad de la institución directamente
+            $idnivelesModalidad = DB::table('niveles')
+                ->where('Idmodalidad', $idModalidad)
+                ->pluck('idnivel');
 
         // Obtener docentes y personal
         $personal = DB::table('nexus')
@@ -487,6 +546,7 @@ class Anexo03Controller extends Controller
                 'nexus.codplaza as cod',
             )
             ->where('nexus.codlocal', $codlocal)
+            ->whereIn('nexus.idnivel', $idnivelesModalidad)
             ->whereNotNull('nexus.numdocum')
             ->where('nexus.numdocum', '!=', 'VACANTE')
             ->where('nexus.situacion', '!=', 'VACANTE')
@@ -736,6 +796,20 @@ class Anexo03Controller extends Controller
             $mpdf->AddPage('L');
             $mpdf->WriteHTML($htmlReporte);
         }
+
+        $pdfContent = $mpdf->Output('', 'S');
+
+        $nombreArchivo = 'anexos03/reporte_'.$codlocal.'_'.date('Ymd_His').'.pdf';
+
+        // Guardar en storage/app/public/anexos03
+        Storage::disk('public')->put('anexos03/'.$nombreArchivo, $pdfContent);
+
+        DB::connection('siic_anexos')->table('anexo03')
+            ->where('codlocal', $codlocal)
+            ->update([
+                'ruta_pdf' => 'anexos03/'.$nombreArchivo,
+                'fecha_actualizacion' => now()
+            ]);
 
         // Descargar el PDF generado
         return response($mpdf->Output('reporte_asistencia_con_oficio.pdf', 'I'), 200)

@@ -49,7 +49,7 @@
                     <path class="opacity-75" fill="currentColor"
                         d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
                 </svg>
-                <span>Guardando asistencia...</span>
+                <span>Guardando descuento...</span>
         </div>
 
         <form method="GET" action="{{ url('/reporte_anexo04') }}" class="flex flex-wrap items-center gap-4">
@@ -150,7 +150,7 @@
                           <td class="border px-2 py-1">{{ $index + 1 }}</td>
                           <td class="border px-2 py-1 cursor-pointer text-blue-500 dni-tour dni-tour-clickable" onclick="prepararYabrirModal('{{ $r->dni }}', '{{ $r->nombres }}')">{{ $r->dni }}</td>
                           <td class="border px-2 py-1 text-left">{{ $r->nombres }}</td>
-                          <td class="border px-2 py-1">{{ $r->cargo }}</td>
+                          <td class="border px-2 py-1 text-center">{{ $r->cargo }}</td>
                           <td class="border px-2 py-1">{{ $r->condicion }}</td>
                           <td class="border px-2 py-1">{{ $r->jornada }}</td>
                           <td class="border px-2 py-1 text-center" data-tipo="inasistencias_dias">{{ $r->inasistencias_dias ?? '' }}</td>

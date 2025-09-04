@@ -67,7 +67,12 @@
 </style>
 <meta name="guardar-firma-url" content="{{ route('guardar.firma.director') }}">
     <div class="w-full max-w-full mx-auto bg-white rounded-xl shadow-md p-6" >
-        <h1 class="text-2xl font-bold text-center mb-4 uppercase">ANEXO 03 - {{ mb_strtoupper(\Carbon\Carbon::now()->translatedFormat('F '), 'UTF-8') }}</h1>
+        <h1 class="text-3xl font-bold text-center mb-4 uppercase">
+            ANEXO 03 - 
+            <strong class="text-blue-600 text-3xl">
+                {{ mb_strtoupper(\Carbon\Carbon::now()->translatedFormat('F '), 'UTF-8') }}
+            </strong>
+        </h1>
         <h1 class="text-2xl font-bold text-center mb-4 uppercase">Formato 01: Reporte de Asistencia Detallado</h1>
         <button onclick="iniciarTutorial()" class="mb-4 px-4 py-2 bg-emerald-600 text-white rounded bg-violet-600 hover:bg-violet-700">
             Ver tutorial
@@ -149,33 +154,44 @@
                             ['tipo' => 'l', 'inicio' => '2025-10-20', 'fin' => '2025-12-19'],
                             ['tipo' => 'g', 'inicio' => '2025-12-22', 'fin' => '2025-12-31'],
                         ];
-
-                        function obtenerTipoSemana($fecha, $bloques, $feriados) {
-                            if ($fecha->isWeekend() || in_array($fecha->format('Y-m-d'), $feriados)) {
+                    @endphp
+                    @php
+                        if (!function_exists('obtenerTipoSemana')) {
+                            function obtenerTipoSemana($fecha, $bloques, $feriados) {
+                                if ($fecha->isWeekend() || in_array($fecha->format('Y-m-d'), $feriados)) {
+                                    return null;
+                                }
+                                foreach ($bloques as $bloque) {
+                                    if ($fecha->between(Carbon::parse($bloque['inicio']), Carbon::parse($bloque['fin']))) {
+                                        return $bloque['tipo'];
+                                    }
+                                }
                                 return null;
                             }
-
-                            foreach ($bloques as $bloque) {
-                                if ($fecha->between(Carbon::parse($bloque['inicio']), Carbon::parse($bloque['fin']))) {
-                                    return $bloque['tipo'];
-                                }
-                            }
-
-                            return null;
                         }
                     @endphp
 
+                    @php
+                        $patronDias = [];
+                        for ($d = 1; $d <= $diasEnMes; $d++) {
+                            $fecha = Carbon::create($anio, $mes, $d);
+                            // Guardar en índice $d (o $d-1, pero que uses igual en todo el código)
+                            $patronDias[$d] = obtenerTipoSemana($fecha, $bloques, $feriados); 
+                        }
+                    @endphp
                     <thead class="bg-gray-200 text-gray-700 uppercase text-xs sticky top-0 z-10">
                         <tr>
                             <th class="border px-2 py-1 bg-gray-200" rowspan="3">Nº</th>
-                            <th class="border px-2 py-1 bg-gray-200" rowspan="3">
+                            <th class="border px-2 py-1 bg-gray-200 w-24 text-center" rowspan="3">
                                 DNI
                             </th>
-
-                            <th class="border px-2 py-1 bg-gray-200" rowspan="3">Apellidos y Nombres</th>
-                            <th class="border px-2 py-1 bg-gray-200" rowspan="3">Cargo</th>
-                            <th class="border px-2 py-1 bg-gray-200" rowspan="3">Condición</th>
-                            <th class="border px-2 py-1 bg-gray-200" rowspan="3">Jor. Lab.</th>
+                            <th class="border px-2 py-1 bg-gray-200 w-24 text-center" rowspan="3">
+                                Cod.Plaza
+                            </th>
+                            <th class="border px-2 py-1 bg-gray-200 " rowspan="3">Apellidos y Nombres</th>
+                            <th class="border px-2 py-1 bg-gray-200 text-center" rowspan="3">Cargo</th>
+                            <th class="border px-2 py-1 bg-gray-200 text-center" rowspan="3">Condición</th>
+                            <th class="border px-2 py-1 bg-gray-200  text-center" rowspan="3">Jor. Lab.</th>
                             @for ($d = 1; $d <= $diasEnMes; $d++)
                                 <th class="border px-1 py-1 bg-gray-200">{{ $d }}</th>
                             @endfor
@@ -213,162 +229,394 @@
                                     {{ $texto }}
                                 </th>
                             @endfor
-                        </tr>
+                        </tr>                        
                     </thead>
-                                    @php
-                                    function obtenerTextoPorCodigo($codigo) {
-                                        return match($codigo) {
-                                            'L' => 'Licencia',
-                                            'I' => 'Incapacidad',
-                                            'P' => 'Permiso',
-                                            'V' => 'Vacaciones',
-                                            default => 'Observación'
-                                        };
+                    @php
+                        if (!function_exists('obtenerTextoPorCodigo')) {
+                            function obtenerTextoPorCodigo($codigo) {
+                                return match($codigo) {
+                                    'L' => 'Licencia',
+                                    'I' => 'Incapacidad',
+                                    'P' => 'Permiso',
+                                    'V' => 'Vacaciones',
+                                    default => 'Observación',
+                                };
+                            }
+                        }
+                    @endphp
+                    @php
+                    if (!function_exists('adaptarAsistenciaMes')) {
+                        function adaptarAsistenciaMes(array $asistencia, int $anio, int $mes): array {
+                                    // Detectar qué días de la semana están marcados como "A"
+                                    $diasActivos = [];
+                                    foreach ($asistencia as $i => $valor) {
+                                        if ($valor === 'A') {
+                                            $fecha = Carbon::create(null, 10, $i+1);
+                                            $diasActivos[$fecha->dayOfWeek] = true;
+                                        }
                                     }
-                                    @endphp
+                                    // Generar array para el mes destino
+                                    $diasEnMes = Carbon::create($anio, $mes, 1)->daysInMonth;
+                                    $nuevo = [];
+                                    for ($d = 1; $d <= $diasEnMes; $d++) {
+                                        $fecha = Carbon::create($anio, $mes, $d);
+                                        $dow = $fecha->dayOfWeek;
+                                        $nuevo[] = isset($diasActivos[$dow]) ? 'A' : null;
+                                }
+
+                            return $nuevo;
+                        }
+                    }
+                    @endphp
                     <tbody class="bg-white" >
+                        @php
+                            if (!function_exists('empiezaCon')) {
+                                function empiezaCon($texto, $prefijo) {
+                                    return $texto && str_starts_with(strtoupper(trim($texto)), strtoupper($prefijo));
+                                }
+                            }
+                        @endphp
                         @forelse ($registros as $index => $r)
+                            @php
+                                $clave = $r->dni . '_' . $r->cod;
+                                $asistenciaPersona = $asistencias[$clave] ?? null;
+
+                                $mov = strtoupper(trim($r->mov));
+
+                                // Detectar movimientos especiales
+                                $esEncargatura = ($mov === 'ENCARGATURA');
+                                $esLicencia = empiezaCon($mov, 'LICENCIA');
+                                $esVacaciones = ($mov === 'VACACIONES');
+                                $finicio = $r->finicio ? Carbon::parse($r->finicio)->format('Y-m-d') : null;
+                                $ftermino = $r->ftermino ? Carbon::parse($r->ftermino)->format('Y-m-d') : null;
+                            @endphp
+                            <tr class="hover:bg-gray-100"
+                                data-dni="{{ $r->dni }}"
+                                data-nombres="{{ $r->nombres }}"
+                                data-cargo="{{ $r->cargo }}"
+                                data-condicion="{{ $r->condicion }}"
+                                data-jornada="{{ $r->jornada }}"
+                                data-cod="{{$r->cod}}"
+                                @if ($asistenciaPersona)
+                                    @if (!empty($asistenciaPersona['observacion']))
+                                        data-observacion="{{ $asistenciaPersona['observacion'] }}"
+                                    @endif
+                                    @if (!empty($asistenciaPersona['tipo_observacion']))
+                                        data-tipo-observacion="{{ $asistenciaPersona['tipo_observacion'] }}"
+                                    @endif
+                                    @if (!empty($asistenciaPersona['observacion_detalle']))
+                                        data-observacion-detalle="{{ $asistenciaPersona['observacion_detalle'] }}"
+                                    @endif
+                                    @if (!empty($asistenciaPersona['fecha_inicio']))
+                                        data-fecha-inicio="{{ \Carbon\Carbon::parse($asistenciaPersona['fecha_inicio'])->format('Y-m-d') }}"
+                                    @endif
+                                    @if (!empty($asistenciaPersona['fecha_fin']))
+                                        data-fecha-fin="{{ \Carbon\Carbon::parse($asistenciaPersona['fecha_fin'])->format('Y-m-d') }}"
+                                    @endif
+                                @endif
+                            >
+                                <td class="border px-2 py-1">{{ $index + 1 }}</td>
+                                <td class="border px-2 py-1  text-blue-500 dni-tour dni-tour-clickable w-24"
+                                    onclick="openModal('{{ $r->dni }}', '{{ $r->nombres }}', '{{ $r->cod }}')"
+                                >
+                                    {{ $r->dni }}
+                                </td>
+                                <td class="border px-2 py-1 text-left text-left ">{{ $r->cod }}</td>
+                                <td class="border px-2 py-1 text-left text-left ">{{ $r->nombres }}</td>
+                                <td class="border px-2 py-1 text-center ">{{ $r->cargo }}</td>
+                                <td class="border px-2 py-1 text-center ">{{ $r->condicion }}</td>
+                                <td class="border px-2 py-1 text-center ">{{ $r->jornada }}</td>
+                                
                                 @php
                                     $clave = $r->dni . '_' . $r->cod;
                                     $asistenciaPersona = $asistencias[$clave] ?? null;
+                                    $observacion = $asistenciaPersona['observacion'] ?? null;
+
+                                    $tipoObservacion = $asistenciaPersona['tipo_observacion'] ?? null;
+                                    $observacion = $asistenciaPersona['observacion'] ?? null;
+
+                                    $d = 1;
+                                    $asistencia = $asistenciaPersona['asistencia'] ?? [];
+      
+                                    $todoVacio = empty($asistencia) || collect($asistencia)->every(fn($v) => is_null($v) || $v === '');
                                 @endphp
-                                    <tr class="hover:bg-gray-100"
-                                        data-dni="{{ $r->dni }}"
-                                        data-nombres="{{ $r->nombres }}"
-                                        data-cargo="{{ $r->cargo }}"
-                                        data-condicion="{{ $r->condicion }}"
-                                        data-jornada="{{ $r->jornada }}"
-                                        data-cod="{{$r->cod}}"
-                                        @if ($asistenciaPersona)
-                                            @if (!empty($asistenciaPersona['observacion']))
-                                                data-observacion="{{ $asistenciaPersona['observacion'] }}"
-                                            @endif
-                                            @if (!empty($asistenciaPersona['tipo_observacion']))
-                                                data-tipo-observacion="{{ $asistenciaPersona['tipo_observacion'] }}"
-                                            @endif
-                                            @if (!empty($asistenciaPersona['observacion_detalle']))
-                                                data-observacion-detalle="{{ $asistenciaPersona['observacion_detalle'] }}"
-                                            @endif
-                                            @if (!empty($asistenciaPersona['fecha_inicio']))
-                                                data-fecha-inicio="{{ \Carbon\Carbon::parse($asistenciaPersona['fecha_inicio'])->format('Y-m-d') }}"
-                                            @endif
-                                            @if (!empty($asistenciaPersona['fecha_fin']))
-                                                data-fecha-fin="{{ \Carbon\Carbon::parse($asistenciaPersona['fecha_fin'])->format('Y-m-d') }}"
-                                            @endif
-                                        @endif
-                                    >
-                                        <td class="border px-2 py-1">{{ $index + 1 }}</td>
-                                        <td class="border px-2 py-1  text-blue-500 dni-tour dni-tour-clickable"
-                                            onclick="openModal('{{ $r->dni }}', '{{ $r->nombres }}', '{{ $r->cod }}')"
-                                            >
-                                            {{ $r->dni }}
+                                @php
+                                    // Detectar movimiento especial del titular (nombrado/designado)
+                                    $titularMov = collect($registros)
+                                        ->first(function ($d) use ($r) {
+                                            $mov = strtoupper(trim($d->mov));
+
+                                            return $d->cod === $r->cod
+                                                && in_array($d->condicion, ['NOMBRADO', 'DESIGNADO'])
+                                                && (
+                                                    (
+                                                        str_starts_with($mov, 'LICENCIA')
+                                                        && $mov !== 'LICENCIA CGR POR FALLECIMIENTO DE FAMILIAR' 
+                                                    )
+                                                    || $mov === 'VACACIONES'
+                                                    || $mov === 'ENCARGATURA'
+                                                );
+                                        });
+
+                                    $rangoMovEspecial = null;
+                                    if ($titularMov && $titularMov->finicio && $titularMov->ftermino) {
+                                        $rangoMovEspecial = [
+                                            'inicio' => Carbon::parse($titularMov->finicio)->startOfDay(),
+                                            'fin'    => Carbon::parse($titularMov->ftermino)->endOfDay(),
+                                        ];
+                                    }
+                                @endphp
+                                @php
+                                    // Definir una vez el helper y los códigos en negrita
+                                    $codigosNegrita = ['I','3T','J','L','P','T','H','F'];
+
+                                    $pintarCelda = function($anio, $mes, $dia, $diasSemana, $feriados, $asistencia) use ($codigosNegrita) {
+                                        $fecha       = \Carbon\Carbon::create($anio, $mes, $dia);
+                                        $fechaActual = $fecha->format('Y-m-d');
+                                        $nombreDia   = $diasSemana[$fecha->dayOfWeek] ?? null;
+
+                                        // Valor base desde arreglo de asistencia (si existe)
+                                        $valor = $asistencia[$dia - 1] ?? null;
+
+                                        // Override por feriado
+                                        if (in_array($fechaActual, $feriados)) {
+                                            $valor = 'F';
+                                        } elseif ($valor === null || $valor === '') {
+                                            // Sin valor → calcular automático (fin de semana vacío, resto 'A')
+                                            $valor = in_array($nombreDia, ['S', 'D']) ? '' : 'A';
+                                        }
+
+                                        // Clases
+                                        $claseFondo = '';
+                                        if ($valor === 'F') {
+                                            $claseFondo = 'bg-yellow-100';
+                                        } elseif (in_array($nombreDia, ['S', 'D'])) {
+                                            $claseFondo = 'bg-gray-100';
+                                        }
+
+                                        $claseTexto = in_array(strtoupper($valor), $codigosNegrita) ? 'font-bold' : '';
+
+                                        return [
+                                            'valor'      => $valor,
+                                            'claseFondo' => $claseFondo,
+                                            'claseTexto' => $claseTexto,
+                                        ];
+                                    };
+                                @endphp
+
+                                @if ($esEncargatura && $finicio && $ftermino)
+                                    @php
+                                        $inicioMes = Carbon::create($anio, $mes, 1)->startOfDay();
+                                        $finMes    = Carbon::create($anio, $mes, $diasEnMes)->endOfDay();
+
+                                        $inicioRango = Carbon::parse($finicio)->startOfDay();
+                                        $finRango    = Carbon::parse($ftermino)->endOfDay();
+
+                                        // Si NO intersecta con el mes, dejamos que el resto del flujo pinte normal
+                                        if ($finRango->lt($inicioMes) || $inicioRango->gt($finMes)) {
+                                            $mostrarEncargatura = false;
+                                        } else {
+                                            $mostrarEncargatura = true;
+
+                                            // Recortar a los límites del mes
+                                            if ($inicioRango->lt($inicioMes)) $inicioRango = $inicioMes;
+                                            if ($finRango->gt($finMes))       $finRango   = $finMes;
+
+                                            $colspan   = $inicioRango->diffInDays($finRango) + 1;
+                                            $diaInicio = $inicioRango->day;
+                                            $diaFin    = $finRango->day;
+                                        }
+                                    @endphp
+
+                                    @if (!empty($mostrarEncargatura))
+                                        {{-- Antes del rango: pintar normal --}}
+                                        @for ($dia = 1; $dia < $diaInicio; $dia++)
+                                            @php
+                                                $c = $pintarCelda($anio, $mes, $dia, $diasSemana, $feriados, $asistencia);
+                                            @endphp
+                                            <td class="border px-1 py-1 text-sm asistencia-celda text-center {{ $c['claseFondo'] }}"
+                                                data-id="{{ $r->dni }}" data-dia="{{ $dia }}">
+                                                <span class="asistencia-valor {{ $c['claseTexto'] }}">{{ $c['valor'] }}</span>
+                                            </td>
+                                        @endfor
+
+                                        {{-- Rango de encargatura con colspan --}}
+                                        <td colspan="{{ $colspan }}"
+                                            class="border px-1 py-1 text-xs text-purple-700 font-semibold bg-purple-50 text-center"
+                                            data-id="{{ $r->dni }}">
+                                            {{ $r->mov }} - {{ \Carbon\Carbon::parse($finicio)->format('d/m/Y') }}
+                                            al {{ \Carbon\Carbon::parse($ftermino)->format('d/m/Y') }}
                                         </td>
 
-
-                                        <td class="border px-2 py-1 text-left">{{ $r->nombres }}</td>
-                                        <td class="border px-2 py-1">{{ $r->cargo }}</td>
-                                        <td class="border px-2 py-1">{{ $r->condicion }}</td>
-                                        <td class="border px-2 py-1">{{ $r->jornada }}</td>
-                                    @php
-                                        $clave = $r->dni . '_' . $r->cod;
-                                        $asistenciaPersona = $asistencias[$clave] ?? null;
-                                        $observacion = $asistenciaPersona['observacion'] ?? null;
-                                    @endphp
-
-                                    @php
-                                        $tipoObservacion = $asistenciaPersona['tipo_observacion'] ?? null;
-                                        $observacion = $asistenciaPersona['observacion'] ?? null;
-
-                                        $d = 1;
-                                        $asistencia = $asistenciaPersona['asistencia'] ?? [];
-
-                                        $todoVacio = empty($asistencia) || collect($asistencia)->every(fn($v) => is_null($v) || $v === '');
-                                        
-                                        if ($todoVacio && empty($observacion) && empty($tipoObservacion)) {
-                                            for ($d = 1; $d <= $diasEnMes; $d++) {
-                                                $fecha = Carbon::create($anio, $mes, $d);
-                                                $fechaActual = $fecha->format('Y-m-d');
-                                                $nombreDia = $diasSemana[$fecha->dayOfWeek];
-
-                                                // Determinar si es feriado
-                                                $esFeriado = in_array($fechaActual, $feriados);
-                                                $valor = $esFeriado ? 'F' : (in_array($nombreDia, ['S', 'D']) ? '' : 'A');
-
-                                                $claseFondo = match (true) {
-                                                    $valor === 'F' => 'bg-yellow-100',
-                                                    in_array($nombreDia, ['S', 'D']) => 'bg-gray-100',
-                                                    default => '',
-                                                };
-
-                                                $codigosNegrita = ['I', '3T', 'J', 'L', 'P', 'T', 'H', 'F'];
-                                                $claseTexto = in_array(strtoupper($valor), $codigosNegrita) ? 'font-bold' : '';
-
-                                                echo '<td class="border px-1 py-1 text-sm asistencia-celda text-center ' . $claseFondo . '"
-                                                        data-id="' . $r->dni . '" data-dia="' . $d . '">
-                                                        <span class="asistencia-valor ' . $claseTexto . '">' . $valor . '</span>
-                                                    </td>';
-                                            }
-                                            continue;
-                                        }
-                                        // Si hay observación pero no hay asistencia registrada, mostrar la observación en un solo <td>
-                                        if ($todoVacio && (!empty($observacion) || !empty($tipoObservacion))) {
-                                            echo '<td colspan="' . $diasEnMes . '" style="text-align: center;
-                                                color: #dc2626;
-                                                font-weight: 600;
-                                                font-style: italic;
-                                                background-color: #fef2f2;
-                                                padding: 4px;
-                                                font-size: 0.875rem;">' . ($observacion ?? 'Sin asistencia registrada') . '</td>';
-                                            continue;
-                                        }
-                                    @endphp
-
-                                    @while ($d <= $diasEnMes)
-                                        @php
-                                            $valor = $asistencia[$d - 1] ?? null;
-                                        @endphp
-                                        
-
-                                        {{-- Detectar inicio de bloque especial con observación --}}
-                                        @if (in_array($valor, ['L', 'I', 'P', 'V']))
+                                        {{-- Después del rango: pintar normal --}}
+                                        @for ($dia = $diaFin + 1; $dia <= $diasEnMes; $dia++)
                                             @php
-                                                $inicio = $d;
-                                                $fin = $d;
-
-                                                for ($j = $d + 1; $j <= $diasEnMes; $j++) {
-                                                    $valorJ = $asistencia[$j - 1] ?? null;
-
-                                                    if ($valorJ === $valor) {
-                                                        $fin = $j;
-                                                    } else {
-                                                        break;
-                                                    }
-                                                }
-
-                                                $colspan = $fin - $inicio + 1;
+                                                $c = $pintarCelda($anio, $mes, $dia, $diasSemana, $feriados, $asistencia);
                                             @endphp
-
-                                            <td colspan="{{ $colspan }}"
-                                                class="text-center text-red-600 font-semibold italic bg-red-50 border px-1 py-1 text-sm">
-                                                {{ $observacion ?? obtenerTextoPorCodigo($valor) }}
+                                            <td class="border px-1 py-1 text-sm asistencia-celda text-center {{ $c['claseFondo'] }}"
+                                                data-id="{{ $r->dni }}" data-dia="{{ $dia }}">
+                                                <span class="asistencia-valor {{ $c['claseTexto'] }}">{{ $c['valor'] }}</span>
                                             </td>
+                                        @endfor
 
+                                        @continue
+                                    @endif
+                                @endif
+                                @if ($esLicencia && $finicio && $ftermino)
+                                    @php
+                                        $inicioMes = Carbon::create($anio, $mes, 1)->startOfDay();
+                                        $finMes    = Carbon::create($anio, $mes, $diasEnMes)->endOfDay();
+
+                                        $inicioRango = Carbon::parse($finicio)->startOfDay();
+                                        $finRango    = Carbon::parse($ftermino)->endOfDay();
+
+                                        // Si NO intersecta con el mes, dejamos que el resto del flujo pinte normal
+                                        if ($finRango->lt($inicioMes) || $inicioRango->gt($finMes)) {
+                                            $mostrarLicencia = false;
+                                        } else {
+                                            $mostrarLicencia = true;
+
+                                            // Recortar a los límites del mes
+                                            if ($inicioRango->lt($inicioMes)) $inicioRango = $inicioMes;
+                                            if ($finRango->gt($finMes))       $finRango   = $finMes;
+
+                                            $colspan   = $inicioRango->diffInDays($finRango) + 1;
+                                            $diaInicio = $inicioRango->day;
+                                            $diaFin    = $finRango->day;
+                                        }
+                                    @endphp
+
+                                    @if (!empty($mostrarLicencia))
+                                        {{-- Antes del rango: pintar normal --}}
+                                        @for ($dia = 1; $dia < $diaInicio; $dia++)
                                             @php
-                                                $d = $fin + 1;
+                                                $c = $pintarCelda($anio, $mes, $dia, $diasSemana, $feriados, $asistencia);
                                             @endphp
-                                            @continue
-                                        @endif
+                                            <td class="border px-1 py-1 text-sm asistencia-celda text-center {{ $c['claseFondo'] }}"
+                                                data-id="{{ $r->dni }}" data-dia="{{ $dia }}">
+                                                <span class="asistencia-valor {{ $c['claseTexto'] }}">{{ $c['valor'] }}</span>
+                                            </td>
+                                        @endfor
 
-                                        {{-- Celda normal --}}
+                                        {{-- Rango de licencia con colspan --}}
+                                        <td colspan="{{ $colspan }}"
+                                            class="border px-1 py-1 text-xs text-purple-700 font-semibold bg-purple-50 text-center"
+                                            data-id="{{ $r->dni }}">
+                                            {{ $r->mov }} - {{ \Carbon\Carbon::parse($finicio)->format('d/m/Y') }}
+                                            al {{ \Carbon\Carbon::parse($ftermino)->format('d/m/Y') }}
+                                        </td>
+
+                                        {{-- Después del rango: pintar normal --}}
+                                        @for ($dia = $diaFin + 1; $dia <= $diasEnMes; $dia++)
+                                            @php
+                                                $c = $pintarCelda($anio, $mes, $dia, $diasSemana, $feriados, $asistencia);
+                                            @endphp
+                                            <td class="border px-1 py-1 text-sm asistencia-celda text-center {{ $c['claseFondo'] }}"
+                                                data-id="{{ $r->dni }}" data-dia="{{ $dia }}">
+                                                <span class="asistencia-valor {{ $c['claseTexto'] }}">{{ $c['valor'] }}</span>
+                                            </td>
+                                        @endfor
+
+                                        @continue
+                                    @endif
+                                @endif
+                                @if ($esVacaciones && $finicio && $ftermino)
+                                    @php
+                                        $inicioMes = Carbon::create($anio, $mes, 1)->startOfDay();
+                                        $finMes    = Carbon::create($anio, $mes, $diasEnMes)->endOfDay();
+
+                                        $inicioRango = Carbon::parse($finicio)->startOfDay();
+                                        $finRango    = Carbon::parse($ftermino)->endOfDay();
+
+                                        // Si NO intersecta con el mes, dejamos que el resto del flujo pinte normal
+                                        if ($finRango->lt($inicioMes) || $inicioRango->gt($finMes)) {
+                                            $mostrarVacaciones = false;
+                                        } else {
+                                            $mostrarVacaciones = true;
+
+                                            // Recortar a los límites del mes
+                                            if ($inicioRango->lt($inicioMes)) $inicioRango = $inicioMes;
+                                            if ($finRango->gt($finMes))       $finRango   = $finMes;
+
+                                            $colspan   = $inicioRango->diffInDays($finRango) + 1;
+                                            $diaInicio = $inicioRango->day;
+                                            $diaFin    = $finRango->day;
+                                        }
+                                    @endphp
+
+                                    @if (!empty($mostrarVacaciones))
+                                        {{-- Antes del rango: pintar normal --}}
+                                        @for ($dia = 1; $dia < $diaInicio; $dia++)
+                                            @php
+                                                $c = $pintarCelda($anio, $mes, $dia, $diasSemana, $feriados, $asistencia);
+                                            @endphp
+                                            <td class="border px-1 py-1 text-sm asistencia-celda text-center {{ $c['claseFondo'] }}"
+                                                data-id="{{ $r->dni }}" data-dia="{{ $dia }}">
+                                                <span class="asistencia-valor {{ $c['claseTexto'] }}">{{ $c['valor'] }}</span>
+                                            </td>
+                                        @endfor
+
+                                        {{-- Rango de vacaciones con colspan --}}
+                                        <td colspan="{{ $colspan }}"
+                                            class="border px-1 py-1 text-xs text-purple-700 font-semibold bg-purple-50 text-center"
+                                            data-id="{{ $r->dni }}">
+                                            {{ $r->mov }} - {{ \Carbon\Carbon::parse($finicio)->format('d/m/Y') }}
+                                            al {{ \Carbon\Carbon::parse($ftermino)->format('d/m/Y') }}
+                                        </td>
+
+                                        {{-- Después del rango: pintar normal --}}
+                                        @for ($dia = $diaFin + 1; $dia <= $diasEnMes; $dia++)
+                                            @php
+                                                $c = $pintarCelda($anio, $mes, $dia, $diasSemana, $feriados, $asistencia);
+                                            @endphp
+                                            <td class="border px-1 py-1 text-sm asistencia-celda text-center {{ $c['claseFondo'] }}"
+                                                data-id="{{ $r->dni }}" data-dia="{{ $dia }}">
+                                                <span class="asistencia-valor {{ $c['claseTexto'] }}">{{ $c['valor'] }}</span>
+                                            </td>
+                                        @endfor
+
+                                        @continue
+                                    @endif
+                                @endif
+                                {{-- Caso REEMPLAZO --}}
+                                @if (in_array($r->condicion, ['CONTRATADO', 'ENCARGADO', 'DESIGNADO']) && $rangoMovEspecial)
+                                    @for ($dia = 1; $dia <= $diasEnMes; $dia++)
+                                        @php
+                                            $fecha = \Carbon\Carbon::create($anio, $mes, $dia);
+
+                                            // Obtener la celda base
+                                            $c = $pintarCelda($anio, $mes, $dia, $diasSemana, $feriados, $asistencia);
+
+                                            // Solo dentro del rango del movimiento especial (L-V) → forzar 'A' (salvo feriados)
+                                            if (
+                                                $fecha->between($rangoMovEspecial['inicio'], $rangoMovEspecial['fin']) &&
+                                                $fecha->dayOfWeek >= 1 && $fecha->dayOfWeek <= 5 &&
+                                                !in_array($fecha->format('Y-m-d'), $feriados)
+                                            ) {
+                                                $c['valor'] = 'A';
+                                                // recalcular claseTexto si quieres forzar negrita según códigos
+                                                $c['claseTexto'] = in_array(strtoupper($c['valor']), $codigosNegrita) ? 'font-bold' : '';
+                                                // opcional: eliminar fondo de feriado/fin de semana para que se vea como día laborado
+                                                $c['claseFondo'] = '';
+                                            }
+                                        @endphp
+                                        <td class="border px-1 py-1 text-sm asistencia-celda text-center {{ $c['claseFondo'] }}"
+                                            data-id="{{ $r->dni }}" data-dia="{{ $dia }}">
+                                            <span class="asistencia-valor {{ $c['claseTexto'] }}">{{ $c['valor'] }}</span>
+                                        </td>
+                                    @endfor
+                                    @continue
+                                @endif
+                                @if ($todoVacio && empty($observacion) && empty($tipoObservacion))
+                                    @for ($d = 1; $d <= $diasEnMes; $d++)
                                         @php
                                             $fecha = Carbon::create($anio, $mes, $d);
                                             $fechaActual = $fecha->format('Y-m-d');
                                             $nombreDia = $diasSemana[$fecha->dayOfWeek];
-                                            $valor = $asistencia[$d - 1] ?? null;
 
-                                            if (in_array($fechaActual, $feriados)) {
-                                                $valor = 'F'; // sobreescribe valor si es feriado
-                                            }
+                                            // Determinar si es feriado
+                                            $esFeriado = in_array($fechaActual, $feriados);
+                                            $valor = $esFeriado ? 'F' : (in_array($nombreDia, ['S', 'D']) ? '' : 'A');
 
                                             $claseFondo = match (true) {
                                                 $valor === 'F' => 'bg-yellow-100',
@@ -384,12 +632,75 @@
                                             data-id="{{ $r->dni }}" data-dia="{{ $d }}">
                                             <span class="asistencia-valor {{ $claseTexto }}">{{ $valor }}</span>
                                         </td>
-                                        @php $d++; @endphp
-                                    @endwhile
-                                </tr>
-                            @empty
+                                    @endfor
+                                    @continue
+                                @endif
+                                @if ($todoVacio && (!empty($observacion) || !empty($tipoObservacion)))
+                                    <td colspan="{{ $diasEnMes }}" style="text-align: center;
+                                        color: #dc2626;
+                                        font-weight: 600;
+                                        font-style: italic;
+                                        background-color: #fef2f2;
+                                        padding: 4px;
+                                        font-size: 0.875rem;">
+                                        {{ $observacion ?? 'Sin asistencia registrada' }}
+                                    </td>
+                                    {{-- Columna cumplimiento en caso de solo observación --}}
+                                    <!-- <td class="border px-2 py-1 text-center text-gray-500 italic">-</td> -->
+                                    @continue
+                                @endif
+                                @while ($d <= $diasEnMes)
+                                    @php
+                                        $valor = $asistencia[$d - 1] ?? null;
+                                    @endphp
+
+                                    {{-- Detectar bloque especial --}}
+                                    @if (in_array($valor, ['L', 'I', 'P', 'V']))
+                                        @php
+                                            $inicio = $d;
+                                            $fin = $d;
+                                            for ($j = $d + 1; $j <= $diasEnMes; $j++) {
+                                                $valorJ = $asistencia[$j - 1] ?? null;
+                                                if ($valorJ === $valor) { $fin = $j; } else { break; }
+                                            }
+                                            $colspan = $fin - $inicio + 1;
+                                        @endphp
+                                        <td colspan="{{ $colspan }}"
+                                            class="text-center text-red-600 font-semibold italic bg-red-50 border px-1 py-1 text-sm">
+                                            {{ $observacion ?? obtenerTextoPorCodigo($valor) }}
+                                        </td>
+                                        @php $d = $fin + 1; @endphp
+                                        @continue
+                                    @endif
+
+                                    {{-- Celda normal --}}
+                                    @php
+                                        $fecha = Carbon::create($anio, $mes, $d);
+                                        $fechaActual = $fecha->format('Y-m-d');
+                                        $nombreDia = $diasSemana[$fecha->dayOfWeek];
+                                        $valor = $asistencia[$d - 1] ?? null;
+
+                                        if (in_array($fechaActual, $feriados)) $valor = 'F';
+
+                                        $claseFondo = match (true) {
+                                            $valor === 'F' => 'bg-yellow-100',
+                                            in_array($nombreDia, ['S', 'D']) => 'bg-gray-100',
+                                            default => '',
+                                        };
+                                        $codigosNegrita = ['I','3T','J','L','P','T','H','F'];
+                                        $claseTexto = in_array(strtoupper($valor), $codigosNegrita) ? 'font-bold' : '';
+                                    @endphp
+
+                                    <td class="border px-1 py-1 text-sm asistencia-celda text-center {{ $claseFondo }}"
+                                        data-id="{{ $r->dni }}" data-dia="{{ $d }}">
+                                        <span class="asistencia-valor {{ $claseTexto }}">{{ $valor }}</span>
+                                    </td>
+                                    @php $d++; @endphp
+                                @endwhile
+                            </tr>
+                        @empty
                             <tr>
-                                <td colspan="{{ 6 + $diasEnMes }}" class="text-center py-2">No hay registros disponibles.</td>
+                                <td colspan="{{ 6 + $diasEnMes + 1 }}" class="text-center py-2">No hay registros disponibles.</td>
                             </tr>
                         @endforelse
                     </tbody>
@@ -439,8 +750,7 @@
             </button>
 
             @if (!empty($firmaGuardada))
-                <img id="firmaPreview" src="{{ asset('storage/firmasdirector/' . $firmaGuardada) }}" alt="Firma"
-                    class="mt-2" style="height: 80px;">
+                <img id="firmaPreview" src="{{ asset('storage/firmasdirector/' . $firmaGuardada) }}" alt="Firma" class="mt-2" style="height: 80px;">
             @else
                 <img id="firmaPreview" src="" alt="Firma temporal" class="hidden mt-2" style="height: 80px;">
             @endif
@@ -603,8 +913,7 @@
                     <option value="PermisoSinGoce">Permiso sin goce de remuneraciones</option>
                     <option value="AbandonoCargo">Abandono de Cargo</option>
                     <option value="Vacaciones">Vacaciones</option>
-                    <option value="Encargatura">Encargatura</option>
-                    <option value="Designacion">Designacion</option>
+                    <!-- <option value="Encargatura">Encargatura</option> -->
                 </select>
             </div>
             <!-- Subtipo -->
@@ -1006,13 +1315,20 @@
         filaInputs.innerHTML = '';
 
         const diasEnMes = new Date(anio, mes, 0).getDate();
+        const id_modalidad = @json(session('siic01.idmodalidad'));
+
+        // Lista de id_modalidad que SÍ pueden usar sábado y domingo
+        const idmodalidadConSabDom = ["1", "4"];
+        const permiteSabDom = idmodalidadConSabDom.includes(id_modalidad);
 
         for (let dia = 1; dia <= diasEnMes; dia++) {
             const fecha = new Date(anio, mes - 1, dia);
             const diaSemana = fecha.getDay();
             const fechaStr = fecha.toISOString().slice(0, 10);
             const esFeriado = feriados.includes(fechaStr);
-            const isFinSemana = (diaSemana === 0 || diaSemana === 6);
+
+            const isDomingo = diaSemana === 0;
+            const isSabado = diaSemana === 6;
 
             filaNumeros.innerHTML += `<th class="border px-1">${dia}</th>`;
             filaLetras.innerHTML += `<th class="border px-1">${diasSemana[diaSemana]}</th>`;
@@ -1021,15 +1337,16 @@
             const celda = fila ? fila.querySelector(`.asistencia-celda[data-id="${dni}"][data-dia="${dia}"] .asistencia-valor`) : null;
 
             let valor = celda ? celda.textContent.trim().toUpperCase() : '';
-
             if (esFeriado) valor = 'F';
 
-            if (isFinSemana) {
+            // Bloquear sábados y domingos si modalidad no permite
+            if (!permiteSabDom && (isSabado || isDomingo)) {
                 filaInputs.innerHTML += `
                     <td class="border px-1 bg-gray-100">
                         <input type="text" class="w-10 text-center bg-transparent focus:outline-none" readonly />
                     </td>`;
             } else {
+                // Normal: editable
                 filaInputs.innerHTML += `
                     <td class="border px-1">
                         <select 
@@ -1052,6 +1369,7 @@
             }
         }
 
+
         document.querySelectorAll('.dia-patron').forEach(cb => cb.checked = false);
 
         // 🔹 Recuperar observación y fechas
@@ -1069,12 +1387,19 @@
             // 🔹 Rellenar subtipo si existe
             if (opciones[tipoObs]) {
                 subSelect.innerHTML = "";
+
+                // 🔹 Siempre el placeholder
+                const placeholder = document.createElement('option');
+                placeholder.value = "";
+                placeholder.textContent = "-- Seleccione un detalle --";
+                subSelect.appendChild(placeholder);
+
                 subSelect.disabled = false;
                 opciones[tipoObs].forEach(opt => {
                     const option = document.createElement('option');
                     option.value = opt;
                     option.textContent = opt;
-                    if (opt === detalleObs) option.selected = true;
+                    if (opt === detalleObs) option.selected = true; // mantiene lo guardado
                     subSelect.appendChild(option);
                 });
             }
@@ -1130,7 +1455,7 @@
 
             if (celdasDia.length < diasEnMes) {
                 // Eliminar todas las celdas que no tienen data-dia (es decir, las que vienen de licencias parciales u observaciones)
-                fila.querySelectorAll('td:not([data-dia]):not(:nth-child(-n+6))').forEach(td => td.remove());
+                fila.querySelectorAll('td:not([data-dia]):not(:nth-child(-n+7))').forEach(td => td.remove());
 
                 // Regenerar solo los días faltantes
                 const existentes = new Set(Array.from(fila.querySelectorAll('td[data-dia]')).map(td => parseInt(td.dataset.dia)));
@@ -1272,7 +1597,7 @@
                 return;
             }
         } else if (observacion !== '') {
-            let celda = fila.children[6];
+            let celda = fila.children[7];
             while (celda) {
                 const siguiente = celda.nextSibling;
                 celda.remove();
@@ -1365,26 +1690,8 @@
                 observacion = celdaObservacion.textContent.trim();
             }
     
-            let fecha_inicio = null;
-            let fecha_fin = null;
-
-            if (tipo_observacion === "Licencia") {
-                fecha_inicio = document.getElementById('fechaInicioLicencia').value || null;
-                fecha_fin = document.getElementById('fechaFinLicencia').value || null;
-            }
-            if (tipo_observacion === "InasistenciaJustificada") {
-                fecha_inicio = document.getElementById('fechaInicioInasistencia').value || null;
-                fecha_fin = document.getElementById('fechaFinInasistencia').value || null;
-            }
-            if (tipo_observacion === "PermisoSinGoce") {
-                fecha_inicio = document.getElementById('fechaInicioPermiso').value || null;
-                fecha_fin = document.getElementById('fechaFinPermiso').value || null;
-            }
-            if (tipo_observacion === "Vacaciones") {
-                fecha_inicio = document.getElementById('fechaInicioVacaciones').value || null;
-                fecha_fin = document.getElementById('fechaFinVacaciones').value || null;
-            }
-
+            let fecha_inicio = fila.getAttribute('data-fecha-inicio') || null;
+            let fecha_fin = fila.getAttribute('data-fecha-fin') || null;
         
             let diasMarcados = [];
             if (letraPorTipo[tipo_observacion] && fecha_inicio && fecha_fin) {
@@ -1689,6 +1996,16 @@
         subSelect.innerHTML = "";
         if (opciones[tipo]) {
             subSelect.disabled = false;
+
+            // 🔹 Opción placeholder inicial
+            const placeholder = document.createElement('option');
+            placeholder.value = "";
+            placeholder.textContent = "-- Seleccione un detalle --";
+            placeholder.selected = true;
+            placeholder.disabled = true; // <- evita que lo guarden como válido
+            subSelect.appendChild(placeholder);
+
+            // 🔹 Agregar las opciones del tipo
             opciones[tipo].forEach(opt => {
                 const option = document.createElement('option');
                 option.value = opt;
@@ -1700,6 +2017,7 @@
             subSelect.innerHTML = '<option value="">-- Seleccione un tipo observación primero --</option>';
         }
     });
+
     document.getElementById('tipo_especifico').addEventListener('change', function () {
         const dni = dniActual; 
         const cod = codActual; 
@@ -1708,6 +2026,7 @@
             fila.setAttribute('data-observacion-detalle', this.options[this.selectedIndex].textContent.trim());
         }
     });
+    
     document.querySelectorAll("#fechaInicioLicencia, #fechaFinLicencia, #fechaInicioInasistencia, #fechaFinInasistencia, #fechaInicioPermiso, #fechaFinPermiso, #fechaInicioVacaciones, #fechaFinVacaciones")
         .forEach(input => {
             input.addEventListener("change", function() {

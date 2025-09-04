@@ -20,5 +20,6 @@ class Iiee_a_evaluar_rie extends Model
     * @var string
     */
     protected $table = 'iiee_a_evaluar_RIE';
+    protected $primaryKey = 'codmod';
     //Etc...
 }

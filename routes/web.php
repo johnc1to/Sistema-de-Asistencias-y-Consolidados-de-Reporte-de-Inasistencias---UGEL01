@@ -509,6 +509,8 @@ Route::POST('/inasistenciapreliminar/pdf', [Anexo04Controller::class, 'exportarI
 Route::get('/reportes_anexo03',[ReporteAnexosController::class,'mostrarReporteAnexos03'])->name('reporte.anexos03');
 Route::get('/reportes_anexo04',[ReporteAnexosController::class,'mostrarReporteAnexos04'])->name('reporte.anexos04');
 
+Route::get('/reporte/observaciones-ie', [ReporteAnexosController::class, 'mostrarAsistenciaConObservaciones'])->name('reporte.observaciones.ie');
+
 Route::get('/exportar-observaciones', [ReporteAnexosController::class, 'exportarObservaciones'])->name('exportar.observaciones');
 
 
