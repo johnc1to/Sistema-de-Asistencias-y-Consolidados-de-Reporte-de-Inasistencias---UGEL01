@@ -49,6 +49,10 @@ use App\Http\Controllers\Anexo04Controller;
 use App\Http\Controllers\ReporteAnexosController;
 use App\Http\Controllers\PlantillaReporte;
 use App\Http\Controllers\Plataforma;
+use App\Http\Controllers\Nexus_excepcionales;
+use App\Http\Controllers\ReporteLogsIngresoController;
+use App\Http\Controllers\RegistroPagos;
+
 /*
 |--------------------------------------------------------------------------
 | Web Routes
@@ -111,8 +115,6 @@ Route::get('callback_encargatura',[Office365::class,'callback_encargatura'])->na
 
 Route::get('office365_sicab',[Office365::class,'office365_sicab'])->name('office365_sicab');
 Route::get('callback_sicab',[Office365::class,'callback_sicab'])->name('callback_sicab');
-
-
 
 
 Route::get('consola',[Consola::class,'consola'])->name('consola');
@@ -494,24 +496,34 @@ Route::get('/reporte-actividades-teletrabajo-pdf1/{fecha_inicio}/{fecha_fin}/{sa
 
 Route::post('guardar-observacion',[AsistenciaTeletrabajo::class,'guardar_observacion'])->name('guardar-observacion');
 
-//Anexo 03 - 13-06-2025
+//jpbh Anexo 03 - 13-06-2025
 Route::get('/reporte_anexo03', [Anexo03Controller::class, 'mostrarAsistenciaDetallada']);
 Route::post('/guardar-reporte-masivo', [Anexo03Controller::class, 'guardarReporteMasivo'])->name('guardar.reporte.masivo');
 Route::POST('/asistencia/pdf', [Anexo03Controller::class, 'exportarAsistenciaPDF'])->name('asistencia.exportar.pdf');
 Route::post('/guardar-firma-director', [Anexo03Controller::class, 'guardarFirma'])->name('guardar.firma.director');
-//Anexo 04 - 13-06-2025
+//jpbh Anexo 04 - 13-06-2025
 Route::get('/reporte_anexo04', [Anexo04Controller::class, 'mostrarInasistenciaDetallada']);
 Route::post('/guardar-reporte-consolidado-masivo', [Anexo04Controller::class, 'storeMasivo'])->name('anexo04.storeMasivo');
 Route::post('/guardar-firma-director', [Anexo04Controller::class, 'guardarFirma'])->name('guardar.firma.director');
 Route::POST('/inasistencia/pdf', [Anexo04Controller::class, 'exportarInasistenciaPDF'])->name('inasistencia.exportar.pdf');
 Route::POST('/inasistenciapreliminar/pdf', [Anexo04Controller::class, 'exportarInasistenciaPDFPreliminar'])->name('inasistenciapreliminar.exportar.pdf');
-//Vista ESP - ANEXOS - 13-06-2025
+//jpbh Vista ESP - ANEXOS - 13-06-2025
 Route::get('/reportes_anexo03',[ReporteAnexosController::class,'mostrarReporteAnexos03'])->name('reporte.anexos03');
 Route::get('/reportes_anexo04',[ReporteAnexosController::class,'mostrarReporteAnexos04'])->name('reporte.anexos04');
 
 Route::get('/reporte/observaciones-ie', [ReporteAnexosController::class, 'mostrarAsistenciaConObservaciones'])->name('reporte.observaciones.ie');
+Route::get('/reporte/observaciones/pdf', [ReporteAnexosController::class, 'exportarObservacionesPDF'])->name('reporte.observaciones.pdf');
 
-Route::get('/exportar-observaciones', [ReporteAnexosController::class, 'exportarObservaciones'])->name('exportar.observaciones');
+//jpbh Vista ESP - Logs Ingreso - 15-09-2025
+Route::get('/reportes_logingreso',[ReporteLogsIngresoController::class,'mostrarReporteLogIngreso'])->name('reporte.logingreso');
 
+//jaaf 02-09-2025
+Route::get('listar_nexus_excepcional',[Nexus_excepcionales::class,'listar_nexus_excepcional'])->name('listar_nexus_excepcional');
+Route::get('tabla_nexus_excepcional',[Nexus_excepcionales::class,'tabla_nexus_excepcional'])->name('tabla_nexus_excepcional');
+Route::POST('guardar_nexus_excepcional',[Nexus_excepcionales::class,'guardar_nexus_excepcional'])->name('guardar_nexus_excepcional');
+Route::get('eliminar_nexus_excepcional',[Nexus_excepcionales::class,'eliminar_nexus_excepcional'])->name('eliminar_nexus_excepcional');
+Route::get('buscar_nexus_excepcional',[Nexus_excepcionales::class,'buscar_nexus_excepcional'])->name('buscar_nexus_excepcional');
 
+//jpbh 17-09-2025
+Route::get('listar_registro_pagos',[RegistroPagos::class,'listar_registro_pagos'])->name('listar_registro_pagos');
 

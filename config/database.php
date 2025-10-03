@@ -119,7 +119,6 @@ return [
                 PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],
         ],
-        
         'formularios' => [
             'driver' => 'mysql',
             'url' => env('DATABASE_URL'),
@@ -371,7 +370,19 @@ return [
             'strict' => true,
             'engine' => null,
         ],
-
+        'sua_extranet' => [
+            'driver' => 'mysql',
+            'host' => env('DB_HOST14', '127.0.0.1'),
+            'port' => env('DB_PORT14', '3306'),
+            'database' => env('DB_DATABASE14', 'modelodbugel01go_sua'),
+            'username' => env('DB_USERNAME14', 'root'),
+            'password' => env('DB_PASSWORD14', ''),
+            'charset' => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+            'prefix' => '',
+            'strict' => true,
+            'engine' => null,
+        ],
     ],
 
     /*

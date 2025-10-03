@@ -81,10 +81,10 @@
                                 <tbody class="divide-y divide-gray-100">
                                     @foreach($directoresSinAnexo04 as $dir)
                                         <tr>
-                                            <td class="px-4 py-2">{{ $dir->dni }}</td>
-                                            <td class="px-4 py-2">{{ $dir->apellipat }} {{ $dir->apellimat }}, {{ $dir->nombres }}</td>
+                                            <td class="px-4 py-2">{{ $dir->dni_director }}</td>
+                                            <td class="px-4 py-2">{{ $dir->director }}</td>
                                             <td class="px-4 py-2">{{ $dir->celular_pers }}</td>
-                                            <td class="px-4 py-2">{{ $dir->nombre_inst }}</td>
+                                            <td class="px-4 py-2">{{ $dir->institucion }}</td>
                                         </tr>
                                     @endforeach
                                 </tbody>
@@ -151,10 +151,10 @@
                                 <tbody class="divide-y divide-gray-100">
                                     @foreach($directoresEnProceso as $dir)
                                         <tr>
-                                            <td class="px-4 py-2">{{ $dir->dni }}</td>
-                                            <td class="px-4 py-2">{{ $dir->apellipat }} {{ $dir->apellimat }}, {{ $dir->nombres }}</td>
+                                            <td class="px-4 py-2">{{ $dir->dni_director }}</td>
+                                            <td class="px-4 py-2">{{ $dir->director }}</td>
                                             <td class="px-4 py-2">{{ $dir->celular_pers }}</td>
-                                            <td class="px-4 py-2">{{ $dir->nombre_inst }}</td>
+                                            <td class="px-4 py-2">{{ $dir->institucion }}</td>
                                         </tr>
                                     @endforeach
                                 </tbody>
@@ -216,15 +216,27 @@
                                         <th class="px-4 py-2 text-left font-medium">Nombres</th>
                                         <th class="px-4 py-2 text-left font-medium">Celular</th>
                                         <th class="px-4 py-2 text-left font-medium">Institución</th>
+                                        <th class="px-4 py-2 text-left font-medium">Expediente</th>
+                                        <th class="px-4 py-2 text-left font-medium">PDF</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-100">
                                     @foreach($directoresCompletos as $dir)
                                         <tr>
-                                            <td class="px-4 py-2">{{ $dir->dni }}</td>
-                                            <td class="px-4 py-2">{{ $dir->apellipat }} {{ $dir->apellimat }}, {{ $dir->nombres }}</td>
+                                            <td class="px-4 py-2">{{ $dir->dni_director }}</td>
+                                            <td class="px-4 py-2">{{ $dir->director }}</td>
                                             <td class="px-4 py-2">{{ $dir->celular_pers }}</td>
-                                            <td class="px-4 py-2">{{ $dir->nombre_inst }}</td>
+                                            <td class="px-4 py-2">{{ $dir->institucion }}</td>
+                                            <td class="px-4 py-2">{{ $dir->expediente }}</td>
+                                            <td class="px-4 py-2">
+                                                @if($dir->ruta_pdf)
+                                                    <a href="{{ asset('storage/'.$dir->ruta_pdf) }}" target="_blank" class="text-blue-600 underline">
+                                                        📄 Ver PDF
+                                                    </a>
+                                                @else
+                                                    ❌ Sin PDF
+                                                @endif
+                                            </td>
                                         </tr>
                                     @endforeach
                                 </tbody>
@@ -315,10 +327,13 @@
             <button id="btnBloque" class="px-4 py-2 font-semibold text-gray-500 hover:text-blue-600">
                 📊  Estadistica de Bloques
             </button>
+            <button id="btnPowerBI" class="px-4 py-2 font-semibold text-gray-500 hover:text-blue-600">
+                📊 Power BI
+            </button>
         </div>
 
         <div id="tablaReporte" class="w-full max-w-full mx-auto bg-white rounded-xl shadow-md p-6 mt-10 block">
-            <h1 class="text-2xl font-bold text-center mb-4 uppercase">Reporte de Cumplimiento del Anexo 04</h1>
+            <h1 class="text-2xl font-bold text-center mb-4 uppercase">Reporte de Cumplimiento del Anexo 04 DE INASISTENCIAS, TARDANZAS Y PERMISOS SIN GOCE DE REMUNERACIONES</h1>
             @if($reportes->isEmpty())
                 <div class="text-center text-red-600 font-semibold mt-4">
                     No se encontraron registros. Los directores no han reportado o no han seguido el procedimiento.
@@ -378,62 +393,151 @@
         </div>
         
         <div id="tablaObservaciones" class="w-full max-w-full mx-auto bg-white rounded-xl shadow-md p-6 mt-10 hidden">
-            <h3 class="text-xl font-bold text-red-600 mb-4">⚠️ Resumen de inasistencias, tardanzas, permisos, Huelga o paro,</h3> 
+            <h3 class="text-xl font-bold text-red-600 mb-6">
+                ⚠️ Resumen de inasistencias, tardanzas, permisos, huelga o paro
+            </h3> 
+            {{-- Botón de críticos, alineado y con espacio --}}
+            @if($totalCriticos > 0)
+                <div class="mb-6">
+                    <button 
+                        onclick="document.getElementById('modalCriticos').classList.remove('hidden')"
+                        class="bg-red-600 text-white px-5 py-2.5 rounded-lg shadow hover:bg-red-700 transition flex items-center gap-2"
+                    >
+                        🚨 Docentes críticos 
+                        <span class="ml-2 bg-white text-red-600 px-2 py-0.5 rounded-full text-xs font-bold">
+                            {{ $totalCriticos }}
+                        </span>
+                    </button>
+                </div>
+                
+            @endif
+
+            {{-- Mensaje cuando no hay data --}}
             @if($personasConInasistencia->isEmpty())
-                <div class="text-center text-red-600 font-semibold mt-4">
+                <div class="text-center text-red-600 font-semibold mt-6">
                     No se encontraron descuentos. Los directores no han reportado o no han seguido el procedimiento.
                 </div>
             @else
-                <div class="overflow-x-auto border rounded">
+                <div class="overflow-x-auto border rounded mt-4">
                     <table class="min-w-full text-sm text-center border-collapse">
                         <thead class="bg-gray-100">
                             <tr>
-                                <th class="border px-2 py-1">N°</th>
-                                <th class="border px-2 py-1">Oficio</th>
-                                <th class="border px-2 py-1">Expediente</th>
-                                <th class="border px-2 py-1">DNI</th>
-                                <th class="border px-2 py-1">Docente</th>
-                                <th class="border px-2 py-1">Cargo</th>
-                                <th class="border px-2 py-1">Distrito</th>
-                                <th class="border px-2 py-1">Red</th>
-                                <th class="border px-2 py-1">Institución</th>
-                                <th class="border px-2 py-1">Nivel</th>
-                                <th class="border px-2 py-1">Inasistencias</th>
-                                <th class="border px-2 py-1">Tardanzas</th>
-                                <th class="border px-2 py-1">Permisos</th>
-                                <th class="border px-2 py-1">Huelgas</th>
+                                <th class="border px-2 py-2">N°</th>
+                                <th class="border px-2 py-2">Oficio</th>
+                                <th class="border px-2 py-2">Expediente</th>
+                                <th class="border px-2 py-2">DNI</th>
+                                <th class="border px-2 py-2">Docente</th>
+                                <th class="border px-2 py-2">Cargo</th>
+                                <th class="border px-2 py-2">Distrito</th>
+                                <th class="border px-2 py-2">Red</th>
+                                <th class="border px-2 py-2">Institución</th>
+                                <th class="border px-2 py-2">Nivel</th>
+                                <th class="border px-2 py-2">Inasistencias</th>
+                                <th class="border px-2 py-2">Tardanzas</th>
+                                <th class="border px-2 py-2">Permisos</th>
+                                <th class="border px-2 py-2">Huelgas</th>
                             </tr>
                         </thead>
-                        @foreach($personasConInasistencia as $r)
-                            <tr>
-                                <td class="px-2 py-1 border">{{ $loop->iteration }}</td>
-                                <td class="px-2 py-1 border"><strong>{{ $r->oficio ?? '' }}</strong></td>
-                                <td class="px-2 py-1 border"><strong>{{ $r->expediente }}</strong></td>
-                                <td class="px-2 py-1 border">{{ $r->dni }}</td>
-                                <td class="px-2 py-1 border cursor-pointer text-blue-600 hover:underline" 
-                                    onclick="abrirModalInasistencia('{{ $r->dni }}')">
-                                    {{ $r->nombres }}
-                                </td>
-                                <td class="px-2 py-1 border">{{ $r->cargo }}</td>
-                                <td class="px-2 py-1 border">{{ $r->distrito ?? '' }}</td>
-                                <td class="px-2 py-1 border">{{ $r->red ?? '' }}</td>
-                                <td class="px-2 py-1 border">{{ $r->institucion ?? '' }}</td>
-                                <td class="px-2 py-1 border">{{ $r->nivel }}</td>
-                                <td class="px-2 py-1 border {{ ($r->inasistencia['inasistencia_total'] ?? 0) > 0 ? 'text-red-600 font-bold' : '' }}">
-                                    {{ $r->inasistencia['inasistencia_total'] ?? 0 }}
-                                </td>
-                                <td class="px-2 py-1 border {{ (($r->inasistencia['tardanza_total']['horas'] ?? 0) > 0 || ($r->inasistencia['tardanza_total']['minutos'] ?? 0) > 0) ? 'text-red-600 font-bold' : '' }}">
-                                    {{ $r->inasistencia['tardanza_total']['horas'] ?? 0 }}h {{ $r->inasistencia['tardanza_total']['minutos'] ?? 0 }}m
-                                </td>
-                                <td class="px-2 py-1 border {{ (($r->inasistencia['permiso_sg_total']['horas'] ?? 0) > 0 || ($r->inasistencia['permiso_sg_total']['minutos'] ?? 0) > 0) ? 'text-red-600 font-bold' : '' }}">
-                                    {{ $r->inasistencia['permiso_sg_total']['horas'] ?? 0 }}h {{ $r->inasistencia['permiso_sg_total']['minutos'] ?? 0 }}m
-                                </td>
-                                <td class="px-2 py-1 border {{ ($r->inasistencia['huelga_total'] ?? 0) > 0 ? 'text-red-600 font-bold' : '' }}">
-                                    {{ $r->inasistencia['huelga_total'] ?? 0 }}
-                                </td>
-                            </tr>
-                        @endforeach
+                        <tbody>
+                            @foreach($personasConInasistencia as $r)
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-2 py-1 border">{{ $loop->iteration }}</td>
+                                    <td class="px-2 py-1 border"><strong>{{ $r->oficio ?? '' }}</strong></td>
+                                    <td class="px-2 py-1 border"><strong>{{ $r->expediente }}</strong></td>
+                                    <td class="px-2 py-1 border">{{ $r->dni }}</td>
+                                    <td class="px-2 py-1 border cursor-pointer text-blue-600 hover:underline" 
+                                        onclick="abrirModalInasistencia('{{ $r->dni }}')">
+                                        {{ $r->nombres }}
+                                    </td>
+                                    <td class="px-2 py-1 border">{{ $r->cargo }}</td>
+                                    <td class="px-2 py-1 border">{{ $r->distrito ?? '' }}</td>
+                                    <td class="px-2 py-1 border">{{ $r->red ?? '' }}</td>
+                                    <td class="px-2 py-1 border">{{ $r->institucion ?? '' }}</td>
+                                    <td class="px-2 py-1 border">{{ $r->nivel }}</td>
+                                    <td class="px-2 py-1 border {{ ($r->inasistencia['inasistencia_total'] ?? 0) > 0 ? 'text-red-600 font-bold' : '' }}">
+                                        {{ $r->inasistencia['inasistencia_total'] ?? 0 }}
+                                    </td>
+                                    <td class="px-2 py-1 border {{ (($r->inasistencia['tardanza_total']['horas'] ?? 0) > 0 || ($r->inasistencia['tardanza_total']['minutos'] ?? 0) > 0) ? 'text-red-600 font-bold' : '' }}">
+                                        {{ $r->inasistencia['tardanza_total']['horas'] ?? 0 }}h {{ $r->inasistencia['tardanza_total']['minutos'] ?? 0 }}m
+                                    </td>
+                                    <td class="px-2 py-1 border {{ (($r->inasistencia['permiso_sg_total']['horas'] ?? 0) > 0 || ($r->inasistencia['permiso_sg_total']['minutos'] ?? 0) > 0) ? 'text-red-600 font-bold' : '' }}">
+                                        {{ $r->inasistencia['permiso_sg_total']['horas'] ?? 0 }}h {{ $r->inasistencia['permiso_sg_total']['minutos'] ?? 0 }}m
+                                    </td>
+                                    <td class="px-2 py-1 border {{ ($r->inasistencia['huelga_total'] ?? 0) > 0 ? 'text-red-600 font-bold' : '' }}">
+                                        {{ $r->inasistencia['huelga_total'] ?? 0 }}
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
                     </table>
+                </div>
+                <div id="modalInasistencia" class="fixed inset-0 bg-black bg-opacity-50 hidden flex justify-center items-center z-60">
+                    <div class="bg-white rounded-xl shadow-lg w-11/12 max-w-3xl p-6 relative">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-bold" id="nombreDocente">Docente</h3>
+                            <button onclick="cerrarModal()" class="text-red-500 font-bold">&times;</button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full text-sm text-center border-collapse">
+                                <thead class="bg-gray-100">
+                                    <tr>
+                                        <th class="border px-2 py-1">Fecha</th>
+                                        <th class="border px-2 py-1">Bloque</th>
+                                        <th class="border px-2 py-1">Semana Bloque</th>
+                                        <th class="border px-2 py-1">Tipo Descuento</th>
+                                        <th class="border px-2 py-1">Horas/Minutos</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="detalleInasistencia"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div id="modalCriticos" class="fixed inset-0 bg-black bg-opacity-50 hidden flex justify-center items-center z-50">
+                    <div class="bg-white rounded-xl shadow-lg w-11/12 max-w-4xl p-6 relative">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="text-lg font-bold text-red-600">
+                                🚨 Docentes con inasistencias críticas 
+                                <span class="block text-sm text-gray-600 font-normal">
+                                    (3 faltas continuas o 5 discontinuas)
+                                </span>
+                            </h3>
+                            <button onclick="document.getElementById('modalCriticos').classList.add('hidden')" class="text-red-500 font-bold text-xl leading-none">&times;</button>
+                        </div>
+                        <div class="overflow-x-auto border rounded max-h-96">
+                            <table class="min-w-full text-sm text-center border-separate border-spacing-0">
+                                <thead class="bg-gray-200 sticky top-0 z-10">
+                                    <tr>
+                                        <th class="border px-2 py-2">#</th>
+                                        <th class="border px-2 py-2">DNI</th>
+                                        <th class="border px-2 py-2">Docente</th>
+                                        <th class="border px-2 py-2">Cargo</th>
+                                        <th class="border px-2 py-2">Distrito</th>
+                                        <th class="border px-2 py-2">Institución</th>
+                                        <th class="border px-2 py-2">Inasistencias</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($docentesCriticos as $d)
+                                        <tr class="hover:bg-gray-50">
+                                            <td class="border px-2 py-1">{{ $loop->iteration }}</td>
+                                            <td class="border px-2 py-1">{{ $d->dni }}</td>
+                                            <td class="border px-2 py-1 text-blue-600 cursor-pointer hover:underline"
+                                                onclick="abrirModalInasistencia('{{ $d->dni }}')">
+                                                {{ $d->nombres }}
+                                            </td>
+                                            <td class="border px-2 py-1">{{ $d->cargo }}</td>
+                                            <td class="border px-2 py-1">{{ $d->distrito }}</td>
+                                            <td class="border px-2 py-1">{{ $d->institucion }}</td>
+                                            <td class="border px-2 py-1 font-bold text-red-600">
+                                                {{ $d->inasistencia['inasistencia_total'] ?? 0 }}
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             @endif
         </div>
@@ -514,11 +618,11 @@
                                         <td>{{ $c['distrito'] }}</td>
                                         <td>
                                             <span 
-                                                class="cursor-pointer text-blue-600 hover:underline"
+                                                class=" cursor-pointer hover:underline text-blue-600"
                                                 onclick="verObservaciones(
-                                                    '{{ url('reporte/observaciones-ie') }}',
-                                                    '{{ $c['codlocal'] }}',
-                                                    '{{ $c['nombre_ie'] }}'
+                                                '{{ url('reporte/observaciones-ie') }}',
+                                                '{{ $c['codlocal'] }}',
+                                                '{{ $c['nombre_ie'] }}'
                                                 )">
                                                 {{ $c['nombre_ie'] }}
                                             </span>
@@ -535,43 +639,59 @@
                     </div>
                 </div>
             </div>
-        
-
-            <div id="modalInasistencia" class="fixed inset-0 bg-black bg-opacity-50 hidden flex justify-center items-center z-50">
-                <div class="bg-white rounded-xl shadow-lg w-11/12 max-w-3xl p-6">
-                    <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-lg font-bold" id="nombreDocente">Docente</h3>
-                        <button onclick="cerrarModal()" class="text-red-500 font-bold">&times;</button>
-                    </div>
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full text-sm text-center border-collapse">
-                            <thead class="bg-gray-100">
-                                <tr>
-                                    <th class="border px-2 py-1">Fecha</th>
-                                    <th class="border px-2 py-1">Bloque</th>
-                                    <th class="border px-2 py-1">Semana Bloque</th>
-                                    <th class="border px-2 py-1">Tipo Descuento</th>
-                                    <th class="border px-2 py-1">Horas/Minutos</th>
-                                </tr>
-                            </thead>
-                            <tbody id="detalleInasistencia"></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
 
             <div id="modalObservaciones" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
                 <div class="bg-white rounded-lg shadow-lg w-11/12 max-w-6xl p-6">
                     <h2 id="tituloModal" class="text-lg font-semibold mb-4"></h2>
 
                     <h2 class="text-xl font-bold mb-4 text-center">
-                        MES DE {{ strtoupper(\Carbon\Carbon::now()->translatedFormat('F')) }}
+                        MES DE {{ strtoupper(\Carbon\Carbon::now()->subMonth()->translatedFormat('F')) }}
                     </h2>
 
                     <div class="overflow-auto max-h-[80vh] border rounded">
                         
                         <table class="min-w-[1500px] w-full text-sm border-collapse">
-                            @php
+                           @php
+                            use Carbon\Carbon;
+
+                            try {
+                                // Normalizar entrada: $mes puede venir como '9', '09', '2025-09' o '2025-09-01'
+                                $mesInput  = $mes ?? null;
+                                $anioInput = $anio ?? null;
+
+                                if ($mesInput && is_string($mesInput) && strpos($mesInput, '-') !== false) {
+                                    // Si trae guion: interpretar como fecha o año-mes
+                                    $dt = Carbon::parse($mesInput);
+                                    $anio = (int)($anioInput ?: $dt->year);
+                                    $mes  = (int)$dt->month;
+                                } elseif ($mesInput) {
+                                    // Si es número/string numérico
+                                    $mes  = (int)$mesInput;
+                                    $anio = (int)($anioInput ?: Carbon::now()->year);
+                                } else {
+                                    $now  = Carbon::now();
+                                    $mes  = (int)$now->month;
+                                    $anio = (int)$now->year;
+                                }
+
+                                // Validación básica del mes
+                                if ($mes < 1 || $mes > 12) {
+                                    $now  = Carbon::now();
+                                    $mes  = (int)$now->month;
+                                    $anio = (int)$now->year;
+                                }
+
+                                // Primer día del mes (seguro)
+                                $primerDia = Carbon::createFromDate($anio, $mes, 1);
+                                $diasEnMes = $primerDia->daysInMonth;
+
+                                // Feriados y bloques (puedes dejar tus valores)
+                                $feriados = [
+                                    '2025-07-28','2025-07-29','2025-08-06','2025-08-30',
+                                    '2025-10-08','2025-11-01','2025-12-08','2025-12-09',
+                                    '2025-12-25','2025-12-26'
+                                ];
+
                                 $bloques = [
                                     ['tipo' => 'g', 'inicio' => '2025-03-03', 'fin' => '2025-03-14'],
                                     ['tipo' => 'l', 'inicio' => '2025-03-17', 'fin' => '2025-05-16'],
@@ -585,92 +705,113 @@
                                 ];
 
                                 if (!function_exists('obtenerTipoSemana')) {
-                                    function obtenerTipoSemana($fecha, $bloques, $feriados) {
-                                        if ($fecha->isWeekend() || in_array($fecha->format('Y-m-d'), $feriados)) {
+                                    function obtenerTipoSemana(Carbon $fecha, $bloques, $feriados) {
+                                        if ($fecha->isWeekend() || in_array($fecha->format('Y-m-d'), (array)$feriados, true)) {
                                             return null;
                                         }
 
                                         foreach ($bloques as $bloque) {
-                                            if ($fecha->between(\Carbon\Carbon::parse($bloque['inicio']), \Carbon\Carbon::parse($bloque['fin']))) {
+                                            try {
+                                                $inicio = Carbon::createFromFormat('Y-m-d', $bloque['inicio']);
+                                                $fin    = Carbon::createFromFormat('Y-m-d', $bloque['fin']);
+                                            } catch (\Throwable $e) {
+                                                // si alguno de los límites está mal formateado, lo ignoramos
+                                                continue;
+                                            }
+                                            if ($fecha->between($inicio, $fin)) {
                                                 return $bloque['tipo'];
                                             }
                                         }
-
                                         return null;
                                     }
                                 }
-                            @endphp
 
-                            @php
-                                $mes = $mes ?? \Carbon\Carbon::now()->month;
-                                $anio = $anio ?? \Carbon\Carbon::now()->year;
-                                $diasEnMes = \Carbon\Carbon::create($anio, $mes, 1)->daysInMonth;
-                                $feriados = ['2025-07-28','2025-07-29','2025-08-06','2025-08-30','2025-10-08' ,'2025-11-01','2025-12-08','2025-12-09','2025-12-25','2025-12-26'];
+                                // Construir patrón por día
+                                $patronDias = [];
                                 for ($d = 1; $d <= $diasEnMes; $d++) {
-                                    $fecha = \Carbon\Carbon::create($anio, $mes, $d);
-                                    $patronDias[$d] = obtenerTipoSemana($fecha, $bloques, $feriados); 
+                                    $fecha = $primerDia->copy()->addDays($d - 1);
+                                    $patronDias[$d] = obtenerTipoSemana($fecha, $bloques, $feriados);
                                 }
+                            } catch (\Throwable $e) {
+                                // Fallback para evitar que la vista rompa: usar mes actual y patrón vacío
+                                $primerDia = Carbon::now()->startOfMonth();
+                                $diasEnMes = $primerDia->daysInMonth;
+                                $patronDias = array_fill(1, $diasEnMes, null);
+
+                                // Comentario HTML con mensaje de error para depuración (no visible en UI normal)
+                                echo "<!-- Carbon error: " . e($e->getMessage()) . " -->";
+                            }
                             @endphp
 
-                            <thead>
+                            <thead class="bg-gray-200 text-gray-700 uppercase text-xs sticky top-0 z-10">
                                 <tr>
-                                    <th class="border px-2 py-1 bg-gray-200" rowspan="3">Nº</th>
-                                    <th class="border px-2 py-1 bg-gray-200 w-24 text-center" rowspan="3">DNI</th>
-                                    <th class="border px-2 py-1 bg-gray-200" rowspan="3">Apellidos y Nombres</th>
-                                    <th class="border px-2 py-1 bg-gray-200 text-center" rowspan="3">Cargo</th>
-                                    <th class="border px-2 py-1 bg-gray-200 text-center" rowspan="3">Condición</th>
-                                    <th class="border px-2 py-1 bg-gray-200 text-center" rowspan="3">Jor. Lab.</th>
+                                    <th class="border px-2 py-1 bg-gray-200" rowspan="2">Nº</th>
+                                    <th class="border px-2 py-1 bg-gray-200" rowspan="2">DNI</th>
+                                    <th class="border px-2 py-1 bg-gray-200" rowspan="2">Apellidos y Nombres</th>
+                                    <th class="border px-2 py-1 bg-gray-200 text-center" rowspan="2">Cargo</th>
+                                    <th class="border px-2 py-1 bg-gray-200 text-center" rowspan="2">Condición</th>
+                                    <th class="border px-2 py-1 bg-gray-200 text-center" rowspan="2">Jor. Lab.</th>
 
-                                    @php
-                                        $mes = $mes ?? \Carbon\Carbon::now()->month;
-                                        $anio = $anio ?? \Carbon\Carbon::now()->year;
-                                        $diasEnMes = \Carbon\Carbon::create($anio, $mes, 1)->daysInMonth;
-                                        $diasSemana = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
-                                    @endphp
-                                    
-                                    {{-- Fila de números de día --}}
-                                    @for ($d = 1; $d <= $diasEnMes; $d++)
-                                        <th class="border px-1 py-1 bg-gray-200 text-center">{{ $d }}</th>
-                                    @endfor
+                                    {{-- Columna de inasistencias --}}
+                                    <th class="border px-2 py-1 bg-gray-200" rowspan="2">
+                                        <div class="flex flex-col h-full">
+                                            <div class="border-b border-white py-1 text-center">Inasistencias</div>
+                                            <div class="py-1 text-xs font-semibold text-center">Días</div>
+                                        </div>
+                                    </th>
 
-                                    <th class="border px-2 py-1 bg-gray-200 text-center" rowspan="3">Cumplimiento</th>
+                                    {{-- Columna de tardanzas (con subdivisión en horas y minutos) --}}
+                                    <th class="border px-2 py-1 bg-gray-200 text-center" colspan="2">
+                                        Tardanzas
+                                    </th>
+
+                                    {{-- Columna de permisos sin goce (con subdivisión en horas y minutos) --}}
+                                    <th class="border px-2 py-1 bg-gray-200 text-center" colspan="2">
+                                        Permisos SG
+                                    </th>
+
+                                    {{-- Columna de huelgas --}}
+                                    <th class="border px-2 py-0 bg-gray-200 text-center" rowspan="2">
+                                        <div class="flex flex-col h-full">
+                                            <div class="border-b border-white py-1">Huelga / Paro</div>
+                                            <div class="py-1 text-xs font-semibold">Días</div>
+                                        </div>
+                                    </th>
+
+                                    {{-- Columna de observaciones --}}
+                                    <th class="border px-2 py-1 bg-gray-200" rowspan="2">Observaciones</th>
+
+                                     <th class="border px-2 py-1 bg-gray-200 text-center" rowspan="2">Cumplimiento</th>
                                 </tr>
                                 <tr>
-                                    {{-- Fila de nombres de día --}}
-                                    @for ($d = 1; $d <= $diasEnMes; $d++)
-                                        @php
-                                            $fecha = \Carbon\Carbon::create($anio, $mes, $d);
-                                            $nombreDia = $diasSemana[$fecha->dayOfWeek];
-                                        @endphp
-                                        <th class="border px-1 py-1 text-[10px] {{ in_array($nombreDia, ['S', 'D']) ? 'bg-gray-300' : 'bg-gray-200' }}">
-                                            {{ $nombreDia }}
-                                        </th>
-                                    @endfor
+                                    {{-- Subcolumnas de tardanzas --}}
+                                    <th class="border px-2 py-0 bg-gray-200 text-xs font-normal">
+                                        <div class="flex flex-col items-center justify-center h-full leading-tight">
+                                            <div class="font-semibold">Horas</div>
+                                            <div>(*)</div>
+                                        </div>
+                                    </th>
+                                    <th class="border px-2 py-0 bg-gray-200 text-xs font-normal">
+                                        <div class="flex flex-col items-center justify-center h-full leading-tight">
+                                            <div class="font-semibold">Minutos</div>
+                                            <div>(*)</div>
+                                        </div>
+                                    </th>
+
+                                    {{-- Subcolumnas de permisos SG --}}
+                                    <th class="border px-2 py-0 bg-gray-200 text-xs font-normal">
+                                        <div class="flex flex-col items-center justify-center h-full leading-tight">
+                                            <div class="font-semibold">Horas</div>
+                                            <div>(*)</div>
+                                        </div>
+                                    </th>
+                                    <th class="border px-2 py-0 bg-gray-200 text-xs font-normal">
+                                        <div class="flex flex-col items-center justify-center h-full leading-tight">
+                                            <div class="font-semibold">Minutos</div>
+                                            <div>(*)</div>
+                                        </div>
+                                    </th>
                                 </tr>
-                                <tr>
-                                    {{-- Fila de bloques G/L --}}
-                                    @for ($d = 1; $d <= $diasEnMes; $d++)
-                                        @php
-                                            $fecha = \Carbon\Carbon::create($anio, $mes, $d);
-                                            $tipo = obtenerTipoSemana($fecha, $bloques, $feriados);
-
-                                            $texto = match($tipo) {
-                                                'g' => 'G',
-                                                'l' => 'L',
-                                                default => '',
-                                            };
-
-                                            $bgColor = match($tipo) {
-                                                'g' => 'bg-blue-100 text-blue-800',
-                                                'l' => 'bg-green-100 text-green-800',
-                                                default => 'bg-gray-100 text-gray-500',
-                                            };
-                                        @endphp
-                                        <th class="border px-1 py-1 text-[10px] {{ $bgColor }}">
-                                            {{ $texto }}
-                                        </th>
-                                    @endfor
-                                </tr>         
                             </thead>
 
                             <tbody id="tbodyAsistencia"></tbody>
@@ -684,6 +825,19 @@
                         </button>
                     </div>
                 </div>
+            </div>
+        </div>
+        
+        <div id="tablaPowerBI" class="hidden w-full max-w-full mx-auto bg-white rounded-xl shadow-md p-6 mt-10">
+            <h1 class="text-2xl font-bold text-center mb-4 uppercase">📊 Dashboard Power BI</h1>
+            <div class="overflow-hidden rounded-lg shadow-md">
+                <iframe 
+                    width="100%" 
+                    height="800" 
+                    src="https://app.powerbi.com/view?r=eyJrIjoiN2IxN2JhNDItZDBhMi00MzJkLTg2MzMtMDIwMzY2MTcyZjRjIiwidCI6ImQ3OTg3NDY2LWM3YjQtNDEyYS1hNzk0LThjNjA2N2Q1YzU1YSIsImMiOjR9" 
+                    frameborder="0" 
+                    allowFullScreen="true">
+                </iframe>
             </div>
         </div>
 
@@ -712,136 +866,114 @@
     const anio = {{ $anio }};
     const mes = {{ $mes }};
 
-    async function verObservaciones(baseUrl, codlocal, nombre_ie) {
+    const bloques2025 = [
+        { tipo: "gestion", inicio: "2025-03-03", fin: "2025-03-14" },
+        { tipo: "lectiva", inicio: "2025-03-17", fin: "2025-05-16" },
+        { tipo: "gestion", inicio: "2025-05-19", fin: "2025-05-23" },
+        { tipo: "lectiva", inicio: "2025-05-26", fin: "2025-07-25" },
+        { tipo: "gestion", inicio: "2025-07-28", fin: "2025-08-08" },
+        { tipo: "lectiva", inicio: "2025-08-11", fin: "2025-10-10" },
+        { tipo: "gestion", inicio: "2025-10-13", fin: "2025-10-17" },
+        { tipo: "lectiva", inicio: "2025-10-20", fin: "2025-12-19" },
+        { tipo: "gestion", inicio: "2025-12-22", fin: "2025-12-31" }
+    ];
+
+    async function verObservaciones(baseUrl, codlocal, nombre_ie, tipo = "anexo04") {
         try {
+            document.getElementById('tituloModal').innerHTML =`<strong class='text-xl'>Institución - ${nombre_ie} - ${tipo === "anexo03" ? "Anexo 03" : "Anexo 04"}</strong>`;
 
-            document.getElementById('tituloModal').innerHTML = "<strong class='text-xl'>" + "Institución - " + nombre_ie + " - Anexo 03</strong>";
+            const resp = await fetch(`${baseUrl}?codlocal=${codlocal}&tipo=${tipo}`);
+            const text = await resp.text();
 
-            const resp = await fetch(`${baseUrl}?codlocal=${codlocal}`);
-            const data = await resp.json();
-            
+            let data;
+            try {
+                data = JSON.parse(text);
+            } catch {
+                console.error("Respuesta no es JSON:", text);
+                alert("⚠️ Error: el servidor devolvió HTML en vez de JSON");
+                return;
+            }
+
             if (data.error) {
-                alert("⚠️ " + data.error);
+                alert("⚠️ " + (data.mensaje || "Error en servidor"));
                 return;
             }
 
             let rows = '';
-            Object.keys(data.asistencias).forEach((clave, index) => {
-                const asist = data.asistencias[clave];
-                const r = data.registros.find(p => (p.dni + '_' + p.cod) === clave);
-                if (!r) return;
+            const lista = data.registros ?? [];
+            lista.forEach((r, index) => {
+                const inas = r.inasistencia || {};
+                let detalle = {};
 
-                rows += `<tr>
-                            <td class="border px-2 py-1">${index + 1}</td>
-                            <td class="border px-2 py-1">${r.dni}</td>
-                            <td class="border px-2 py-1">${r.nombres}</td>
-                            <td class="border px-2 py-1">${r.cargo}</td>
-                            <td class="border px-2 py-1">${r.condicion}</td>
-                            <td class="border px-2 py-1">${r.jornada}</td>`;
+                try {
+                    // puede venir en r.detalle o en inas.detalle
+                    const rawDetalle = r.detalle ?? inas.detalle;
 
-                if (asist.asistencia && asist.asistencia.length > 0) {
-                    const totalDias = asist.asistencia.length;
-
-                    // Buscar indices de observación (I,P,L,V)
-                    let obsIndexIni = -1;
-                    let obsIndexFin = -1;
-                    asist.asistencia.forEach((val, i) => {
-                        if (['I','P','L','V'].includes(val)) {
-                            if (obsIndexIni === -1) obsIndexIni = i;
-                            obsIndexFin = i;
-                        }
-                    });
-
-                    // Caso 1: observación cubre todo el mes (todo null pero tiene observación)
-                    const todosNull = asist.asistencia.every(v => v === null);
-                    if (todosNull && (asist.observacion || asist.tipo_observacion)) {
-                        rows += `<td class="border px-1 py-1 bg-red-50 text-center text-red-600 italic font-bold" colspan="${totalDias}">
-                                    ${asist.observacion_detalle ?? asist.observacion ?? asist.tipo_observacion}
-                                </td>`;
-                    } 
-                    // Caso 2: observación en un rango específico
-                    else if (obsIndexIni !== -1) {
-                        // antes de la observación
-                        for (let i = 0; i < obsIndexIni; i++) {
-                            let val = asist.asistencia[i];
-                            let clase = '';
-                            if (val === 'A') clase = 'text-black-600 font-bold';
-                            if (val === 'F') clase = 'bg-yellow-100';
-                            rows += `<td class="border px-1 py-1 text-center ${clase}">${val ?? ''}</td>`;
-                        }
-
-                        // rango observado
-                        const rango = obsIndexFin - obsIndexIni + 1;
-                        rows += `<td class="border px-1 py-1 bg-red-50 text-center text-red-600 italic font-bold" colspan="${rango}">
-                                    ${asist.observacion_detalle ?? asist.observacion ?? asist.tipo_observacion}
-                                </td>`;
-
-                        // después de la observación
-                        for (let i = obsIndexFin + 1; i < totalDias; i++) {
-                            let val = asist.asistencia[i];
-                            let clase = '';
-                            if (val === 'A') clase = 'text-black-600 font-bold';
-                            if (val === 'F') clase = 'bg-yellow-100';
-                            rows += `<td class="border px-1 py-1 text-center ${clase}">${val ?? ''}</td>`;
-                        }
-                    } 
-                    // Caso 3: sin observaciones → pintar normal
-                    else {
-                        asist.asistencia.forEach(val => {
-                            let clase = '';
-                            if (val === 'A') clase = 'text-green-600 font-bold';
-                            if (val === 'F') clase = 'bg-yellow-100';
-                            rows += `<td class="border px-1 py-1 text-center ${clase}">${val ?? ''}</td>`;
-                        });
+                    if (typeof rawDetalle === "string") {
+                        detalle = JSON.parse(rawDetalle);
+                    } else if (rawDetalle && typeof rawDetalle === "object") {
+                        detalle = rawDetalle;
                     }
+                } catch (e) {
+                    detalle = {};
                 }
 
-                // --- Calcular cumplimiento ---
-                let diasGestion = 0, diasLectivos = 0;
-                let cumplidosGestion = 0, cumplidosLectivos = 0;
+                const stats = calcularCumplimientoPorBloques(
+                    inas,
+                    detalle, 
+                    bloques2025,
+                    data.anio,
+                    data.mes
+                );
 
-                asist.asistencia.forEach((val, i) => {
-                    const dia = i + 1;
-                    const tipo = patronDias[dia] ?? null;
 
-                    // marcar feriados como F
-                    const fecha = `${anio}-${String(mes).padStart(2,'0')}-${String(dia).padStart(2,'0')}`;
-                    if (feriados.includes(fecha)) val = 'F';
+                // 🔹 Mostrar solo si hay días exigidos
+                if (stats.totalExigidos === 0) return;
 
-                    if (tipo === 'g' || tipo === 'l') {
-                        if (tipo === 'g') diasGestion++;
-                        if (tipo === 'l') diasLectivos++;
+                // 🔹 Evitar docentes con 0 en todo (ningún descuento)
+                const tieneDescuento =
+                    (inas.inasistencia_total ?? 0) > 0 ||
+                    (inas.tardanza_total?.horas ?? 0) > 0 ||
+                    (inas.tardanza_total?.minutos ?? 0) > 0 ||
+                    (inas.permiso_sg_total?.horas ?? 0) > 0 ||
+                    (inas.permiso_sg_total?.minutos ?? 0) > 0 ||
+                    (inas.huelga_total ?? 0) > 0 ||
+                    (inas.observaciones ?? "").trim() !== "";
 
-                        if (val === 'A') {
-                            if (tipo === 'g') cumplidosGestion++;
-                            if (tipo === 'l') cumplidosLectivos++;
-                        }
-                    }
-                });
+                if (!tieneDescuento) return;
 
-                const totalExigidos = diasGestion + diasLectivos;
-                const totalCumplidos = cumplidosGestion + cumplidosLectivos;
-                const cumplimiento = totalExigidos > 0 ? Math.round((totalCumplidos/totalExigidos)*100) : null;
-
-                // --- Pintar columna ---
-                if (cumplimiento === null) {
-                    rows += `<td class="border px-1 py-1 text-center">-</td>`;
-                } else {
-                    rows += `<td class="border px-1 py-1 text-center font-semibold whitespace-nowrap w-[200px]">
-                                <span class="text-blue-600 block">
-                                    G: ${cumplidosGestion}/${diasGestion} (${diasGestion > 0 ? Math.round((cumplidosGestion/diasGestion)*100) : 0}%)
-                                </span>
-                                <span class="text-green-600 block">
-                                    L: ${cumplidosLectivos}/${diasLectivos} (${diasLectivos > 0 ? Math.round((cumplidosLectivos/diasLectivos)*100) : 0}%)
-                                </span>
-                                <span class="${cumplimiento === 100 ? 'text-green-600' : 'text-purple-600'} block">
-                                    Total: ${totalCumplidos}/${totalExigidos} (${cumplimiento}%)
-                                </span>
-                            </td>`;
-                }
-
-                rows += `</tr>`;
+                rows += `
+                    <tr>
+                        <td class="border px-2 py-1">${index + 1}</td>
+                        <td class="border px-2 py-1">${r.dni}</td>
+                        <td class="border px-2 py-1">${r.nombres}</td>
+                        <td class="border px-2 py-1">${r.cargo}</td>
+                        <td class="border px-2 py-1">${r.condicion}</td>
+                        <td class="border px-2 py-1">${r.jornada}</td>
+                        <td class="border px-2 py-1 text-center">${inas.inasistencia_total ?? ''}</td>
+                        <td class="border px-2 py-1 text-center">${inas.tardanza_total?.horas ?? ''}</td>
+                        <td class="border px-2 py-1 text-center">${inas.tardanza_total?.minutos ?? ''}</td>
+                        <td class="border px-2 py-1 text-center">${inas.permiso_sg_total?.horas ?? ''}</td>
+                        <td class="border px-2 py-1 text-center">${inas.permiso_sg_total?.minutos ?? ''}</td>
+                        <td class="border px-2 py-1 text-center">${inas.huelga_total ?? ''}</td>
+                        <td class="border px-2 py-1">${inas.observaciones ?? ''}</td>
+                        <td class="border px-2 py-1 text-center font-semibold whitespace-nowrap w-[200px]">
+                            <span class="text-blue-600 block">
+                                G: ${stats.diasGestion - stats.incumplidosGestion}/${stats.diasGestion} 
+                                (${stats.diasGestion > 0 ? Math.round(((stats.diasGestion - stats.incumplidosGestion)/stats.diasGestion)*100) : 0}%)
+                            </span>
+                            <span class="text-green-600 block">
+                                L: ${stats.diasLectivos - stats.incumplidosLectivos}/${stats.diasLectivos} 
+                                (${stats.diasLectivos > 0 ? Math.round(((stats.diasLectivos - stats.incumplidosLectivos)/stats.diasLectivos)*100) : 0}%)
+                            </span>
+                            <span class="${stats.cumplimiento === 100 ? 'text-purple-600' : 'text-purple-600'} block">
+                                Total: ${stats.totalCumplidos}/${stats.totalExigidos} (${stats.cumplimiento ?? '-'}%)
+                            </span>
+                        </td>
+                    </tr>
+                `;
             });
+
 
             document.getElementById("tbodyAsistencia").innerHTML = rows;
             document.getElementById("modalObservaciones").classList.remove("hidden");
@@ -852,6 +984,120 @@
         }
     }
 
+    function calcularCumplimientoPorBloques(inasistencia, detalle, bloques, anio, mes) {
+        // Si detalle llega como string JSON, parseamos
+        if (typeof detalle === "string") {
+            try { detalle = JSON.parse(detalle); } catch(e) { detalle = {}; }
+        }
+
+        // Si detalle es array vacío, lo tratamos como {}
+        if (Array.isArray(detalle)) {
+            detalle = {};
+        }
+
+        const inicioMes = new Date(anio, mes - 1, 1);
+        const finMes = new Date(anio, mes, 0);
+
+        const bloquesMes = bloques.filter(b => {
+            const ini = new Date(b.inicio + "T12:00:00");
+            const fin = new Date(b.fin + "T12:00:00");
+            return fin >= inicioMes && ini <= finMes;
+        });
+
+        let diasGestion = 0, diasLectivos = 0;
+        let incumplidosGestion = 0, incumplidosLectivos = 0;
+
+        // Construir set de TODAS las fechas con descuento (normalizadas)
+        const faltas = new Set();
+
+        // Función para normalizar cualquier string de fecha a YYYY-MM-DD
+        function normalizar(fecha) {
+            if (!fecha) return null;
+
+            // Forzar a leer como string plano YYYY-MM-DD
+            if (/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+                return fecha;
+            }
+
+            const d = new Date(fecha);
+            if (isNaN(d)) return null;
+
+            return [
+                d.getFullYear(),
+                String(d.getMonth() + 1).padStart(2, "0"),
+                String(d.getDate()).padStart(2, "0")
+            ].join("-");
+        }
+
+        detalle = {
+            inasistencia: detalle.inasistencia ?? [],
+            tardanza: detalle.tardanza ?? [],
+            permiso_sg: detalle.permiso_sg ?? [],
+            huelga: detalle.huelga ?? []
+        };
+
+        if (detalle?.inasistencia) {
+            detalle.inasistencia.forEach(f => {
+                const norm = normalizar(f);
+                if (norm) faltas.add(norm);
+            });
+        }
+
+        if (detalle?.huelga) {
+            detalle.huelga.forEach(h => {
+                const norm = normalizar(h.fecha ?? h);
+                if (norm) faltas.add(norm);
+            });
+        }
+
+        for (const b of bloquesMes) {
+            let ini = new Date(b.inicio + "T12:00:00");
+            let fin = new Date(b.fin + "T12:00:00");
+
+            if (ini < inicioMes) ini = new Date(inicioMes);
+            if (fin > finMes) fin = new Date(finMes);
+
+            for (let d = new Date(ini); d <= fin; d.setDate(d.getDate() + 1)) {
+                const diaSemana = d.getDay();
+                if (diaSemana === 0 || diaSemana === 6) continue;
+
+                const diaISO = [
+                    d.getFullYear(),
+                    String(d.getMonth() + 1).padStart(2, "0"),
+                    String(d.getDate()).padStart(2, "0")
+                ].join("-");
+
+                // Debug: comparar día exigido con set de faltas
+                if (faltas.has(diaISO)) {
+                    //console.log("Coincidencia encontrada:", diaISO, "-> falta");
+                }
+
+                if (b.tipo === "gestion") {
+                    diasGestion++;
+                    if (faltas.has(diaISO)) incumplidosGestion++;
+                } else if (b.tipo === "lectiva") {
+                    diasLectivos++;
+                    if (faltas.has(diaISO)) incumplidosLectivos++;
+                }
+            }
+        }
+        const totalExigidos = diasGestion + diasLectivos;
+        const totalIncumplidos = incumplidosGestion + incumplidosLectivos;
+        const totalCumplidos = totalExigidos - totalIncumplidos;
+        const cumplimiento = totalExigidos > 0 
+            ? Math.round((totalCumplidos / totalExigidos) * 100) 
+            : null;
+
+        return {
+            diasGestion,
+            diasLectivos,
+            incumplidosGestion,
+            incumplidosLectivos,
+            totalExigidos,
+            totalCumplidos,
+            cumplimiento
+        };
+    }
 
     function filtrar(tipo) {
         const filas = document.querySelectorAll("#tablaCumplimiento tbody tr");
@@ -934,10 +1180,12 @@
         const tablaEstadistica = document.getElementById("tablaEstadistica");
         const btnBloque = document.getElementById("btnBloque");
         const tablaBloque = document.getElementById("tablaBloque");
+        const btnPowerBI = document.getElementById("btnPowerBI");
+        const tablaPowerBI = document.getElementById("tablaPowerBI");
 
         function activarTab(botonActivo, tablaActiva) {
-            [tablaReporte, tablaObservaciones, tablaEstadistica, tablaBloque].forEach(t => t.classList.add("hidden"));
-            [btnReporte, btnObservaciones, btnEstadistica, btnBloque].forEach(b => {
+            [tablaReporte, tablaObservaciones, tablaEstadistica, tablaBloque, tablaPowerBI].forEach(t => t.classList.add("hidden"));
+            [btnReporte, btnObservaciones, btnEstadistica, btnBloque, btnPowerBI].forEach(b => {
                 b.classList.remove("text-blue-600", "border-blue-600", "border-b-2");
                 b.classList.add("text-gray-500");
             });
@@ -949,6 +1197,7 @@
         btnObservaciones.addEventListener("click", () => activarTab(btnObservaciones, tablaObservaciones));
         btnEstadistica.addEventListener("click", () => activarTab(btnEstadistica, tablaEstadistica));
         btnBloque.addEventListener("click", () => activarTab(btnBloque, tablaBloque));
+        btnPowerBI.addEventListener("click", () => activarTab(btnPowerBI, tablaPowerBI));
     });
 
 
@@ -1120,7 +1369,7 @@
                 ]
             },
             options: {
-                responsive: true,
+                responsive: true,      
                 plugins: {
                     legend: { display: false } 
                 },

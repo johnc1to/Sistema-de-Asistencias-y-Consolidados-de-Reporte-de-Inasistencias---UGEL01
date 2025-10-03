@@ -15,11 +15,28 @@
 <meta name="guardar-firma-url" content="{{ route('guardar.firma.director') }}">
 
     <div class="w-full max-w-full mx-auto bg-white rounded-xl shadow-md p-6">
-        <h1 class="text-2xl font-bold text-center mb-4 uppercase">ANEXO 04 - {{ mb_strtoupper(\Carbon\Carbon::now()->subMonth()->translatedFormat('F '), 'UTF-8') }}</h1>
+      @php
+          $hoy = now();
+
+          if ($hoy->day <= 3) {
+              // Primeros 3 días → mes anterior
+              $fechaReferencia = $hoy->copy()->subMonth();
+          } else {
+              // Del 4 en adelante → mes actual
+              $fechaReferencia = $hoy;
+          }
+      @endphp
+        <h1 class="text-3xl font-bold text-center mb-4 uppercase">
+            ANEXO 04 - 
+            <strong class="text-blue-600 text-3xl">
+                {{ mb_strtoupper($fechaReferencia->translatedFormat('F'), 'UTF-8') }}
+            </strong>
+        </h1>
         <h1 class="text-2xl font-bold text-center mb-4 uppercase">Formato 02: REPORTE CONSOLIDADO DE INASISTENCIAS, TARDANZAS Y PERMISOS SIN GOCE DE REMUNERACIONES</h1>
-        <button onclick="iniciarTutorial()" class="mb-4 px-4 py-2 bg-emerald-600 text-white rounded bg-violet-600 hover:bg-violet-700">
-            Ver tutorial
-        </button>
+        <button onclick="iniciarTutorial()" class="mb-4 px-4 py-2 bg-emerald-600 text-white rounded bg-violet-600 hover:bg-violet-700">Ver tutorial</button>
+        <a target="_blank" class="btn btn-danger" href="guia/ASISTENCIA-IE-ANEXO-04.pdf"><span class="pe-7s-file"></span> Ver Guia en PDF</a>
+        <a target="_blank" class="btn btn-danger" href="guia/ANEXO-04.mp4"> <span class="pe-7s-video"></span> Ver Video Tutorial</a>
+        
         <!-- Información de la institución y nivel -->
         <div class="mb-4 flex flex-wrap justify-between items-center gap-4" data-step="1">
             <!-- Columna izquierda: UGEL, IE, Nivel -->
@@ -33,9 +50,9 @@
 
         <!-- Columna derecha: Periodo y Turno -->
         <div class="flex-1 min-w-[200px]">
-            <p class="text-sm font-medium mt-[2px]">
-                PERIODO: {{ mb_strtoupper(\Carbon\Carbon::now()->subMonth()->translatedFormat('F Y'), 'UTF-8') }}
-            </p>
+        <p class="text-sm font-medium mt-[2px]">
+            PERIODO: {{ mb_strtoupper($fechaReferencia->translatedFormat('F Y'), 'UTF-8') }}
+        </p>
 
             <p class="text-sm font-medium">Turno: {{ $d_cod_tur }}</p>
         </div>
@@ -79,65 +96,60 @@
                     @endphp
 
                     <thead class="bg-gray-200 text-gray-700 uppercase text-xs sticky top-0 z-10">
-                            <tr>
-                                <th class="border px-2 py-1 bg-gray-200" rowspan="2">Nº</th>
-                                <th class="border px-2 py-1 bg-gray-200" rowspan="2">DNI</th>
-                                <th class="border px-2 py-1 bg-gray-200" rowspan="2">Apellidos y Nombres</th>
-                                <th class="border px-2 py-1 bg-gray-200" rowspan="2">Cargo</th>
-                                <th class="border px-2 py-1 bg-gray-200" rowspan="2">Condición</th>
-                                <th class="border px-2 py-1 bg-gray-200" rowspan="2">Jor. Lab.</th>
-
-                                <th class="border px-2 py-1 bg-gray-200" rowspan="2">
-                                    <div class="flex flex-col h-full">
-                                        <div class="border-b border-white py-1 text-center">Inasistencias</div>
-                                        <div class="py-1 text-xs font-semibold text-center">Días</div>
-                                    </div>
-                                </th>
-
-                                <th class="border px-2 py-1 bg-gray-200 text-center" colspan="2">
-                                    Tardanzas<br>
-                                </th>
-
-                                <th class="border px-2 py-1 bg-gray-200 text-center" colspan="2">
-                                    Permisos SG<br>
-                                </th>
-
-                                <th class="border px-2 py-0 bg-gray-200 text-center" rowspan="2">
-                            <div class="flex flex-col h-full">
-                                <div class="border-b border-white py-1">Huelga / Paro</div>
-                                <div class="py-1 text-xs font-semibold">Días</div>
-                            </div>
-                        </th>
-                                <th class="border px-2 py-1 bg-gray-200" rowspan="2">Observaciones</th>
-                            </tr>
-                            <tr>
-                                <th class="border px-2 py-0 bg-gray-200 text-xs font-normal">
-                                    <div class="flex flex-col items-center justify-center h-full leading-tight">
-                                        <div class="font-semibold">Horas</div>
-                                        <div>(*)</div>
-                                    </div>
-                                </th>
-                                <th class="border px-2 py-0 bg-gray-200 text-xs font-normal">
-                                    <div class="flex flex-col items-center justify-center h-full leading-tight">
-                                        <div class="font-semibold">Minutos</div>
-                                        <div>(*)</div>
-                                    </div>
-                                </th>
-                                <th class="border px-2 py-0 bg-gray-200 text-xs font-normal">
-                                    <div class="flex flex-col items-center justify-center h-full leading-tight">
-                                        <div class="font-semibold">Horas</div>
-                                        <div>(*)</div>
-                                    </div>
-                                </th>
-                                <th class="border px-2 py-0 bg-gray-200 text-xs font-normal">
-                                    <div class="flex flex-col items-center justify-center h-full leading-tight">
-                                        <div class="font-semibold">Minutos</div>
-                                        <div>(*)</div>
-                                    </div>
-                                </th>
-                            </tr>
+                      <tr>
+                          <th class="border px-2 py-1 bg-gray-200" rowspan="2">Nº</th>
+                          <th class="border px-2 py-1 bg-gray-200" rowspan="2">DNI</th>
+                          <th class="border px-2 py-1 bg-gray-200" rowspan="2">Apellidos y Nombres</th>
+                          <th class="border px-2 py-1 bg-gray-200" rowspan="2">Cargo</th>
+                          <th class="border px-2 py-1 bg-gray-200" rowspan="2">Condición</th>
+                          <th class="border px-2 py-1 bg-gray-200" rowspan="2">Jor. Lab.</th>
+                          <th class="border px-2 py-1 bg-gray-200" rowspan="2">
+                              <div class="flex flex-col h-full">
+                                  <div class="border-b border-white py-1 text-center">Inasistencias</div>
+                                  <div class="py-1 text-xs font-semibold text-center">Días</div>
+                              </div>
+                          </th>
+                          <th class="border px-2 py-1 bg-gray-200 text-center" colspan="2">
+                              Tardanzas<br>
+                          </th>
+                          <th class="border px-2 py-1 bg-gray-200 text-center" colspan="2">
+                              Permisos SG<br>
+                          </th>
+                          <th class="border px-2 py-0 bg-gray-200 text-center" rowspan="2">
+                              <div class="flex flex-col h-full">
+                                  <div class="border-b border-white py-1">Huelga / Paro</div>
+                                  <div class="py-1 text-xs font-semibold">Días</div>
+                              </div>
+                          </th>
+                          <th class="border px-2 py-1 bg-gray-200" rowspan="2">Observaciones</th>
+                      </tr>
+                      <tr>
+                          <th class="border px-2 py-0 bg-gray-200 text-xs font-normal">
+                              <div class="flex flex-col items-center justify-center h-full leading-tight">
+                                  <div class="font-semibold">Horas</div>
+                                  <div>(*)</div>
+                              </div>
+                          </th>
+                          <th class="border px-2 py-0 bg-gray-200 text-xs font-normal">
+                              <div class="flex flex-col items-center justify-center h-full leading-tight">
+                                  <div class="font-semibold">Minutos</div>
+                                  <div>(*)</div>
+                              </div>
+                          </th>
+                          <th class="border px-2 py-0 bg-gray-200 text-xs font-normal">
+                              <div class="flex flex-col items-center justify-center h-full leading-tight">
+                                  <div class="font-semibold">Horas</div>
+                                  <div>(*)</div>
+                              </div>
+                          </th>
+                          <th class="border px-2 py-0 bg-gray-200 text-xs font-normal">
+                              <div class="flex flex-col items-center justify-center h-full leading-tight">
+                                  <div class="font-semibold">Minutos</div>
+                                  <div>(*)</div>
+                              </div>
+                          </th>
+                      </tr>
                     </thead>
-
                     <tbody class="bg-white">
                       @forelse ($registros as $index => $r)
                       <tr class="hover:bg-gray-100"
@@ -145,10 +157,10 @@
                           data-nombres="{{ $r->nombres }}"
                           data-cargo="{{ $r->cargo }}"
                           data-condicion="{{ $r->condicion }}"
-                          data-jornada="{{ $r->jornada }}">
-                          
+                          data-jornada="{{ $r->jornada }}"
+                          data-cod="{{ $r->cod }}">
                           <td class="border px-2 py-1">{{ $index + 1 }}</td>
-                          <td class="border px-2 py-1 cursor-pointer text-blue-500 dni-tour dni-tour-clickable" onclick="prepararYabrirModal('{{ $r->dni }}', '{{ $r->nombres }}')">{{ $r->dni }}</td>
+                          <td class="border px-2 py-1 cursor-pointer text-blue-500 dni-tour dni-tour-clickable" onclick="prepararYabrirModal('{{ $r->dni }}', '{{ $r->cod }}', '{{ $r->nombres }}')">{{ $r->dni }}</td>
                           <td class="border px-2 py-1 text-left">{{ $r->nombres }}</td>
                           <td class="border px-2 py-1 text-center">{{ $r->cargo }}</td>
                           <td class="border px-2 py-1">{{ $r->condicion }}</td>
@@ -162,7 +174,7 @@
                           <td class="border px-2 py-1" data-tipo="observaciones">{{ e($r->observaciones ?? '') }}</td>
 
                           <td class="hidden">
-                              <input type="hidden" name="detalleInasistencia[{{ $r->dni }}]" class="detalle-inasistencia-json" data-dni="{{ $r->dni }}" value='@json($r->detalle_inasistencia_json)'>
+                            <input type="hidden" name="detalleInasistencia[{{ $r->dni }}_{{ $r->cod }}]" class="detalle-inasistencia-json" data-dni="{{ $r->dni }}" data-cod="{{ $r->cod }}"  value='@json($r->detalle_inasistencia_json)'>
                           </td>
                       </tr>
                       @empty
@@ -171,20 +183,16 @@
                       </tr>
                       @endforelse
                     </tbody>
-
                 </table>
             </div>
         </div>
     </div>
 
-
     <!-- Firma y botón de exportación -->
     <div class="mt-10 text-sm text-right">
         <p>Lugar y Fecha: {{ $fechaHoy }}</p>
     </div>
-
     <div class="flex items-start gap-4">
-
     {{-- Botón ingresar oficio + vista previa --}}
     <div class="flex flex-col items-center" data-step="7">
         <button id="btnOficio" onclick="openModal2()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
@@ -193,7 +201,6 @@
         <p id="previewOficio" class="mt-2 font-bold text-blue-800"></p>
     </div>
     {{-- Firma: Botón y vista previa --}}
-
     <div class="flex flex-col items-center" data-step="11">
         <button onclick="openFirmaModal()"
             class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-700">
@@ -207,48 +214,48 @@
             <img id="firmaPreview" src="" alt="Firma temporal" class="hidden mt-2" style="height: 80px;">
         @endif
     </div>
-<form id="exportarFormPreliminar" method="POST"
-      action="{{ route('inasistenciapreliminar.exportar.pdf', [
-          'mes' => $mes,
-          'anio' => $anio,
-          'codlocal' => $codlocal,
-          'nivel' => $nivelSeleccionado
-      ]) }}"
-      target="_blank">
-    @csrf
-    <input type="hidden" name="detalle_inasistencias" id="campoDetalleInasistencias">
-    <!-- <input type="hidden" name="firma_base64" id="campoFirmaBase64"> -->
-    <div class="flex flex-col items-center" data-step="16">
-        <button type="submit" onclick="antesDeExportarPreliminar()"
-            class="bg-sky-500 text-white px-4 py-2 rounded hover:bg-sky-600">
-            Exportar en PDF PRELIMINAR
-        </button>
-    </div>
-</form>
+    <form id="exportarFormPreliminar" method="POST"
+          action="{{ route('inasistenciapreliminar.exportar.pdf', [
+              'mes' => $mes,
+              'anio' => $anio,
+              'codlocal' => $codlocal,
+              'nivel' => $nivelSeleccionado
+          ]) }}"
+          target="_blank">
+        @csrf
+        <input type="hidden" name="detalle_inasistencias" id="campoDetalleInasistencias">
+        <!-- <input type="hidden" name="firma_base64" id="campoFirmaBase64"> -->
+        <div class="flex flex-col items-center" data-step="16">
+            <button type="submit" onclick="antesDeExportarPreliminar()"
+                class="bg-sky-500 text-white px-4 py-2 rounded hover:bg-sky-600">
+                Exportar en PDF PRELIMINAR
+            </button>
+        </div>
+    </form>
 
-<form id="exportarFormOficial" method="POST"
-      action="{{ route('inasistencia.exportar.pdf', ['nivel' => $nivelSeleccionado]) }}"
-      target="_blank">
-    @csrf
-    <input type="hidden" name="numero_oficio" id="campoNumeroOficio">
-    <input type="hidden" name="firma_base64" id="campoFirmaBase64">
-    <div class="flex flex-col items-center" data-step="16">
-        <button type="submit" onclick="antesDeExportar()"
-            class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">
-            Exportar en PDF
-        </button>
-    </div>
-</form>
+    <form id="exportarFormOficial" method="POST"
+          action="{{ route('inasistencia.exportar.pdf', ['nivel' => $nivelSeleccionado]) }}"
+          target="_blank">
+        @csrf
+        <input type="hidden" name="numero_oficio" id="campoNumeroOficio">
+        <input type="hidden" name="firma_base64" id="campoFirmaBase64">
+        <div class="flex flex-col items-center" data-step="16">
+            <button type="submit" onclick="antesDeExportar()"
+                class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">
+                Exportar en PDF
+            </button>
+        </div>
+    </form>
 
     <!-- Botón ingresar expediente + vista previa -->
-        <div class="flex flex-col items-center">
-            <button id="btnExpediente" onclick="openExpedienteModal()" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">
-                Ingresar número de expediente
-            </button>
-            <p id="previewExpediente" class="mt-2 font-bold text-indigo-800"></p>
-        </div>
-          <input type="hidden" name="numero_expediente" id="campoNumeroExpediente">
-        </div>
+    <div class="flex flex-col items-center">
+        <button id="btnExpediente" onclick="openExpedienteModal()" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">
+            Ingresar número de expediente
+        </button>
+        <p id="previewExpediente" class="mt-2 font-bold text-indigo-800"></p>
+    </div>
+      <input type="hidden" name="numero_expediente" id="campoNumeroExpediente">
+    </div>
     {{-- CSRF para JS --}}
     <meta name="csrf-token" content="{{ csrf_token() }}">
     {{-- Campo oculto --}}
@@ -329,6 +336,7 @@
               <h2 class="text-base font-semibold">Registrar descuento en mérito al <strong>RSG-326-2017-MINEDU</strong> para:</h2>
               <div class="text-blue-600 font-bold text-sm" id="nombreDocente">—</div>
               <input type="hidden" id="dniSeleccionado" name="dniSeleccionado">
+              <input type="hidden" id="codSeleccionado" name="codSeleccionado">
 
               <!-- NUEVO: Estado de cumplimiento dinámico -->
               <div id="estadoBloques" class="mt-2 text-sm text-gray-700 bg-yellow-100 border border-yellow-400 rounded p-2">
@@ -364,7 +372,6 @@
 <!-- Flatpickr JS -->
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
-
 <script>
     const urlGuardarFirma = document.querySelector('meta[name="guardar-firma-url"]').content;
 
@@ -540,21 +547,33 @@
 
     function getAllSelectedFechas(actualInput) {
       const fechas = [];
-      document.querySelectorAll('.fecha-dia').forEach(input => {
+      /*document.querySelectorAll('.fecha-dia').forEach(input => {
         if (input !== actualInput && input._flatpickr) {
           input._flatpickr.selectedDates.forEach(date => {
             fechas.push(date.toISOString().split('T')[0]);
           });
         }
-      });
+      });*/
       return fechas;
     }
 
-    function restarUnMes(fechaStr) {
-      const fecha = new Date(fechaStr);
-      fecha.setMonth(fecha.getMonth() - 1);
-      return fecha;
+    function restarUnMes(fechaStr = null) {
+      const hoy = fechaStr ? new Date(fechaStr) : new Date();
+      const dia = hoy.getDate();
+      const fecha = new Date(hoy);
+
+      if (dia <= 5) {
+        // Primeros 5 días → mes anterior
+        fecha.setMonth(fecha.getMonth() - 1);
+      }
+      // Si es día 6 o más, se queda con el mes actual
+
+      return {
+        anio: fecha.getFullYear(),
+        mes: fecha.getMonth() + 1 
+      };
     }
+
 const listaFeriados = ["2025-07-28","2025-07-29","2025-08-06","2025-08-30","2025-10-08" ,"2025-11-01","2025-12-08","2025-12-09","2025-12-25","2025-12-26"];
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -568,16 +587,17 @@ document.addEventListener('DOMContentLoaded', function () {
   const dniInput = document.getElementById('dniSeleccionado');
 
     const bloques = [
-    { tipo: "GESTIÓN", inicio: "2025-03-03", fin: "2025-03-14" },
-    { tipo: "LECTIVA",  inicio: "2025-03-17", fin: "2025-05-16" },
-    { tipo: "GESTIÓN", inicio: "2025-05-19", fin: "2025-05-23" },
-    { tipo: "LECTIVA",  inicio: "2025-05-26", fin: "2025-07-25" },
-    { tipo: "GESTIÓN", inicio: "2025-07-28", fin: "2025-08-08" },
-    { tipo: "LECTIVA",  inicio: "2025-08-11", fin: "2025-10-10" },
-    { tipo: "GESTIÓN", inicio: "2025-10-13", fin: "2025-10-17" },
-    { tipo: "LECTIVA",  inicio: "2025-10-20", fin: "2025-12-19" },
-    { tipo: "GESTIÓN", inicio: "2025-12-22", fin: "2025-12-31" }
-  ];
+      { tipo: "GESTIÓN", inicio: "2025-03-03", fin: "2025-03-14" },
+      { tipo: "LECTIVA",  inicio: "2025-03-17", fin: "2025-05-16" },
+      { tipo: "GESTIÓN", inicio: "2025-05-19", fin: "2025-05-23" },
+      { tipo: "LECTIVA",  inicio: "2025-05-26", fin: "2025-07-25" },
+      { tipo: "GESTIÓN", inicio: "2025-07-28", fin: "2025-08-08" },
+      { tipo: "LECTIVA",  inicio: "2025-08-11", fin: "2025-10-10" },
+      { tipo: "GESTIÓN", inicio: "2025-10-13", fin: "2025-10-17" },
+      { tipo: "LECTIVA",  inicio: "2025-10-20", fin: "2025-12-19" },
+      { tipo: "GESTIÓN", inicio: "2025-12-22", fin: "2025-12-31" }
+    ];
+  
   function detectarBloque(fechaStr) {
     const fecha = new Date(fechaStr);
     for (let bloque of bloques) {
@@ -655,85 +675,86 @@ document.addEventListener('DOMContentLoaded', function () {
     return [...new Set(todasFechas)];
   }
 
-  window.abrirModalInasistencia = function(dni, nombre, datos = []) {
-  dniInput.value = dni;
-  nombreSpan.textContent = nombre;
+    window.abrirModalInasistencia = function(dni, cod, nombre, datos = []) {
+      dniInput.value = dni;
+      nombreSpan.textContent = nombre;
+      codSeleccionado.value = cod;
 
-  // Resetear estado
-  document.getElementById('resumenBloques').textContent = 'Correcto';
-  container.querySelectorAll('.fecha-dia').forEach(input => {
-    if (input._flatpickr) {
-      input._flatpickr.destroy();
-    }
-  });
-  container.innerHTML = '';
+      // Resetear estado
+      document.getElementById('resumenBloques').textContent = 'Correcto';
+      container.querySelectorAll('.fecha-dia').forEach(input => {
+        if (input._flatpickr) {
+          input._flatpickr.destroy();
+        }
+      });
+      container.innerHTML = '';
 
-  // Cargar datos del docente
-  datos.forEach(({ fecha, tipo, horas = 0, minutos = 0 }) => {
-    const newEntry = document.createElement('div');
-    newEntry.innerHTML = template(fecha, tipo, horas, minutos);
-    container.appendChild(newEntry);
+      // Cargar datos del docente
+      datos.forEach(({ fecha, tipo, horas = 0, minutos = 0 }) => {
+        const newEntry = document.createElement('div');
+        newEntry.innerHTML = template(fecha, tipo, horas, minutos);
+        container.appendChild(newEntry);
 
-    const fechaInput = newEntry.querySelector('.fecha-dia');
+        const fechaInput = newEntry.querySelector('.fecha-dia');
 
-    flatpickr(fechaInput, {
-      mode: (tipo === 'inasistencia' || tipo === 'huelga') ? "multiple" : "single",
-      dateFormat: "Y-m-d",
-      locale: 'es',
-      defaultDate: (tipo === 'inasistencia' || tipo === 'huelga') ? fecha : (fecha && fecha.length > 0 ? fecha[0] : null),
-      disable: getAllSelectedFechas( fechaInput),
-      onOpen: function (_, __, instance) {
-        instance.set('disable', getAllSelectedFechas( fechaInput));
-      },
-      onChange: function () {
-        actualizarResumenBloques(getFechasSeleccionadas(), document.getElementById('modalInasistencia'));
-      }
+        flatpickr(fechaInput, {
+          mode: (tipo === 'inasistencia' || tipo === 'huelga') ? "multiple" : "single",
+          dateFormat: "Y-m-d",
+          locale: 'es',
+          defaultDate: (tipo === 'inasistencia' || tipo === 'huelga') ? fecha : (fecha && fecha.length > 0 ? fecha[0] : null),
+          disable: getAllSelectedFechas( fechaInput),
+          onOpen: function (_, __, instance) {
+            instance.set('disable', getAllSelectedFechas( fechaInput));
+          },
+          onChange: function () {
+            actualizarResumenBloques(getFechasSeleccionadas(), document.getElementById('modalInasistencia'));
+          }
+        });
+      });
+      
+      actualizarResumenBloques(getFechasSeleccionadas(), document.getElementById('modalInasistencia'));
+
+      modal.classList.remove('hidden');
+    };
+
+    cerrarBtn.addEventListener('click', () => {
+        modal.classList.add('hidden');
     });
-  });
-  
-  actualizarResumenBloques(getFechasSeleccionadas(), document.getElementById('modalInasistencia'));
-
-  modal.classList.remove('hidden');
-  };
-
-  cerrarBtn.addEventListener('click', () => {
-    modal.classList.add('hidden');
-  });
 
   const template = (fechas = [], tipo = '', horas = 0, minutos = 0) => {
-  const idFecha = `fecha-${Date.now()}`;
-  return `
-    <div class="dia-entry border p-4 rounded bg-gray-50 relative" data-step="5">
-      <button type="button" class="remove-dia-entry absolute top-2 right-2 text-red-500 hover:text-red-700 text-sm">✕</button>
+    const idFecha = `fecha-${Date.now()}`;
+    return `
+      <div class="dia-entry border p-4 rounded bg-gray-50 relative" data-step="5">
+        <button type="button" class="remove-dia-entry absolute top-2 right-2 text-red-500 hover:text-red-700 text-sm">✕</button>
 
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm items-end">
-        <div>
-          <label>Tipo de descuento:</label>
-          <select name="tipo[]" class="tipo-dia w-full border rounded p-2" required>
-            <option value="">-- Seleccione --</option>
-            <option value="inasistencia" ${tipo === 'inasistencia' ? 'selected' : ''}>Inasistencias</option>
-            <option value="tardanza" ${tipo === 'tardanza' ? 'selected' : ''}>Tardanzas</option>
-            <option value="permiso_sg" ${tipo === 'permiso_sg' ? 'selected' : ''}>Permisos SG</option>
-            <option value="huelga" ${tipo === 'huelga' ? 'selected' : ''}>Huelga/Paro</option>
-          </select>
-        </div>
-        <div class="fecha-wrapper">
-          <label>Fecha:</label>
-          <input type="date" name="fecha[]" class="fecha-dia w-full border rounded p-2" placeholder="Seleccione fecha(s)" required>
-        </div>
-        <div class="detalle-dia flex gap-4 ${tipo === 'tardanza' || tipo === 'permiso_sg' ? '' : 'hidden'}">
-          <div class="flex flex-col w-1/2">
-              <label class="text-sm font-medium mb-1">Horas:</label>
-              <input type="number" name="horas[]" class="horas-dia border rounded p-2" placeholder="Horas" min="0" value="${horas}">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm items-end">
+          <div>
+            <label>Tipo de descuento:</label>
+            <select name="tipo[]" class="tipo-dia w-full border rounded p-2" required>
+              <option value="">-- Seleccione --</option>
+              <option value="inasistencia" ${tipo === 'inasistencia' ? 'selected' : ''}>Inasistencias</option>
+              <option value="tardanza" ${tipo === 'tardanza' ? 'selected' : ''}>Tardanzas</option>
+              <option value="permiso_sg" ${tipo === 'permiso_sg' ? 'selected' : ''}>Permisos SG</option>
+              <option value="huelga" ${tipo === 'huelga' ? 'selected' : ''}>Huelga/Paro</option>
+            </select>
           </div>
-          <div class="flex flex-col w-1/2">
-              <label class="text-sm font-medium mb-1">Minutos:</label>
-              <input type="number" name="minutos[]" class="minutos-dia border rounded p-2" placeholder="Minutos" min="0" max="59" value="${minutos}">
+          <div class="fecha-wrapper">
+            <label>Fecha:</label>
+            <input type="date" name="fecha[]" class="fecha-dia w-full border rounded p-2" placeholder="Seleccione fecha(s)" required>
+          </div>
+          <div class="detalle-dia flex gap-4 ${tipo === 'tardanza' || tipo === 'permiso_sg' ? '' : 'hidden'}">
+            <div class="flex flex-col w-1/2">
+                <label class="text-sm font-medium mb-1">Horas:</label>
+                <input type="number" name="horas[]" class="horas-dia border rounded p-2" placeholder="Horas" min="0" value="${horas}">
+            </div>
+            <div class="flex flex-col w-1/2">
+                <label class="text-sm font-medium mb-1">Minutos:</label>
+                <input type="number" name="minutos[]" class="minutos-dia border rounded p-2" placeholder="Minutos" min="0" max="59" value="${minutos}">
+            </div>
           </div>
         </div>
       </div>
-    </div>
-    `;
+      `;
   };
 
 
@@ -866,6 +887,7 @@ document.addEventListener('DOMContentLoaded', function () {
   guardarBtn.addEventListener('click', () => {
       const dni = dniInput.value;
       const nombre = nombreSpan.textContent;
+      const cod = document.getElementById('codSeleccionado').value;
       const entradas = container.querySelectorAll('.dia-entry');
 
       let totalInasistencias = 0;
@@ -923,7 +945,7 @@ document.addEventListener('DOMContentLoaded', function () {
       }
 
       // Actualizar totales en la tabla
-      const fila = document.querySelector(`tr[data-dni="${dni}"]`);
+      const fila = document.querySelector(`tr[data-dni="${dni}"][data-cod="${cod}"]`);
       if (fila) {
         fila.children[6].textContent = totalInasistencias || '';
         fila.children[7].textContent = totalTardanzasHoras || '';
@@ -932,92 +954,92 @@ document.addEventListener('DOMContentLoaded', function () {
         fila.children[10].textContent = totalPermisosMinutos || '';
         fila.children[11].textContent = totalHuelgas || '';
       }
-
-      const inputDetalle = document.querySelector(`input.detalle-inasistencia-json[data-dni="${dni}"]`);
+      const inputDetalle = document.querySelector(`input.detalle-inasistencia-json[data-dni="${dni}"][data-cod="${cod}"]`);
       if (inputDetalle) {
         inputDetalle.value = JSON.stringify(detalle);
       }
       modal.classList.add('hidden');
-    });
+  });
+  
 });
 
-window.prepararYabrirModal = function(dni, nombre) {
-    const inputDetalle = document.querySelector(`input.detalle-inasistencia-json[data-dni="${dni}"]`);
-    let datos = [];
+  window.prepararYabrirModal = function(dni, cod, nombre) {
+      const inputDetalle = document.querySelector(`input.detalle-inasistencia-json[data-dni="${dni}"][data-cod="${cod}"]`);
+      let datos = [];
 
-    if (inputDetalle && inputDetalle.value) {
-        try {
-            const detalle = JSON.parse(inputDetalle.value) || {};
+      if (inputDetalle && inputDetalle.value) {
+          try {
+              const detalle = JSON.parse(inputDetalle.value) || {};
 
-            if (detalle.inasistencia) {
-                detalle.inasistencia.forEach(f => datos.push({ fecha: f, tipo: 'inasistencia' }));
-            }
-            if (detalle.huelga) {
-                detalle.huelga.forEach(f => datos.push({ fecha: f, tipo: 'huelga' }));
-            }
-            if (detalle.tardanza) {
-                detalle.tardanza.forEach(({ fecha, horas, minutos }) => {
-                    if (fecha) {
-                        datos.push({ fecha: [fecha], tipo: 'tardanza', horas, minutos });
-                    }
-                });
-            }
-            if (detalle.permiso_sg) {
-                detalle.permiso_sg.forEach(({ fecha, horas, minutos }) => {
-                    if (fecha) {
-                        datos.push({ fecha: [fecha], tipo: 'permiso_sg', horas, minutos });
-                    }
-                });
-            }
-        } catch (e) {
-            console.warn('No se pudo parsear JSON de inasistencia:', e);
-        }
-    }
+              if (detalle.inasistencia) {
+                  detalle.inasistencia.forEach(f => datos.push({ fecha: f, tipo: 'inasistencia' }));
+              }
+              if (detalle.huelga) {
+                  detalle.huelga.forEach(f => datos.push({ fecha: f, tipo: 'huelga' }));
+              }
+              if (detalle.tardanza) {
+                  detalle.tardanza.forEach(({ fecha, horas, minutos }) => {
+                      if (fecha) {
+                          datos.push({ fecha: [fecha], tipo: 'tardanza', horas, minutos });
+                      }
+                  });
+              }
+              if (detalle.permiso_sg) {
+                  detalle.permiso_sg.forEach(({ fecha, horas, minutos }) => {
+                      if (fecha) {
+                          datos.push({ fecha: [fecha], tipo: 'permiso_sg', horas, minutos });
+                      }
+                  });
+              }
+          } catch (e) {
+              console.warn('No se pudo parsear JSON de inasistencia:', e);
+          }
+      }
 
-    abrirModalInasistencia(dni, nombre, datos);
+      abrirModalInasistencia(dni, cod, nombre, datos);
 
-    try {
-        let conteoBloques = { "GESTIÓN": 0, "LECTIVA": 0 };
+      try {
+          let conteoBloques = { "GESTIÓN": 0, "LECTIVA": 0 };
 
-        datos.forEach(d => {
-            if (!esDiaNoLaborable(d.fecha)) {
-                const tipo = detectarBloque(d.fecha);
-                if (tipo && conteoBloques[tipo] !== undefined) {
-                    conteoBloques[tipo]++;
-                }
-            }
-        });
+          datos.forEach(d => {
+              if (!esDiaNoLaborable(d.fecha)) {
+                  const tipo = detectarBloque(d.fecha);
+                  if (tipo && conteoBloques[tipo] !== undefined) {
+                      conteoBloques[tipo]++;
+                  }
+              }
+          });
 
-        const totalLectiva = conteoBloques["LECTIVA"];
-        const totalGestion = conteoBloques["GESTIÓN"];
-        const estado = [];
+          const totalLectiva = conteoBloques["LECTIVA"];
+          const totalGestion = conteoBloques["GESTIÓN"];
+          const estado = [];
 
-        if (totalLectiva > 0 && totalLectiva < 5) estado.push("Incumple semana lectiva");
-        if (totalGestion > 0 && totalGestion < 5) estado.push("Incumple semana de gestión");
+          if (totalLectiva > 0 && totalLectiva < 5) estado.push("Incumple semana lectiva");
+          if (totalGestion > 0 && totalGestion < 5) estado.push("Incumple semana de gestión");
 
-        let resumen = `Inasistencias válidas — Gestión: ${totalGestion} día(s), Lectiva: ${totalLectiva} día(s).`;
+          let resumen = `Inasistencias válidas — Gestión: ${totalGestion} día(s), Lectiva: ${totalLectiva} día(s).`;
 
-        const estadoBloques = document.getElementById("estadoBloques");
-        const resumenBloques = document.getElementById("resumenBloques");
+          const estadoBloques = document.getElementById("estadoBloques");
+          const resumenBloques = document.getElementById("resumenBloques");
 
-        if (estadoBloques && resumenBloques) {
-            if (totalLectiva === 0 && totalGestion === 0) {
-                resumen = "✅ Cumple con las semanas.";
-                estadoBloques.className = "mt-2 text-sm text-green-700 bg-green-100 border border-green-400 rounded p-2";
-            } else if (estado.length > 0) {
-                resumen += ` ⚠️ ${estado.join(" e ")}`;
-                estadoBloques.className = "mt-2 text-sm text-yellow-700 bg-yellow-100 border border-red-400 rounded p-2";
-            } else {
-                resumen += ` ⚠️ Tiene inasistencias, que incumple semanas completas.`;
-                estadoBloques.className = "mt-2 text-sm text-red-800 bg-red-100 border border-yellow-400 rounded p-2";
-            }
+          if (estadoBloques && resumenBloques) {
+              if (totalLectiva === 0 && totalGestion === 0) {
+                  resumen = "✅ Cumple con las semanas.";
+                  estadoBloques.className = "mt-2 text-sm text-green-700 bg-green-100 border border-green-400 rounded p-2";
+              } else if (estado.length > 0) {
+                  resumen += ` ⚠️ ${estado.join(" e ")}`;
+                  estadoBloques.className = "mt-2 text-sm text-yellow-700 bg-yellow-100 border border-red-400 rounded p-2";
+              } else {
+                  resumen += ` ⚠️ Tiene inasistencias, que incumple semanas completas.`;
+                  estadoBloques.className = "mt-2 text-sm text-red-800 bg-red-100 border border-yellow-400 rounded p-2";
+              }
 
-            resumenBloques.innerText = resumen;
-        }
-    } catch (err) {
-        console.warn("Error al calcular resumen de bloques:", err);
-    }
-};
+              resumenBloques.innerText = resumen;
+          }
+      } catch (err) {
+          console.warn("Error al calcular resumen de bloques:", err);
+      }
+  };
 
 document.getElementById('guardarTodoInasistencia').addEventListener('click', async function () {
   const boton = this;
@@ -1028,7 +1050,7 @@ document.getElementById('guardarTodoInasistencia').addEventListener('click', asy
   loader.classList.remove('hidden');
 
   try {
-    const filas = document.querySelectorAll('tbody tr[data-dni]');
+    const filas = document.querySelectorAll('tbody tr[data-dni][data-cod]');
     const data = [];
 
     // Nivel dinámico
@@ -1040,13 +1062,15 @@ document.getElementById('guardarTodoInasistencia').addEventListener('click', asy
       const cargo = tr.dataset.cargo;
       const condicion = tr.dataset.condicion;
       const jornada = tr.dataset.jornada;
+      const cod = tr.dataset.cod;
 
       const persona = {
         dni: dni,
         nombres: nombres,
         cargo: cargo,
         condicion: condicion,
-        jornada: jornada
+        jornada: jornada,
+        cod: cod 
       };
 
 
@@ -1084,7 +1108,8 @@ document.getElementById('guardarTodoInasistencia').addEventListener('click', asy
       inasistencias.tardanza_total = { horas: horasTardanza, minutos: minutosTardanza };
       inasistencias.permiso_sg_total = { horas: horasPermiso, minutos: minutosPermiso };
 
-      const inputDetalle = document.querySelector(`input.detalle-inasistencia-json[data-dni="${dni}"]`);
+      const inputDetalle = document.querySelector(`input.detalle-inasistencia-json[data-dni="${dni}"][data-cod="${cod}"]`);
+
       if (inputDetalle && inputDetalle.value) {
         try {
           const detalleGuardado = JSON.parse(inputDetalle.value);
@@ -1144,11 +1169,6 @@ document.getElementById('guardarTodoInasistencia').addEventListener('click', asy
   }
 });
 
-
-
-
-
 </script>
-
 
 @endsection

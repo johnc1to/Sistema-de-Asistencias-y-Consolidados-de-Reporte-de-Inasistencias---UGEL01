@@ -34,15 +34,17 @@ class Anexo04Controller extends Controller
 
         $codlocal = $director['conf_permisos'][0]['codlocal'];
 
-        $institucion = Iiee_a_evaluar_rie::select('idmodalidad','modalidad', 'institucion')
+        $institucion = Iiee_a_evaluar_rie::select('idmodalidad','modalidad', 'institucion', 'codmod')
             ->where('codlocal', $codlocal)
             ->where('dni_director', $director['dni'])
             ->first();
-
+        // Ya tienes $institucion en este punto
+        $codmod = $institucion->codmod ?? null;
         // Obtener turno (corregido)
-        $d_cod_tur = DB::table('escale')
+        $d_cod_tur= Iiee_a_evaluar_rie::select('turno')
             ->where('codlocal', $codlocal)
-            ->value('d_cod_tur');
+            ->where('codmod', $codmod)
+            ->value('turno'); 
 
         // Obtener firma
         $firmaGuardada = DB::connection('siic_anexos')->table('anexo03')
@@ -61,7 +63,7 @@ class Anexo04Controller extends Controller
                     ->pluck('idnivel');
         
         // Lista de personal
-        $personal = DB::table('nexus')
+        $personalNexus = DB::table('nexus')
             ->select(
                 'nexus.numdocum as dni',
                 DB::raw("CONCAT(nexus.apellipat, ' ', nexus.apellimat, ', ', nexus.nombres) as nombres"),
@@ -69,15 +71,46 @@ class Anexo04Controller extends Controller
                 'nexus.situacion as condicion',
                 'nexus.jornlab as jornada',
                 'nexus.descniveduc as nivel',
-                'nexus.nombreooii as ugel'
+                'nexus.nombreooii as ugel',
+                'nexus.codplaza as cod',
+                'nexus.obser as obser',
+                'nexus.descmovim as mov',
+                'nexus.fecinicio as finicio',
+                'nexus.fectermino as ftermino',
+                DB::raw("'OFICIAL' as fuente") // <- Para saber de dónde viene
             )
             ->where('nexus.codlocal', $codlocal)
             ->whereIn('nexus.idnivel', $idnivelesModalidad)
             ->whereNotNull('nexus.numdocum')
             ->where('nexus.numdocum', '!=', 'VACANTE')
             ->where('nexus.situacion', '!=', 'VACANTE')
-            ->where('nexus.estado', 1)
-            ->get();
+            ->where('nexus.estado', 1);
+
+        $personalExcepcional = DB::table('nexus_excepcional')
+            ->select(
+                'nexus_excepcional.numdocum as dni',
+                DB::raw("CONCAT(nexus_excepcional.apellipat, ' ', nexus_excepcional.apellimat, ', ', nexus_excepcional.nombres) as nombres"),
+                'nexus_excepcional.descargo as cargo',
+                'nexus_excepcional.situacion as condicion',
+                'nexus_excepcional.jornlab as jornada',
+                'nexus_excepcional.descniveduc as nivel',
+                'nexus_excepcional.nombreooii as ugel',
+                'nexus_excepcional.codplaza as cod',
+                'nexus_excepcional.obser as obser',
+                'nexus_excepcional.descmovim as mov',
+                'nexus_excepcional.fecinicio as finicio',
+                'nexus_excepcional.fectermino as ftermino',
+                DB::raw("'EXCEPCIONAL' as fuente")
+            )
+            ->where('nexus_excepcional.codlocal', $codlocal)
+            ->whereIn('nexus_excepcional.idnivel', $idnivelesModalidad)
+            ->whereNotNull('nexus_excepcional.numdocum')
+            ->where('nexus_excepcional.numdocum', '!=', 'VACANTE')
+            ->where('nexus_excepcional.situacion', '!=', 'VACANTE')
+            ->where('nexus_excepcional.estado', 1);
+
+        $personal = $personalNexus->unionAll($personalExcepcional)->get();
+
 
         // Niveles únicos
         $niveles = $personal->pluck('nivel')->unique()->sort()->values();
@@ -127,9 +160,20 @@ class Anexo04Controller extends Controller
             return strcmp($a->nombres, $b->nombres);
         })->values();
 
-            $fecha = new \DateTime('first day of last month');
-            $anio = (int) $fecha->format('Y');
-            $mes = (int) $fecha->format('n');
+        $hoy = new \DateTime(); // fecha actual
+        $dia = (int) $hoy->format('j'); // día del mes
+
+        if ($dia <= 3) {
+            // Si estamos en los primeros 3 días, usar el mes anterior
+            $fecha = (clone $hoy)->modify('first day of last month');
+        } else {
+            // Si estamos del día 4 en adelante, usar el mes actual
+            $fecha = (clone $hoy)->modify('first day of this month');
+        }
+
+        $anio = (int) $fecha->format('Y');
+        $mes  = (int) $fecha->format('n');
+
 
         // Obtener todos los registros anexo04 que coincidan con el filtro
         $anexos04 = DB::connection('siic_anexos')->table('anexo04')
@@ -338,29 +382,42 @@ class Anexo04Controller extends Controller
             $personasExistentes = Anexo04Persona::where('id_anexo04', $anexo->id)->get();
             $personasMap = [];
             foreach ($personasExistentes as $pe) {
-            $data = is_string($pe->persona_json) ? json_decode($pe->persona_json, true) : $pe->persona_json;
-                if (isset($data['dni'])) {
-                    $personasMap[$data['dni']] = $pe;
+                $data = is_string($pe->persona_json) ? json_decode($pe->persona_json, true) : $pe->persona_json;
+                if (isset($data['dni']) && isset($data['cod'])) {
+                    $clave = $data['dni'].'_'.$data['cod'];
+                    $personasMap[$clave] = $pe;
                 }
             }
 
             // --- 4. Recorrer personas del request ---
             foreach ($request->personas as $p) {
                 $dni = $p['persona']['dni'];
+                $cod = $p['persona']['codplaza'] ?? $p['persona']['cod'] ?? null; 
                 $persona_json = $p['persona']; 
 
+                $clave = $dni.'_'.$cod;
 
                 // Buscar persona por DNI
-                if (isset($personasMap[$dni])) {
-                    $persona = $personasMap[$dni];
+                if (isset($personasMap[$clave])) {
+                    $persona = $personasMap[$clave];
+
+                    // añadir cod = codplaza si está en los datos
+                    if (isset($p['persona']['codplaza'])) {
+                        $persona_json['cod'] = $p['persona']['codplaza'];
+                    }
+
                     $persona->persona_json = $persona_json;
                     $persona->save();
                 } else {
+                    if (isset($p['persona']['codplaza'])) {
+                        $persona_json['cod'] = $p['persona']['codplaza'];
+                    }
+
                     $persona = Anexo04Persona::create([
                         'id_anexo04' => $anexo->id,
                         'persona_json' => $persona_json,
                     ]);
-                    $personasMap[$dni] = $persona;
+                    $personasMap[$clave] = $persona;
                 }
 
                 // --- 5. Guardar o actualizar inasistencia ---
@@ -461,12 +518,20 @@ class Anexo04Controller extends Controller
         $codlocal = $director['conf_permisos'][0]['codlocal'];
 
         // Datos institución
-        $institucion = Iiee_a_evaluar_rie::select('idmodalidad','modalidad', 'institucion')
+        $institucion = Iiee_a_evaluar_rie::select('idmodalidad','modalidad', 'institucion','codmod')
             ->where('codlocal', $codlocal)
             ->where('dni_director', $director['dni'])
             ->first();
-        $d_cod_tur = DB::table('escale')->where('codlocal', $codlocal)->value('d_cod_tur');
-        $logoBD = Iiee_a_evaluar_rie::where('codlocal', $codlocal)->value('logo');
+        
+        // Ya tienes $institucion en este punto
+        $codmod = $institucion->codmod ?? null;
+        //dd($codmod);
+        // Obtener turno con codlocal + codmod
+        $d_cod_tur = Iiee_a_evaluar_rie::select('turno')
+            ->where('codlocal', $codlocal)
+            ->where('codmod', $codmod)
+            ->value('turno');
+        $logoBD = Iiee_a_evaluar_rie::where('codlocal', $codlocal)->where('codmod', $codmod)->value('logo');
         $nombreLogo = $logoBD ? basename($logoBD) : null;
         $rutaLogoWeb = $nombreLogo ? 'storage/logoie/' . $nombreLogo : null;
 
@@ -474,8 +539,21 @@ class Anexo04Controller extends Controller
             ->where('id_contacto', $director['id_contacto'])
             ->value('firma');
 
-        $anio = now()->subMonth()->year;
-        $mes = now()->subMonth()->month;
+
+
+        $hoy = now();
+
+        if ($hoy->day <= 3) {
+            // Primeros 3 días del mes → usar mes anterior
+            $fecha = $hoy->copy()->subMonth();
+        } else {
+            // Del 4 en adelante → usar mes actual
+            $fecha = $hoy;
+        }
+
+        $anio = $fecha->year;
+        $mes  = $fecha->month;
+
         //Lista de docentes desde nexus (para control de acceso)
             if (!$institucion) {
                 return redirect()->back()->with('error', 'No se encontró institución para este director.');
@@ -487,22 +565,54 @@ class Anexo04Controller extends Controller
                 ->where('Idmodalidad', $idModalidad)
                 ->pluck('idnivel');
         // Personal de la IE
-        $personal = DB::table('nexus')
+                $personalNexus = DB::table('nexus')
             ->select(
                 'nexus.numdocum as dni',
                 DB::raw("CONCAT(nexus.apellipat, ' ', nexus.apellimat, ', ', nexus.nombres) as nombres"),
                 'nexus.descargo as cargo',
                 'nexus.situacion as condicion',
                 'nexus.jornlab as jornada',
-                'nexus.descniveduc as nivel'
+                'nexus.descniveduc as nivel',
+                'nexus.nombreooii as ugel',
+                'nexus.codplaza as cod',
+                'nexus.obser as obser',
+                'nexus.descmovim as mov',
+                'nexus.fecinicio as finicio',
+                'nexus.fectermino as ftermino',
+                DB::raw("'OFICIAL' as fuente") // <- Para saber de dónde viene
             )
             ->where('nexus.codlocal', $codlocal)
             ->whereIn('nexus.idnivel', $idnivelesModalidad)
             ->whereNotNull('nexus.numdocum')
             ->where('nexus.numdocum', '!=', 'VACANTE')
             ->where('nexus.situacion', '!=', 'VACANTE')
-            ->where('nexus.estado', 1)
-            ->get();
+            ->where('nexus.estado', 1);
+
+        $personalExcepcional = DB::table('nexus_excepcional')
+            ->select(
+                'nexus_excepcional.numdocum as dni',
+                DB::raw("CONCAT(nexus_excepcional.apellipat, ' ', nexus_excepcional.apellimat, ', ', nexus_excepcional.nombres) as nombres"),
+                'nexus_excepcional.descargo as cargo',
+                'nexus_excepcional.situacion as condicion',
+                'nexus_excepcional.jornlab as jornada',
+                'nexus_excepcional.descniveduc as nivel',
+                'nexus_excepcional.nombreooii as ugel',
+                'nexus_excepcional.codplaza as cod',
+                'nexus_excepcional.obser as obser',
+                'nexus_excepcional.descmovim as mov',
+                'nexus_excepcional.fecinicio as finicio',
+                'nexus_excepcional.fectermino as ftermino',
+                DB::raw("'EXCEPCIONAL' as fuente")
+            )
+            ->where('nexus_excepcional.codlocal', $codlocal)
+            ->whereIn('nexus_excepcional.idnivel', $idnivelesModalidad)
+            ->whereNotNull('nexus_excepcional.numdocum')
+            ->where('nexus_excepcional.numdocum', '!=', 'VACANTE')
+            ->where('nexus_excepcional.situacion', '!=', 'VACANTE')
+            ->where('nexus_excepcional.estado', 1);
+
+        $personal = $personalNexus->unionAll($personalExcepcional)->get();
+
 
         $niveles = $personal->pluck('nivel')->unique()->sort()->values();
 
@@ -656,7 +766,7 @@ class Anexo04Controller extends Controller
             $codlocal = $director['conf_permisos'][0]['codlocal'];
 
             // Obtener datos de la institución
-            $institucion = Iiee_a_evaluar_rie::select('idmodalidad','modalidad', 'institucion', 'direccion_ie', 'distrito')
+            $institucion = Iiee_a_evaluar_rie::select('idmodalidad','modalidad', 'institucion', 'direccion_ie', 'distrito' , 'codmod')
                 ->where('codlocal', $codlocal)
                 ->where('dni_director', $director['dni'])
                 ->first();
@@ -673,13 +783,15 @@ class Anexo04Controller extends Controller
                 ->select('localidad')
                 ->where('codlocal', $codlocal)
                 ->value('localidad');
-
+            // Ya tienes $institucion en este punto
+            $codmod1 = $institucion->codmod ?? null;
+            
             // Obetenr turno 
-            $d_cod_tur= DB::table('escale')
-                ->select('d_cod_tur')
+            $d_cod_tur= Iiee_a_evaluar_rie::select('turno')
                 ->where('codlocal', $codlocal)
-                ->value('d_cod_tur');
-
+                ->where('codmod', $codmod1)
+                ->value('turno'); 
+            
             // Obetenr nombre_anio 
             $anioActual = now()->year;
 
@@ -706,12 +818,14 @@ class Anexo04Controller extends Controller
                 ->where('codlocal', $codlocal)
                 ->get();
             
-            // Obetenr logo 
+            // Obtener logo 
             $logo= Iiee_a_evaluar_rie::select('logo')
                 ->where('codlocal', $codlocal)
+                ->where('codmod', $codmod1)
                 ->value('logo');
 
             $logoBD = Iiee_a_evaluar_rie::where('codlocal', $codlocal)
+                ->where('codmod', $codmod1)
                 ->value('logo'); // Esto puede ser null o un string
 
             $nombreLogo = $logoBD ? basename($logoBD) : null;
@@ -733,25 +847,53 @@ class Anexo04Controller extends Controller
                         ->where('Idmodalidad', $idModalidad)
                         ->pluck('idnivel');
             // Obtener docentes y personal
-            $personal = DB::table('nexus')
-                ->select(
-                    'nexus.numdocum as dni',
-                    DB::raw("CONCAT(nexus.apellipat, ' ', nexus.apellimat, ', ', nexus.nombres) as nombres"),
-                    'nexus.descargo as cargo',
-                    'nexus.situacion as condicion',
-                    'nexus.jornlab as jornada',
-                    'nexus.descniveduc as nivel',
-                    'nexus.nombreooii as ugel'
-                )
-                ->where('nexus.codlocal', $codlocal)
-                ->whereIn('nexus.idnivel', $idnivelesModalidad)
-                ->whereNotNull('nexus.numdocum')
-                ->where('nexus.numdocum', '!=', 'VACANTE')
-                ->where('nexus.situacion', '!=', 'VACANTE')
-                ->where('nexus.estado', 1)
-                ->get();
+                    $personalNexus = DB::table('nexus')
+            ->select(
+                'nexus.numdocum as dni',
+                DB::raw("CONCAT(nexus.apellipat, ' ', nexus.apellimat, ', ', nexus.nombres) as nombres"),
+                'nexus.descargo as cargo',
+                'nexus.situacion as condicion',
+                'nexus.jornlab as jornada',
+                'nexus.descniveduc as nivel',
+                'nexus.nombreooii as ugel',
+                'nexus.codplaza as cod',
+                'nexus.obser as obser',
+                'nexus.descmovim as mov',
+                'nexus.fecinicio as finicio',
+                'nexus.fectermino as ftermino',
+                DB::raw("'OFICIAL' as fuente") // <- Para saber de dónde viene
+            )
+            ->where('nexus.codlocal', $codlocal)
+            ->whereIn('nexus.idnivel', $idnivelesModalidad)
+            ->whereNotNull('nexus.numdocum')
+            ->where('nexus.numdocum', '!=', 'VACANTE')
+            ->where('nexus.situacion', '!=', 'VACANTE')
+            ->where('nexus.estado', 1);
 
-            
+        $personalExcepcional = DB::table('nexus_excepcional')
+            ->select(
+                'nexus_excepcional.numdocum as dni',
+                DB::raw("CONCAT(nexus_excepcional.apellipat, ' ', nexus_excepcional.apellimat, ', ', nexus_excepcional.nombres) as nombres"),
+                'nexus_excepcional.descargo as cargo',
+                'nexus_excepcional.situacion as condicion',
+                'nexus_excepcional.jornlab as jornada',
+                'nexus_excepcional.descniveduc as nivel',
+                'nexus_excepcional.nombreooii as ugel',
+                'nexus_excepcional.codplaza as cod',
+                'nexus_excepcional.obser as obser',
+                'nexus_excepcional.descmovim as mov',
+                'nexus_excepcional.fecinicio as finicio',
+                'nexus_excepcional.fectermino as ftermino',
+                DB::raw("'EXCEPCIONAL' as fuente")
+            )
+            ->where('nexus_excepcional.codlocal', $codlocal)
+            ->whereIn('nexus_excepcional.idnivel', $idnivelesModalidad)
+            ->whereNotNull('nexus_excepcional.numdocum')
+            ->where('nexus_excepcional.numdocum', '!=', 'VACANTE')
+            ->where('nexus_excepcional.situacion', '!=', 'VACANTE')
+            ->where('nexus_excepcional.estado', 1);
+
+        $personal = $personalNexus->unionAll($personalExcepcional)->get();
 
             $niveles = $personal->pluck('nivel')->unique()->sort()->values();
 
@@ -803,9 +945,20 @@ class Anexo04Controller extends Controller
                 // Finalmente, comparar por nombres
                 return strcmp($a->nombres, $b->nombres);
                 })->values();
-                    $fecha = new \DateTime('first day of last month');
+                    $hoy = new \DateTime(); // fecha actual
+                    $dia = (int) $hoy->format('j'); // día del mes
+
+                    if ($dia <= 3) {
+                        // Si estamos en los primeros 3 días, usar el mes anterior
+                        $fecha = (clone $hoy)->modify('first day of last month');
+                    } else {
+                        // Si estamos del día 4 en adelante, usar el mes actual
+                        $fecha = (clone $hoy)->modify('first day of this month');
+                    }
+
                     $anio = (int) $fecha->format('Y');
-                    $mes = (int) $fecha->format('n');
+                    $mes  = (int) $fecha->format('n');
+
 
             // Obtener todos los registros anexo04 que coincidan con el filtro
             $anexos04 = DB::connection('siic_anexos')->table('anexo04')

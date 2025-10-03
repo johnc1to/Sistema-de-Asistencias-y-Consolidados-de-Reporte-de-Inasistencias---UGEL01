@@ -33,46 +33,50 @@ class Anexo03Controller extends Controller
         }
 
         $codlocal = $director['conf_permisos'][0]['codlocal'];
-
-        $institucion = Iiee_a_evaluar_rie::join('conf_permisos as P', 'P.esc_codmod', '=', 'iiee_a_evaluar_rie.codmod')
+        
+        $institucion = Iiee_a_evaluar_rie::join('conf_permisos as P', 'P.esc_codmod', '=', 'iiee_a_evaluar_RIE.codmod')
             ->join('contacto as C', 'C.id_contacto', '=', 'P.id_contacto')
             ->where('C.dni', $director['dni'])
             ->where('C.estado', 1)
             ->where('C.flg', 1)
             ->where('P.estado', 1)
-            ->where('iiee_a_evaluar_rie.estado', 1)
-            ->select('iiee_a_evaluar_rie.*')
+            ->where('iiee_a_evaluar_RIE.estado', 1)
+            ->select('iiee_a_evaluar_RIE.*')
             ->first();
 
         if ($institucion && empty($institucion->dni_director)) {
             $institucion->dni_director = $director['dni'];
             $institucion->save();
         }
-
+        //dd($institucion);
         // Ahora ya consultamos con dni seguro
-        $institucion = Iiee_a_evaluar_rie::select('idmodalidad','modalidad','institucion')
+        $institucion = Iiee_a_evaluar_rie::select('idmodalidad','modalidad','institucion', 'codmod')
             ->where('codlocal', $codlocal)
             ->where('dni_director', $director['dni'])
             ->first();
 
-        //Obtener turno 
-            $d_cod_tur= DB::table('escale')
-                ->select('d_cod_tur')
-                ->where('codlocal', $codlocal)
-                ->value('tud_cod_turrno');  
+        // Ya tienes $institucion en este punto
+        $codmod = $institucion->codmod ?? null;
+        //dd($codmod);
+        // Obtener turno con codlocal + codmod
+        $d_cod_tur = Iiee_a_evaluar_rie::select('turno')
+            ->where('codlocal', $codlocal)
+            ->where('codmod', $codmod)
+            ->value('turno');
+  
         
         //Obtener firma
-            $firmaGuardada = DB::connection('siic_anexos')->table('anexo03')
+        $firmaGuardada = DB::connection('siic_anexos')->table('anexo03')
             ->where('id_contacto', $director['id_contacto'])
             ->value('firma');
 
         //Obtener oficio
-            $oficioguardado = DB::connection('siic_anexos')->table('anexo03')
+        $oficioguardado = DB::connection('siic_anexos')->table('anexo03')
             ->where('id_contacto', $director['id_contacto'])
             ->value('oficio');
         
         //Obtener expediente
-            $expedienteguardado = DB::connection('siic_anexos')->table('anexo03')
+        $expedienteguardado = DB::connection('siic_anexos')->table('anexo03')
             ->where('id_contacto', $director['id_contacto'])
             ->value('expediente');
 
@@ -88,8 +92,9 @@ class Anexo03Controller extends Controller
         $idnivelesModalidad = DB::table('niveles')
             ->where('Idmodalidad', $idModalidad)
             ->pluck('idnivel');
+        
         //dd($idnivelesModalidad);
-        $personal = DB::table('nexus')
+        $personalNexus = DB::table('nexus')
             ->select(
                 'nexus.numdocum as dni',
                 DB::raw("CONCAT(nexus.apellipat, ' ', nexus.apellimat, ', ', nexus.nombres) as nombres"),
@@ -99,19 +104,43 @@ class Anexo03Controller extends Controller
                 'nexus.descniveduc as nivel',
                 'nexus.nombreooii as ugel',
                 'nexus.codplaza as cod',
-                //28-08-25 
                 'nexus.obser as obser',
                 'nexus.descmovim as mov',
                 'nexus.fecinicio as finicio',
                 'nexus.fectermino as ftermino',
+                DB::raw("'OFICIAL' as fuente") // <- Para saber de dónde viene
             )
             ->where('nexus.codlocal', $codlocal)
             ->whereIn('nexus.idnivel', $idnivelesModalidad)
             ->whereNotNull('nexus.numdocum')
             ->where('nexus.numdocum', '!=', 'VACANTE')
             ->where('nexus.situacion', '!=', 'VACANTE')
-            ->where('nexus.estado', 1)
-            ->get();
+            ->where('nexus.estado', 1);
+
+        $personalExcepcional = DB::table('nexus_excepcional')
+            ->select(
+                'nexus_excepcional.numdocum as dni',
+                DB::raw("CONCAT(nexus_excepcional.apellipat, ' ', nexus_excepcional.apellimat, ', ', nexus_excepcional.nombres) as nombres"),
+                'nexus_excepcional.descargo as cargo',
+                'nexus_excepcional.situacion as condicion',
+                'nexus_excepcional.jornlab as jornada',
+                'nexus_excepcional.descniveduc as nivel',
+                'nexus_excepcional.nombreooii as ugel',
+                'nexus_excepcional.codplaza as cod',
+                'nexus_excepcional.obser as obser',
+                'nexus_excepcional.descmovim as mov',
+                'nexus_excepcional.fecinicio as finicio',
+                'nexus_excepcional.fectermino as ftermino',
+                DB::raw("'EXCEPCIONAL' as fuente")
+            )
+            ->where('nexus_excepcional.codlocal', $codlocal)
+            ->whereIn('nexus_excepcional.idnivel', $idnivelesModalidad)
+            ->whereNotNull('nexus_excepcional.numdocum')
+            ->where('nexus_excepcional.numdocum', '!=', 'VACANTE')
+            ->where('nexus_excepcional.situacion', '!=', 'VACANTE')
+            ->where('nexus_excepcional.estado', 1);
+
+        $personal = $personalNexus->unionAll($personalExcepcional)->get();
 
         //dd($personal);
         // Niveles únicos
@@ -168,29 +197,30 @@ class Anexo03Controller extends Controller
         return strcmp($a->nombres, $b->nombres);
         })->values();
 
-
-        // Obtén las personas del reporte anexo03 para este codlocal
-        $personasReporte = DB::connection('siic_anexos')->table('anexo03')
-            ->join('anexo03_persona', 'anexo03.id_anexo03', '=', 'anexo03_persona.id_anexo03')
-            ->where('anexo03.codlocal', $codlocal)
-            ->select('anexo03_persona.id', 'anexo03_persona.persona_json')
+        // Mes que se va a mostrar en el reporte; puede venir del request o usar el mes actual
+        $mes = $request->input('mes', Carbon::now()->month);
+        $anio = $request->input('anio', Carbon::now()->year);
+        // Obtén las personas del reporte anexo03 para este codlocal, incluyendo fecha_creacion del anexo03
+        $personasReporte = DB::connection('siic_anexos')->table('anexo03_persona as ap')
+            ->join('anexo03 as a', 'a.id_anexo03', '=', 'ap.id_anexo03')
+            ->where('a.codlocal', $codlocal)
+            ->select('ap.id', 'ap.persona_json', 'a.fecha_creacion') 
             ->get()
             ->mapWithKeys(function ($item) {
                 $persona = json_decode($item->persona_json);
-
-                // Asegúrate que codplaza exista en el JSON
                 $dni = $persona->dni ?? null;
-                $codplaza = $persona->cod ?? ($persona->cod ?? null); 
-
-                // Si no hay codplaza, usar solo DNI, pero idealmente siempre debería haber
+                $codplaza = $persona->cod ?? null;
                 $clave = $codplaza ? "{$dni}_{$codplaza}" : $dni;
 
-                return [$clave => $item->id];
+                return [$clave => [
+                    'id_persona' => $item->id,
+                    'fecha_creacion' => $item->fecha_creacion
+                ]];
             });
 
-        // Obtén la asistencia y observación para las personas que están en el reporte
+        // Obtén la asistencia y observación
         $asistencias = DB::connection('siic_anexos')->table('anexo03_asistencia')
-            ->whereIn('id_persona', $personasReporte->values()->all())
+            ->whereIn('id_persona', collect($personasReporte)->pluck('id_persona')->all())
             ->select('id_persona', 'asistencia', 'observacion','tipo_observacion','observacion_detalle','fecha_inicio','fecha_fin')
             ->get()
             ->mapWithKeys(function ($item) {
@@ -204,10 +234,45 @@ class Anexo03Controller extends Controller
                 ]];
             });
 
-        // Finalmente construye un array para usar en la vista que relacione DNI con asistencia y observacion
+        // Combinar datos de asistencia y mes
         $datosAsistenciaPorDni = [];
-        foreach ($personasReporte as $clave => $id_persona) {
-            $datosAsistenciaPorDni[$clave] = $asistencias[$id_persona] ?? ['asistencia' => [], 'observacion' => null,'tipo_observacion' => null,'observacion_detalle' => null];
+        foreach ($personasReporte as $clave => $info) {
+            $id_persona = $info['id_persona'];
+            $fechaCreacion = Carbon::parse($info['fecha_creacion']);
+            $mesAsistencia = $fechaCreacion->month;
+
+            $dato = $asistencias[$id_persona] ?? null;
+
+            if ($dato) {
+                // Usar siempre la asistencia que haya guardada
+                $diasLaborables = [];
+                foreach ($dato['asistencia'] as $i => $valor) {
+                    if ($valor === 'A') $diasLaborables[] = $i + 1;
+                }
+                $dato['dias_laborables'] = $diasLaborables;
+                $datosAsistenciaPorDni[$clave] = $dato;
+            } else {
+                // Si no existe asistencia → inicializar con patrón laboral (lunes a viernes)
+                $diasLaborables = [];
+                $diasEnMes = Carbon::create($anio, $mes, 1)->daysInMonth;
+                for ($i = 1; $i <= $diasEnMes; $i++) {
+                    $dow = Carbon::create($anio, $mes, $i)->dayOfWeek;
+                    if ($dow >= 1 && $dow <= 5) {
+                        $diasLaborables[] = $i;
+                    }
+                }
+
+                $datosAsistenciaPorDni[$clave] = [
+                    'asistencia' => [], 
+                    'observacion' => null,
+                    'tipo_observacion' => null,
+                    'observacion_detalle' => null,
+                    'dias_laborables' => $diasLaborables
+                ];
+            }
+
+            $datosAsistenciaPorDni[$clave]['mes'] = $mes;
+
         }
 
         return view('reporteAnexo03.formulario03', [
@@ -217,7 +282,7 @@ class Anexo03Controller extends Controller
             'modalidad' => $institucion->modalidad ?? '',
             'institucion' => $institucion->institucion ?? '',
             'anio' => now()->year,
-            'mes' => now()->month,
+            'mes' => $mes,
             'codlocal' => $codlocal,
             'asistencias' => $datosAsistenciaPorDni,
             'd_cod_tur' => $d_cod_tur,
@@ -225,6 +290,7 @@ class Anexo03Controller extends Controller
             'oficio'=>$oficioguardado,
             'expediente'=>$expedienteguardado,
         ]);
+
     }
 
 
@@ -243,24 +309,36 @@ class Anexo03Controller extends Controller
             $idAnexo03 = null;
 
             if ($anexoExistente) {
-                if (is_null($anexoExistente->oficio)) {
-                    // Caso 1: Es borrador → actualizar oficio si lo mandan
+                if (is_null($anexoExistente->oficio) || is_null($anexoExistente->expediente)) {
+                    // Buscar la fecha mínima del último bloque abierto (los que aún no tienen oficio/expediente)
+                    $ultimaFecha = DB::connection('siic_anexos')->table('anexo03')
+                        ->where('id_contacto', $request->id_contacto)
+                        ->where('codlocal', $request->codlocal)
+                        ->whereNull('oficio')
+                        ->whereNull('expediente')
+                        ->min('fecha_creacion'); // primer registro del bloque abierto
+
+                    // Actualizar todos los registros de ese bloque abierto
                     DB::connection('siic_anexos')->table('anexo03')
-                        ->where('id_anexo03', $anexoExistente->id_anexo03)
+                        ->where('id_contacto', $request->id_contacto)
+                        ->where('codlocal', $request->codlocal)
+                        ->where('fecha_creacion', '>=', $ultimaFecha)
+                        ->whereNull('oficio')
+                        ->whereNull('expediente')
                         ->update([
                             'oficio' => $request->numero_oficio,
                             'expediente' => $request->numero_expediente,
+                            'fecha_actualizacion' => now(),
                         ]);
 
                     $idAnexo03 = $anexoExistente->id_anexo03;
-
                 } else {
-                    // Caso 2: Ya existe oficial → crear un nuevo bloque (nuevo borrador)
+                    // Caso 2: Bloque cerrado → crear uno nuevo
                     $idAnexo03 = DB::connection('siic_anexos')->table('anexo03')->insertGetId([
                         'id_contacto' => $request->id_contacto,
-                        'codlocal' => $request->codlocal,
-                        'nivel' => $request->nivel,
-                        'oficio' => $request->numero_oficio, // puede venir NULL → sigue como borrador
+                        'codlocal'   => $request->codlocal,
+                        'nivel'      => $request->nivel,
+                        'oficio'     => $request->numero_oficio,
                         'expediente' => $request->numero_expediente,
                         'fecha_creacion' => now(),
                     ]);
@@ -269,9 +347,9 @@ class Anexo03Controller extends Controller
                 // Caso 3: No existe ninguno → crear primero
                 $idAnexo03 = DB::connection('siic_anexos')->table('anexo03')->insertGetId([
                     'id_contacto' => $request->id_contacto,
-                    'codlocal' => $request->codlocal,
-                    'nivel' => $request->nivel,
-                    'oficio' => $request->numero_oficio,
+                    'codlocal'   => $request->codlocal,
+                    'nivel'      => $request->nivel,
+                    'oficio'     => $request->numero_oficio,
                     'expediente' => $request->numero_expediente,
                     'fecha_creacion' => now(),
                 ]);
@@ -459,7 +537,7 @@ class Anexo03Controller extends Controller
         $codlocal = $director['conf_permisos'][0]['codlocal'];
 
         // Obtener datos de la institución
-        $institucion = Iiee_a_evaluar_rie::select('idmodalidad','modalidad', 'institucion', 'direccion_ie', 'distrito')
+        $institucion = Iiee_a_evaluar_rie::select('idmodalidad','modalidad', 'institucion', 'direccion_ie', 'distrito', 'codmod')
             ->where('codlocal', $codlocal)
             ->where('dni_director', $director['dni'])
             ->first();
@@ -477,11 +555,14 @@ class Anexo03Controller extends Controller
             ->where('codlocal', $codlocal)
             ->value('localidad');
 
-        // Obtener turno 
-        $d_cod_tur= DB::table('escale')
-            ->select('d_cod_tur')
+        // Ya tienes $institucion en este punto
+        $codmod = $institucion->codmod ?? null;
+        //dd($codmod);
+        // Obtener turno con codlocal + codmod
+        $d_cod_tur = Iiee_a_evaluar_rie::select('turno')
             ->where('codlocal', $codlocal)
-            ->value('d_cod_tur');
+            ->where('codmod', $codmod)
+            ->value('turno'); 
 
         // Obtener nombre_anio 
         $anioActual = now()->year;
@@ -500,7 +581,7 @@ class Anexo03Controller extends Controller
             ->get();
         
         //correo institucional
-        $correo_inst = Iiee_a_evaluar_rie::select('iiee_a_evaluar_rie')
+        $correo_inst = Iiee_a_evaluar_rie::select('iiee_a_evaluar_RIE')
             ->select('correo_inst')
             ->where('codlocal', $codlocal)
             ->value('correo_inst');
@@ -508,10 +589,12 @@ class Anexo03Controller extends Controller
         // Obtener logo 
         $logo= Iiee_a_evaluar_rie::select('logo')
             ->where('codlocal', $codlocal)
+            ->where('codmod', $codmod)
             ->value('logo');
 
         $logoBD = Iiee_a_evaluar_rie::where('codlocal', $codlocal)
-            ->value('logo'); // Esto puede ser null o un string
+        ->where('codmod', $codmod)
+            ->value('logo'); 
 
         $nombreLogo = $logoBD ? basename($logoBD) : null;
         $rutaLogoWeb = $nombreLogo ? 'storage/logoie/' . $nombreLogo : null;
@@ -534,7 +617,7 @@ class Anexo03Controller extends Controller
                 ->pluck('idnivel');
 
         // Obtener docentes y personal
-        $personal = DB::table('nexus')
+        $personalNexus = DB::table('nexus')
             ->select(
                 'nexus.numdocum as dni',
                 DB::raw("CONCAT(nexus.apellipat, ' ', nexus.apellimat, ', ', nexus.nombres) as nombres"),
@@ -544,14 +627,43 @@ class Anexo03Controller extends Controller
                 'nexus.descniveduc as nivel',
                 'nexus.nombreooii as ugel',
                 'nexus.codplaza as cod',
+                'nexus.obser as obser',
+                'nexus.descmovim as mov',
+                'nexus.fecinicio as finicio',
+                'nexus.fectermino as ftermino',
+                DB::raw("'OFICIAL' as fuente")
             )
             ->where('nexus.codlocal', $codlocal)
             ->whereIn('nexus.idnivel', $idnivelesModalidad)
             ->whereNotNull('nexus.numdocum')
             ->where('nexus.numdocum', '!=', 'VACANTE')
             ->where('nexus.situacion', '!=', 'VACANTE')
-            ->where('nexus.estado', 1)
-            ->get();
+            ->where('nexus.estado', 1);
+
+        $personalExcepcional = DB::table('nexus_excepcional')
+            ->select(
+                'nexus_excepcional.numdocum as dni',
+                DB::raw("CONCAT(nexus_excepcional.apellipat, ' ', nexus_excepcional.apellimat, ', ', nexus_excepcional.nombres) as nombres"),
+                'nexus_excepcional.descargo as cargo',
+                'nexus_excepcional.situacion as condicion',
+                'nexus_excepcional.jornlab as jornada',
+                'nexus_excepcional.descniveduc as nivel',
+                'nexus_excepcional.nombreooii as ugel',
+                'nexus_excepcional.codplaza as cod',
+                'nexus_excepcional.obser as obser',
+                'nexus_excepcional.descmovim as mov',
+                'nexus_excepcional.fecinicio as finicio',
+                'nexus_excepcional.fectermino as ftermino',
+                DB::raw("'EXCEPCIONAL' as fuente")
+            )
+            ->where('nexus_excepcional.codlocal', $codlocal)
+            ->whereIn('nexus_excepcional.idnivel', $idnivelesModalidad)
+            ->whereNotNull('nexus_excepcional.numdocum')
+            ->where('nexus_excepcional.numdocum', '!=', 'VACANTE')
+            ->where('nexus_excepcional.situacion', '!=', 'VACANTE')
+            ->where('nexus_excepcional.estado', 1);
+
+        $personal = $personalNexus->unionAll($personalExcepcional)->get();
 
         $niveles = $personal->pluck('nivel')->unique()->sort()->values();
 
@@ -567,9 +679,8 @@ class Anexo03Controller extends Controller
             ->mapWithKeys(function ($item) {
                 $persona = json_decode($item->persona_json);
 
-                // Asegúrate que codplaza exista en el JSON
                 $dni = $persona->dni ?? null;
-                $codplaza = $persona->cod ?? ($persona->cod ?? null); // por si el campo se llama 'cod'
+                $codplaza = $persona->cod ?? ($persona->cod ?? null);
 
                 // Si no hay codplaza, usar solo DNI, pero idealmente siempre debería haber
                 $clave = $codplaza ? "{$dni}_{$codplaza}" : $dni;
@@ -702,7 +813,7 @@ class Anexo03Controller extends Controller
         ');
 
         // Página 1: Oficio sin encabezado
-        $mpdf->SetHTMLHeader(''); // vacío para la portada
+        $mpdf->SetHTMLHeader('');
         $mpdf->WriteHTML($htmlOficio);
 
         // Definir encabezado vertical para las siguientes páginas
