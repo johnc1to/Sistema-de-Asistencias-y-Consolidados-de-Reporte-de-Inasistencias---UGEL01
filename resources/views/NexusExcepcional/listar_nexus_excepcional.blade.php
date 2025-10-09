@@ -160,8 +160,8 @@ function editar(nro){
   $("#apellimat").val(data['apellimat']);
   $("#nombres").val(data['nombres']);
   $("#jornlab").val(data['jornlab']);
-  $("#fecinicio").val(data['fecinicio']);
-  $("#fectermino").val(data['fectermino']);
+  $("#fecinicio").val(data['fecinicio'] ? data['fecinicio'].substring(0, 10) : '');
+  $("#fectermino").val(data['fectermino'] ? data['fectermino'].substring(0, 10) : '');
   $('#descargo').select2();
   $("#btn_doctipo").click();
 }
@@ -233,7 +233,7 @@ var table4 = $("#t_programas").DataTable( {
                         buttons: ['excel'],
                         "iDisplayLength": 35,
                         "language": {
-                            "url": "//cdn.datatables.net/plug-ins/1.10.15/i18n/Spanish.json"
+                            "url": "https://cdn.datatables.net/plug-ins/1.10.15/i18n/Spanish.json"
                         },
                         data:[],
                         "columns": [

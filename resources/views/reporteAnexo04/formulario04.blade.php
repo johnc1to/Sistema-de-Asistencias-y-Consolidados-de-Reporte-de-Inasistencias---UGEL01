@@ -17,21 +17,28 @@
     <div class="w-full max-w-full mx-auto bg-white rounded-xl shadow-md p-6">
       @php
           $hoy = now();
-
-          if ($hoy->day <= 3) {
-              // Primeros 3 días → mes anterior
-              $fechaReferencia = $hoy->copy()->subMonth();
-          } else {
-              // Del 4 en adelante → mes actual
-              $fechaReferencia = $hoy;
-          }
+          $fechaReferencia = $hoy->copy()->subMonth(); // Siempre un mes antes
       @endphp
-        <h1 class="text-3xl font-bold text-center mb-4 uppercase">
-            ANEXO 04 - 
-            <strong class="text-blue-600 text-3xl">
-                {{ mb_strtoupper($fechaReferencia->translatedFormat('F'), 'UTF-8') }}
-            </strong>
-        </h1>
+        
+        <div class="flex items-center justify-between mb-4">
+            <!-- 🔹 Controles de Zoom -->
+            <div class="flex items-center space-x-2">
+                <button id="zoomOut" class="bg-gray-200 hover:bg-gray-300 text-xl font-bold px-3 py-1 rounded">−</button>
+                <button id="zoomIn" class="bg-gray-200 hover:bg-gray-300 text-xl font-bold px-3 py-1 rounded">+</button>
+            </div>
+
+            <!-- 🔹 Título centrado -->
+            <h1 class="text-3xl font-bold text-center mb-4 uppercase">
+                ANEXO 04 - 
+                <strong class="text-blue-600 text-3xl">
+                    {{ mb_strtoupper($fechaReferencia->translatedFormat('F'), 'UTF-8') }}
+                </strong>
+            </h1>
+
+            <!-- 🔹 Espaciador invisible para mantener simetría -->
+            <div class="w-[84px]"></div>
+        </div>
+
         <h1 class="text-2xl font-bold text-center mb-4 uppercase">Formato 02: REPORTE CONSOLIDADO DE INASISTENCIAS, TARDANZAS Y PERMISOS SIN GOCE DE REMUNERACIONES</h1>
         <button onclick="iniciarTutorial()" class="mb-4 px-4 py-2 bg-emerald-600 text-white rounded bg-violet-600 hover:bg-violet-700">Ver tutorial</button>
         <a target="_blank" class="btn btn-danger" href="guia/ASISTENCIA-IE-ANEXO-04.pdf"><span class="pe-7s-file"></span> Ver Guia en PDF</a>
@@ -82,7 +89,7 @@
             </div>
         </form>
         </div>
-
+    
     <!-- Contenedor exclusivo para la tabla -->
     <div class="mb-4" data-step="3">
         <div class="overflow-auto border rounded max-h-[500px] w-full">
@@ -94,11 +101,11 @@
                         $anio = $anio ?? 2025;
                         $fechaHoy = Carbon::now()->translatedFormat('d \d\e F \d\e Y');
                     @endphp
-
                     <thead class="bg-gray-200 text-gray-700 uppercase text-xs sticky top-0 z-10">
                       <tr>
                           <th class="border px-2 py-1 bg-gray-200" rowspan="2">Nº</th>
                           <th class="border px-2 py-1 bg-gray-200" rowspan="2">DNI</th>
+                          <th class="border px-2 py-1 bg-gray-200" rowspan="2">COD.PLAZA</th>
                           <th class="border px-2 py-1 bg-gray-200" rowspan="2">Apellidos y Nombres</th>
                           <th class="border px-2 py-1 bg-gray-200" rowspan="2">Cargo</th>
                           <th class="border px-2 py-1 bg-gray-200" rowspan="2">Condición</th>
@@ -152,15 +159,16 @@
                     </thead>
                     <tbody class="bg-white">
                       @forelse ($registros as $index => $r)
-                      <tr class="hover:bg-gray-100"
-                          data-dni="{{ $r->dni }}"
-                          data-nombres="{{ $r->nombres }}"
-                          data-cargo="{{ $r->cargo }}"
-                          data-condicion="{{ $r->condicion }}"
-                          data-jornada="{{ $r->jornada }}"
-                          data-cod="{{ $r->cod }}">
+                        <tr class="hover:bg-gray-100"
+                            data-dni="{{ $r->dni }}"
+                            data-nombres="{{ $r->nombres }}"
+                            data-cargo="{{ $r->cargo }}"
+                            data-condicion="{{ $r->condicion }}"
+                            data-jornada="{{ $r->jornada }}"
+                            data-cod="{{ $r->cod }}">
                           <td class="border px-2 py-1">{{ $index + 1 }}</td>
                           <td class="border px-2 py-1 cursor-pointer text-blue-500 dni-tour dni-tour-clickable" onclick="prepararYabrirModal('{{ $r->dni }}', '{{ $r->cod }}', '{{ $r->nombres }}')">{{ $r->dni }}</td>
+                          <td class="border px-2 py-1 text-left">{{ $r->cod }}</td>
                           <td class="border px-2 py-1 text-left">{{ $r->nombres }}</td>
                           <td class="border px-2 py-1 text-center">{{ $r->cargo }}</td>
                           <td class="border px-2 py-1">{{ $r->condicion }}</td>
@@ -172,14 +180,13 @@
                           <td class="border px-2 py-1 text-center" data-tipo="permisos_sg_minutos">{{ $r->permisos_sg_minutos ?? '' }}</td>
                           <td class="border px-2 py-1 text-center" data-tipo="huelga_paro_dias">{{ $r->huelga_paro_dias ?? '' }}</td>
                           <td class="border px-2 py-1" data-tipo="observaciones">{{ e($r->observaciones ?? '') }}</td>
-
                           <td class="hidden">
                             <input type="hidden" name="detalleInasistencia[{{ $r->dni }}_{{ $r->cod }}]" class="detalle-inasistencia-json" data-dni="{{ $r->dni }}" data-cod="{{ $r->cod }}"  value='@json($r->detalle_inasistencia_json)'>
                           </td>
-                      </tr>
+                        </tr>
                       @empty
                       <tr>
-                          <td colspan="13" class="text-center py-2">No hay registros disponibles.</td>
+                        <td colspan="13" class="text-center py-2">No hay registros disponibles.</td>
                       </tr>
                       @endforelse
                     </tbody>
@@ -187,20 +194,35 @@
             </div>
         </div>
     </div>
+    
+    <p>(*) Horas y minutos Cronológicos</p>
 
     <!-- Firma y botón de exportación -->
     <div class="mt-10 text-sm text-right">
         <p>Lugar y Fecha: {{ $fechaHoy }}</p>
     </div>
+
     <div class="flex items-start gap-4">
+
     {{-- Botón ingresar oficio + vista previa --}}
     <div class="flex flex-col items-center" data-step="7">
-        <button id="btnOficio" onclick="openModal2()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-            Ingresar número de oficio
-        </button>
-        <p id="previewOficio" class="mt-2 font-bold text-blue-800"></p>
+        <button id="btnOficio" onclick="openModal2()" 
+                class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                {{ !empty($oficioguardado) ? 'Editar número de oficio' : 'Ingresar número de oficio' }}
+            </button>
+
+            <p id="previewOficio" class="mt-2 font-bold text-blue-800">
+                @if(!empty($oficioguardado))
+                    Oficio N° {{ $oficioguardado }}
+                @endif
+            </p>
+
+            <!-- Campo oculto con el número de oficio ya guardado -->
+            <input type="hidden" id="oficio_guardado" value="{{ $oficioguardado ?? '' }}">
+
     </div>
     {{-- Firma: Botón y vista previa --}}
+
     <div class="flex flex-col items-center" data-step="11">
         <button onclick="openFirmaModal()"
             class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-700">
@@ -248,14 +270,21 @@
     </form>
 
     <!-- Botón ingresar expediente + vista previa -->
-    <div class="flex flex-col items-center">
-        <button id="btnExpediente" onclick="openExpedienteModal()" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">
-            Ingresar número de expediente
-        </button>
-        <p id="previewExpediente" class="mt-2 font-bold text-indigo-800"></p>
-    </div>
-      <input type="hidden" name="numero_expediente" id="campoNumeroExpediente">
-    </div>
+<div class="flex flex-col items-center" data-step='21'>
+    <button id="btnExpediente" onclick="openExpedienteModal()" 
+        class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">
+        {{ !empty($expedienteguardado) ? 'Editar número de expediente' : 'Ingresar número de expediente' }}
+    </button>
+
+    <p id="previewExpediente" class="mt-2 font-bold text-indigo-800">
+        @if(!empty($expedienteguardado))
+            Expediente MPD2025-EXP-{{ $expedienteguardado }}
+        @endif
+    </p>
+
+    <!-- Campo oculto con el número de expediente ya guardado -->
+    <input type="hidden" id="campoNumeroExpediente" value="{{ $expedienteguardado ?? '' }}">
+</div>
     {{-- CSRF para JS --}}
     <meta name="csrf-token" content="{{ csrf_token() }}">
     {{-- Campo oculto --}}
@@ -312,20 +341,24 @@
         </div>
     </div>
 
-    <!-- Modal para ingresar número de expediente -->
-    <div id="expedienteModal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 hidden">
-        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
-            <h2 class="text-xl font-semibold text-gray-800 mb-4">Ingresar número de expediente</h2>
-            <input type="text" id="inputExpediente" placeholder="Ej. 123456"
-                class="w-full border rounded px-4 py-2 focus:outline-none focus:ring focus:border-blue-300">
-            <div class="flex justify-end gap-2 mt-4">
-                <button onclick="cerrarExpedienteModal()"
-                    class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">Cancelar</button>
-                <button onclick="guardarExpediente()"
-                    class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Guardar</button>
-            </div>
+<!-- Modal para ingresar número de expediente -->
+<div id="expedienteModal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 hidden">
+    <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+        <h2 class="text-xl font-semibold text-gray-800 mb-4">Ingresar número de expediente</h2>
+        
+        <input type="number" id="numeroExpediente"
+            class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-4"
+            oninput="this.value = this.value.replace(/[^0-9]/g, '')"
+            min="0">
+
+        <div class="flex justify-end gap-2 mt-4">
+            <button onclick="cerrarExpedienteModal()"
+                class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">Cancelar</button>
+            <button onclick="guardarExpediente()"
+                class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Guardar</button>
         </div>
     </div>
+</div>
 
     <!-- Modal para Anexo 04 -->
     <div id="modalInasistencia" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 hidden">
@@ -465,9 +498,10 @@
     }
 
     function openExpedienteModal() {
+      const currentNro = document.getElementById('campoNumeroExpediente').value.trim();
+      document.getElementById('numeroExpediente').value = currentNro;
       document.getElementById('expedienteModal').classList.remove('hidden');
-      document.getElementById('inputExpediente').value = '';
-      document.getElementById('inputExpediente').focus();
+      document.getElementById('numeroExpediente').focus();
     }
 
     function cerrarExpedienteModal() {
@@ -475,15 +509,29 @@
     }
 
     function guardarExpediente() {
-        const numero = document.getElementById('inputExpediente').value.trim();
-        if (numero !== '') {
-            document.getElementById('campoNumeroExpediente').value = numero;
-            document.getElementById('previewExpediente').innerText = 'Expediente MPD2025-EXP-' +numero;
-            cerrarExpedienteModal();
+        const numero = document.getElementById('numeroExpediente').value.trim();
+
+        // Guarda el valor (vacío o no)
+        document.getElementById('campoNumeroExpediente').value = numero || '';
+
+        // Actualiza vista previa y texto del botón según el valor
+        if (numero) {
+            document.getElementById('previewExpediente').innerText = 'Expediente MPD2025-EXP-' + numero;
+            document.getElementById('btnExpediente').innerText = 'Editar número de expediente';
         } else {
-            alert('Por favor, ingrese un número de expediente válido.');
+            document.getElementById('previewExpediente').innerText = '';
+            document.getElementById('btnExpediente').innerText = 'Ingresar número de expediente';
         }
+
+        cerrarExpedienteModal();
     }
+    // Al cargar la página, si ya hay expediente, actualiza el texto del botón
+    document.addEventListener('DOMContentLoaded', function() {
+        const numero = document.getElementById('campoNumeroExpediente').value.trim();
+        if (numero) {
+            document.getElementById('btnExpediente').innerText = 'Editar número de expediente';
+        }
+    });
 
     function openModal2() {
         document.getElementById('modalOficio').classList.remove('hidden');
@@ -496,18 +544,29 @@
     function closeModal() {
         document.getElementById('modalOficio').classList.add('hidden');
     }
-
+    document.addEventListener('DOMContentLoaded', function () {
+        const nroOficio = document.getElementById('oficio_guardado').value.trim();
+        if (nroOficio) {
+            document.getElementById('previewOficio').innerText = 'Oficio N° ' + nroOficio;
+            document.getElementById('btnOficio').innerText = 'Editar número de oficio';
+        }
+    });
     function guardarOficio() {
-        const nro = document.getElementById('numeroOficio').value.trim();
-        if (!nro) return;
+        const nuevoNro = document.getElementById('numeroOficio').value.trim();
 
-        document.getElementById('oficio_guardado').value = nro;
-        document.getElementById('previewOficio').innerText = 'Oficio N° ' + nro;
+        // Si está vacío, guardamos null en el campo oculto
+        document.getElementById('oficio_guardado').value = nuevoNro || '';
 
-        // Cambiar texto del botón
-        document.getElementById('btnOficio').innerText = 'Editar número de oficio';
+        // Actualiza vista previa y botón según el valor
+        if (nuevoNro) {
+            document.getElementById('previewOficio').innerText = 'Oficio N° ' + nuevoNro;
+            document.getElementById('btnOficio').innerText = 'Editar número de oficio';
+        } else {
+            document.getElementById('previewOficio').innerText = ''; // Limpia vista previa
+            document.getElementById('btnOficio').innerText = 'Ingresar número de oficio';
+        }
 
-        closeModal();
+        closeModal(); // Cierra el modal
     }
 
     function antesDeExportar() {
@@ -559,14 +618,8 @@
 
     function restarUnMes(fechaStr = null) {
       const hoy = fechaStr ? new Date(fechaStr) : new Date();
-      const dia = hoy.getDate();
       const fecha = new Date(hoy);
-
-      if (dia <= 5) {
-        // Primeros 5 días → mes anterior
-        fecha.setMonth(fecha.getMonth() - 1);
-      }
-      // Si es día 6 o más, se queda con el mes actual
+      fecha.setMonth(fecha.getMonth() - 1);
 
       return {
         anio: fecha.getFullYear(),
@@ -597,7 +650,6 @@ document.addEventListener('DOMContentLoaded', function () {
       { tipo: "LECTIVA",  inicio: "2025-10-20", fin: "2025-12-19" },
       { tipo: "GESTIÓN", inicio: "2025-12-22", fin: "2025-12-31" }
     ];
-  
   function detectarBloque(fechaStr) {
     const fecha = new Date(fechaStr);
     for (let bloque of bloques) {
@@ -671,7 +723,6 @@ document.addEventListener('DOMContentLoaded', function () {
       todasFechas.push(...fechas);
     });
 
-    
     return [...new Set(todasFechas)];
   }
 
@@ -776,8 +827,8 @@ document.addEventListener('DOMContentLoaded', function () {
         },
         onReady: function(selectedDates, _, instance) {
           const baseFecha = selectedDates.length > 0 ? selectedDates[0] : new Date();
-          const mostrarFecha = restarUnMes(baseFecha);
-          instance.jumpToDate(mostrarFecha);
+          const { anio, mes } = restarUnMes(baseFecha); 
+          instance.jumpToDate(new Date(anio, mes - 1, 1));
         },
         onChange: function () {
           const fechas = getFechasSeleccionadas();
@@ -801,8 +852,8 @@ document.addEventListener('DOMContentLoaded', function () {
         },
         onReady: function(selectedDates, _, instance) {
           const baseFecha = selectedDates.length > 0 ? selectedDates[0] : new Date();
-          const mostrarFecha = restarUnMes(baseFecha);
-          instance.jumpToDate(mostrarFecha);
+          const { anio, mes } = restarUnMes(baseFecha); 
+          instance.jumpToDate(new Date(anio, mes - 1, 1));
         },
         onChange: function () {
           const fechas = getFechasSeleccionadas();
@@ -834,8 +885,8 @@ document.addEventListener('DOMContentLoaded', function () {
             },
             onReady: function(selectedDates, _, instance) {
               const baseFecha = selectedDates.length > 0 ? selectedDates[0] : new Date();
-              const mostrarFecha = restarUnMes(baseFecha);
-              instance.jumpToDate(mostrarFecha);
+              const { anio, mes } = restarUnMes(baseFecha); 
+              instance.jumpToDate(new Date(anio, mes - 1, 1));
             },
             onChange: function () {
               const fechas = getFechasSeleccionadas();
@@ -860,8 +911,8 @@ document.addEventListener('DOMContentLoaded', function () {
             },
             onReady: function(selectedDates, _, instance) {
               const baseFecha = selectedDates.length > 0 ? selectedDates[0] : new Date();
-              const mostrarFecha = restarUnMes(baseFecha);
-              instance.jumpToDate(mostrarFecha);
+              const { anio, mes } = restarUnMes(baseFecha); 
+              instance.jumpToDate(new Date(anio, mes - 1, 1));
             },
             onChange: function () {
               const fechas = getFechasSeleccionadas();
@@ -947,13 +998,14 @@ document.addEventListener('DOMContentLoaded', function () {
       // Actualizar totales en la tabla
       const fila = document.querySelector(`tr[data-dni="${dni}"][data-cod="${cod}"]`);
       if (fila) {
-        fila.children[6].textContent = totalInasistencias || '';
-        fila.children[7].textContent = totalTardanzasHoras || '';
-        fila.children[8].textContent = totalTardanzasMinutos || '';
-        fila.children[9].textContent = totalPermisosHoras || '';
-        fila.children[10].textContent = totalPermisosMinutos || '';
-        fila.children[11].textContent = totalHuelgas || '';
+        fila.children[7].textContent = totalInasistencias || '';
+        fila.children[8].textContent = totalTardanzasHoras || '';
+        fila.children[9].textContent = totalTardanzasMinutos || '';
+        fila.children[10].textContent = totalPermisosHoras || '';
+        fila.children[11].textContent = totalPermisosMinutos || '';
+        fila.children[12].textContent = totalHuelgas || '';
       }
+
       const inputDetalle = document.querySelector(`input.detalle-inasistencia-json[data-dni="${dni}"][data-cod="${cod}"]`);
       if (inputDetalle) {
         inputDetalle.value = JSON.stringify(detalle);
@@ -963,83 +1015,83 @@ document.addEventListener('DOMContentLoaded', function () {
   
 });
 
-  window.prepararYabrirModal = function(dni, cod, nombre) {
-      const inputDetalle = document.querySelector(`input.detalle-inasistencia-json[data-dni="${dni}"][data-cod="${cod}"]`);
-      let datos = [];
+window.prepararYabrirModal = function(dni, cod, nombre) {
+    const inputDetalle = document.querySelector(`input.detalle-inasistencia-json[data-dni="${dni}"][data-cod="${cod}"]`);
+    let datos = [];
 
-      if (inputDetalle && inputDetalle.value) {
-          try {
-              const detalle = JSON.parse(inputDetalle.value) || {};
+    if (inputDetalle && inputDetalle.value) {
+        try {
+            const detalle = JSON.parse(inputDetalle.value) || {};
 
-              if (detalle.inasistencia) {
-                  detalle.inasistencia.forEach(f => datos.push({ fecha: f, tipo: 'inasistencia' }));
-              }
-              if (detalle.huelga) {
-                  detalle.huelga.forEach(f => datos.push({ fecha: f, tipo: 'huelga' }));
-              }
-              if (detalle.tardanza) {
-                  detalle.tardanza.forEach(({ fecha, horas, minutos }) => {
-                      if (fecha) {
-                          datos.push({ fecha: [fecha], tipo: 'tardanza', horas, minutos });
-                      }
-                  });
-              }
-              if (detalle.permiso_sg) {
-                  detalle.permiso_sg.forEach(({ fecha, horas, minutos }) => {
-                      if (fecha) {
-                          datos.push({ fecha: [fecha], tipo: 'permiso_sg', horas, minutos });
-                      }
-                  });
-              }
-          } catch (e) {
-              console.warn('No se pudo parsear JSON de inasistencia:', e);
-          }
-      }
+            if (detalle.inasistencia) {
+                detalle.inasistencia.forEach(f => datos.push({ fecha: f, tipo: 'inasistencia' }));
+            }
+            if (detalle.huelga) {
+                detalle.huelga.forEach(f => datos.push({ fecha: f, tipo: 'huelga' }));
+            }
+            if (detalle.tardanza) {
+                detalle.tardanza.forEach(({ fecha, horas, minutos }) => {
+                    if (fecha) {
+                        datos.push({ fecha: [fecha], tipo: 'tardanza', horas, minutos });
+                    }
+                });
+            }
+            if (detalle.permiso_sg) {
+                detalle.permiso_sg.forEach(({ fecha, horas, minutos }) => {
+                    if (fecha) {
+                        datos.push({ fecha: [fecha], tipo: 'permiso_sg', horas, minutos });
+                    }
+                });
+            }
+        } catch (e) {
+            console.warn('No se pudo parsear JSON de inasistencia:', e);
+        }
+    }
 
-      abrirModalInasistencia(dni, cod, nombre, datos);
+    abrirModalInasistencia(dni, cod, nombre, datos);
 
-      try {
-          let conteoBloques = { "GESTIÓN": 0, "LECTIVA": 0 };
+    try {
+        let conteoBloques = { "GESTIÓN": 0, "LECTIVA": 0 };
 
-          datos.forEach(d => {
-              if (!esDiaNoLaborable(d.fecha)) {
-                  const tipo = detectarBloque(d.fecha);
-                  if (tipo && conteoBloques[tipo] !== undefined) {
-                      conteoBloques[tipo]++;
-                  }
-              }
-          });
+        datos.forEach(d => {
+            if (!esDiaNoLaborable(d.fecha)) {
+                const tipo = detectarBloque(d.fecha);
+                if (tipo && conteoBloques[tipo] !== undefined) {
+                    conteoBloques[tipo]++;
+                }
+            }
+        });
 
-          const totalLectiva = conteoBloques["LECTIVA"];
-          const totalGestion = conteoBloques["GESTIÓN"];
-          const estado = [];
+        const totalLectiva = conteoBloques["LECTIVA"];
+        const totalGestion = conteoBloques["GESTIÓN"];
+        const estado = [];
 
-          if (totalLectiva > 0 && totalLectiva < 5) estado.push("Incumple semana lectiva");
-          if (totalGestion > 0 && totalGestion < 5) estado.push("Incumple semana de gestión");
+        if (totalLectiva > 0 && totalLectiva < 5) estado.push("Incumple semana lectiva");
+        if (totalGestion > 0 && totalGestion < 5) estado.push("Incumple semana de gestión");
 
-          let resumen = `Inasistencias válidas — Gestión: ${totalGestion} día(s), Lectiva: ${totalLectiva} día(s).`;
+        let resumen = `Inasistencias válidas — Gestión: ${totalGestion} día(s), Lectiva: ${totalLectiva} día(s).`;
 
-          const estadoBloques = document.getElementById("estadoBloques");
-          const resumenBloques = document.getElementById("resumenBloques");
+        const estadoBloques = document.getElementById("estadoBloques");
+        const resumenBloques = document.getElementById("resumenBloques");
 
-          if (estadoBloques && resumenBloques) {
-              if (totalLectiva === 0 && totalGestion === 0) {
-                  resumen = "✅ Cumple con las semanas.";
-                  estadoBloques.className = "mt-2 text-sm text-green-700 bg-green-100 border border-green-400 rounded p-2";
-              } else if (estado.length > 0) {
-                  resumen += ` ⚠️ ${estado.join(" e ")}`;
-                  estadoBloques.className = "mt-2 text-sm text-yellow-700 bg-yellow-100 border border-red-400 rounded p-2";
-              } else {
-                  resumen += ` ⚠️ Tiene inasistencias, que incumple semanas completas.`;
-                  estadoBloques.className = "mt-2 text-sm text-red-800 bg-red-100 border border-yellow-400 rounded p-2";
-              }
+        if (estadoBloques && resumenBloques) {
+            if (totalLectiva === 0 && totalGestion === 0) {
+                resumen = "✅ Cumple con las semanas.";
+                estadoBloques.className = "mt-2 text-sm text-green-700 bg-green-100 border border-green-400 rounded p-2";
+            } else if (estado.length > 0) {
+                resumen += ` ⚠️ ${estado.join(" e ")}`;
+                estadoBloques.className = "mt-2 text-sm text-yellow-700 bg-yellow-100 border border-red-400 rounded p-2";
+            } else {
+                resumen += ` ⚠️ Tiene inasistencias, que incumple semanas completas.`;
+                estadoBloques.className = "mt-2 text-sm text-red-800 bg-red-100 border border-yellow-400 rounded p-2";
+            }
 
-              resumenBloques.innerText = resumen;
-          }
-      } catch (err) {
-          console.warn("Error al calcular resumen de bloques:", err);
-      }
-  };
+            resumenBloques.innerText = resumen;
+        }
+    } catch (err) {
+        console.warn("Error al calcular resumen de bloques:", err);
+    }
+};
 
 document.getElementById('guardarTodoInasistencia').addEventListener('click', async function () {
   const boton = this;
@@ -1167,6 +1219,28 @@ document.getElementById('guardarTodoInasistencia').addEventListener('click', asy
     boton.classList.remove('opacity-50', 'cursor-not-allowed');
     loader.classList.add('hidden');
   }
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+    let zoom = 100; // porcentaje inicial
+    const zoomInBtn = document.getElementById('zoomIn');
+    const zoomOutBtn = document.getElementById('zoomOut');
+
+    function aplicarZoom() {
+        document.body.style.zoom = `${zoom}%`;
+    }
+
+    zoomInBtn.addEventListener('click', () => {
+        zoom += 10;
+        aplicarZoom();
+    });
+
+    zoomOutBtn.addEventListener('click', () => {
+        if (zoom > 50) {
+            zoom -= 10;
+            aplicarZoom();
+        }
+    });
 });
 
 </script>

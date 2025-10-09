@@ -15,7 +15,8 @@ use Illuminate\Support\Facades\Session;
 
 class Nexus_excepcionales extends Controller
 {
-    public function listar_nexus_excepcional(){
+    public function listar_nexus_excepcional()
+    {
         $info['id_contacto'] = session()->get('siic01')['id_contacto'];
         $info['lniveles'] = $session = session()->get('siic01')['conf_permisos'];
         $info['lcargos'] = DB::connection('mysql')->select("SELECT descargo,count(*) as cantidad FROM nexus WHERE estado=1 and idnivel>0 GROUP BY descargo ORDER BY `cantidad` DESC");
@@ -25,22 +26,34 @@ class Nexus_excepcionales extends Controller
 
     public function tabla_nexus_excepcional(Request $request)
     {
-        // Acceder al esc_codmod dentro del array de la sesión
-        $esc_codmod = session()->get('siic01')['codmodce']; 
+        // Obtener todos los permisos del usuario en sesión
+        $conf_permisos = session()->get('siic01')['conf_permisos'] ?? [];
 
+        // Extraer todos los códigos modulares de los niveles asignados
+        $codigos = collect($conf_permisos)->pluck('esc_codmod')->filter()->unique()->toArray();
+        
+        if (empty($codigos)) {
+            return response()->json(['error' => 'No se encontraron codmodce en la sesión']);
+        }
+
+        // Construir placeholders dinámicos para la consulta SQL (?,?,?,...)
+        $placeholders = implode(',', array_fill(0, count($codigos), '?'));
+        
+        // Ejecutar la consulta
         $sql = DB::connection('mysql')->select("
             SELECT *,
-                DATE_FORMAT(fecinicio,'%Y-%m-%d') as finicio,
-                DATE_FORMAT(fectermino,'%Y-%m-%d') as ftermino
-            FROM nexus_excepcional 
-            WHERE estado = 1 
-            AND codmodce = ?
-        ", [$esc_codmod]);
+                DATE_FORMAT(fecinicio,'%Y-%m-%d') AS finicio,
+                DATE_FORMAT(fectermino,'%Y-%m-%d') AS ftermino
+            FROM nexus_excepcional
+            WHERE estado = 1
+            AND codmodce IN ($placeholders)
+        ", $codigos);
 
         return response()->json($sql);
     }
 
-    public function guardar_nexus_excepcional(Request $request){
+    public function guardar_nexus_excepcional(Request $request)
+    {
         $nexus_id = $request['nexus_id'];
         $codmodce = $request['codmodce'];
         $ins['codplaza'] = $request['codplaza'];
@@ -79,12 +92,15 @@ class Nexus_excepcionales extends Controller
         }
     }
 
-    public function eliminar_nexus_excepcional(Request $request){
+    public function eliminar_nexus_excepcional(Request $request)
+    {
         $nexus_id=$request['nexus_id'];
         Nexus_excepcional::where('nexus_id',$nexus_id)->update(['estado'=>0]);
         return 1;
     }
-    public function buscar_nexus_excepcional(Request $request){
+    
+    public function buscar_nexus_excepcional(Request $request)
+    {
         $dni = $request['dni'];
         $data = Nexus::where('numdocum',$dni)->select('nombres','apellipat','apellimat')->get()->toArray();
         if (count($data)) {

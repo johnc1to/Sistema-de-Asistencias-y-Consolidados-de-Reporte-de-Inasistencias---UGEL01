@@ -106,7 +106,9 @@
                     @foreach ($registros as $r)
                         @php
                             $dni = $r->dni;
-                            $datos = $datos_inasistencias[$dni] ?? [];
+                            $cod = $r->cod ?? null;
+                            $clave = "{$dni}_{$cod}";
+                            $datos = $datos_inasistencias[$clave] ?? [];
 
                             $inasistencias_txt = !empty($datos['inasistencia_fechas'])
                                 ? implode(', ', array_map(fn($f) => \Carbon\Carbon::parse($f)->format('d/m'), $datos['inasistencia_fechas']))

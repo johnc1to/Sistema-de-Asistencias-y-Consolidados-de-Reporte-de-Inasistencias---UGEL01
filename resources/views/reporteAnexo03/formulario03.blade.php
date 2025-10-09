@@ -66,13 +66,24 @@
 
 </style>
 <meta name="guardar-firma-url" content="{{ route('guardar.firma.director') }}">
-    <div class="w-full max-w-full mx-auto bg-white rounded-xl shadow-md p-6" >
-        <h1 class="text-3xl font-bold text-center mb-4 uppercase">
-            ANEXO 03 - 
-            <strong class="text-blue-600 text-3xl">
-                {{ mb_strtoupper(\Carbon\Carbon::now()->translatedFormat('F '), 'UTF-8') }}
-            </strong>
-        </h1>
+        <div class="flex items-center justify-between mb-4">
+            <!-- 🔹 Controles de Zoom -->
+            <div class="flex items-center space-x-2">
+                <button id="zoomOut" class="bg-gray-200 hover:bg-gray-300 text-xl font-bold px-3 py-1 rounded">−</button>
+                <button id="zoomIn" class="bg-gray-200 hover:bg-gray-300 text-xl font-bold px-3 py-1 rounded">+</button>
+            </div>
+
+            <!-- 🔹 Título centrado -->
+            <h1 class="text-3xl font-bold text-center flex-1 uppercase">
+                ANEXO 03 - 
+                <strong class="text-blue-600 text-3xl">
+                    {{ mb_strtoupper(\Carbon\Carbon::now()->translatedFormat('F '), 'UTF-8') }}
+                </strong>
+            </h1>
+
+            <!-- 🔹 Espaciador invisible para mantener simetría -->
+            <div class="w-[84px]"></div>
+        </div>
         <h1 class="text-2xl font-bold text-center mb-4 uppercase">Formato 01: Reporte de Asistencia Detallado</h1>
         <button onclick="iniciarTutorial()" class="mb-4 px-4 py-2 bg-emerald-600 text-white rounded bg-violet-600 hover:bg-violet-700">Ver tutorial</button>
         <a target="_blank" class="btn btn-danger" href="guia/ASISTENCIA-IE-ANEXO-03.pdf"><span class="pe-7s-file"></span> Ver Guia en PDF</a>
@@ -132,7 +143,7 @@
     <div class="mb-4" data-step="3">
         <div class="overflow-auto border rounded max-h-[500px] w-full">
             <div class="min-w-[900px] w-full" >
-                <table  class="min-w-[1200px] w-full text-sm table-auto border-collapse">
+                <table id="tablaReporte" class="min-w-[1200px] w-full text-sm table-auto border-collapse">
                     @php
                         use Carbon\Carbon;
                         $mes = $mes ?? 3;
@@ -538,13 +549,22 @@
     <div class="flex items-start gap-4">
         <!-- Botón ingresar oficio + vista previa -->
         <div class="flex flex-col items-center" data-step='10'>
-            <button id="btnOficio" onclick="openModal2()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-                Ingresar número de oficio
+            <button id="btnOficio" onclick="openModal2()" 
+                class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                {{ !empty($oficioguardado) ? 'Editar número de oficio' : 'Ingresar número de oficio' }}
             </button>
-            <p id="previewOficio" class="mt-2 font-bold text-blue-800"></p>
+
+            <p id="previewOficio" class="mt-2 font-bold text-blue-800">
+                @if(!empty($oficioguardado))
+                    Oficio N° {{ $oficioguardado }}
+                @endif
+            </p>
+
             <!-- Campo oculto con el número de oficio ya guardado -->
-            <input type="hidden" id="oficio_guardado" value="{{ $numeroOficio ?? '' }}">
+            <input type="hidden" id="oficio_guardado" value="{{ $oficioguardado ?? '' }}">
         </div>
+
+
 
         <!-- Firma: Botón y vista previa -->
         <div class="flex flex-col items-center" data-step='14'>
@@ -576,17 +596,29 @@
         </form>
         <!-- Botón ingresar expediente + vista previa -->
         <div class="flex flex-col items-center" data-step='21'>
-            <button id="btnExpediente" onclick="openmodalExpediente()" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">
-                Ingresar número de expediente
+            <button id="btnExpediente" onclick="openmodalExpediente()" 
+                class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">
+                {{ !empty($expedienteguardado) ? 'Editar número de expediente' : 'Ingresar número de expediente' }}
             </button>
-            <p id="previewExpediente" class="mt-2 font-bold text-indigo-800"></p>
+
+            <p id="previewExpediente" class="mt-2 font-bold text-indigo-800">
+                @if(!empty($expedienteguardado))
+                    Expediente MPD2025-EXP-{{ $expedienteguardado }}
+                @endif
+            </p>
+
+            <!-- Campo oculto con el número de expediente ya guardado -->
+            <input type="hidden" id="expediente_guardado" value="{{ $expedienteguardado ?? '' }}">
         </div>
+
     </div>
 
     <!-- CSRF para JS -->
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <!-- Campo oculto -->
     <input type="hidden" id="oficio_guardado">
+
+
 
     <!-- Modal para subir la firma -->
     <div id="modalFirma" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 hidden" data-step='15'>
@@ -642,8 +674,10 @@
     <div id="modalExpediente" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 hidden" data-step='22'>
         <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
             <h2 class="text-xl font-semibold text-gray-800 mb-4">Ingresar número de expediente</h2>
-            <input type="text" id="inputExpediente" placeholder="Ej. 123456"
-                class="w-full border rounded px-4 py-2 focus:outline-none focus:ring focus:border-blue-300" data-step='23'>
+            <input type="number" id="numeroExpediente"
+                class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-4"
+                oninput="this.value = this.value.replace(/[^0-9]/g, '')"
+                min="0">
             <div class="flex justify-end gap-2 mt-4" data-step='24'>
                 <button onclick="cerrarmodalExpediente()"
                     class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">Cancelar</button>
@@ -675,19 +709,27 @@
 
             </div>
             <!-- Aplicar patrón -->
-                <div class="mt-4 bg-gray-50 p-4 rounded-lg border" data-step='5'>
-                    <p class="text-sm font-semibold mb-2">Rellenar automáticamente con “A” según días seleccionados:</p>
-                    <div class="flex flex-wrap gap-4 text-sm">
+            <div class="mt-4 bg-gray-50 p-4 rounded-lg border" data-step="5">
+                <p class="text-sm font-semibold mb-2">Rellenar automáticamente con “A” según días seleccionados:</p>
+                <div class="flex flex-wrap gap-4 text-sm items-center">
                     <label><input type="checkbox" class="dia-patron" value="1"> Lunes</label>
                     <label><input type="checkbox" class="dia-patron" value="2"> Martes</label>
                     <label><input type="checkbox" class="dia-patron" value="3"> Miércoles</label>
                     <label><input type="checkbox" class="dia-patron" value="4"> Jueves</label>
                     <label><input type="checkbox" class="dia-patron" value="5"> Viernes</label>
+                    <label><input type="checkbox" class="dia-patron" value="6"> Sábado</label>
+                    <label><input type="checkbox" class="dia-patron" value="0"> Domingo</label>
+                    <!-- Nueva opción -->
+                    <label class="ml-4 text-blue-600 font-semibold">
+                        <input type="checkbox" id="toda-semana"> Toda la semana (L–V)
+                    </label>
                     <button id="aplicar-patron" type="button" class="ml-4 bg-green-600 text-white px-4 py-1 rounded hover:bg-green-700 transition">
                         Aplicar patrón
                     </button>
                 </div>
             </div>
+
+
             <h1 class="text-2xl font-bold text-center mt-6 mb-2 uppercase">
                 MES DE {{ mb_strtoupper(\Carbon\Carbon::now()->translatedFormat('F '), 'UTF-8') }}
             </h1>
@@ -988,9 +1030,9 @@
     }
 
     function openmodalExpediente() {
+        const currentNro = document.getElementById('expediente_guardado').value.trim();
+        document.getElementById('numeroExpediente').value = currentNro;
         document.getElementById('modalExpediente').classList.remove('hidden');
-        document.getElementById('inputExpediente').value = '';
-        document.getElementById('inputExpediente').focus();
     }
 
     function cerrarmodalExpediente() {
@@ -1066,24 +1108,50 @@
 
     function guardarOficio() {
         const nuevoNro = document.getElementById('numeroOficio').value.trim();
-        if (!nuevoNro) return;
 
-        document.getElementById('oficio_guardado').value = nuevoNro;
-        document.getElementById('previewOficio').innerText = 'Oficio N° ' + nuevoNro;
-        document.getElementById('btnOficio').innerText = 'Editar número de oficio';
+        // Si está vacío, guardamos null en el campo oculto
+        document.getElementById('oficio_guardado').value = nuevoNro || '';
 
-        closeModal();
+        // Actualiza vista previa y botón según el valor
+        if (nuevoNro) {
+            document.getElementById('previewOficio').innerText = 'Oficio N° ' + nuevoNro;
+            document.getElementById('btnOficio').innerText = 'Editar número de oficio';
+        } else {
+            document.getElementById('previewOficio').innerText = ''; // Limpia vista previa
+            document.getElementById('btnOficio').innerText = 'Ingresar número de oficio';
+        }
+
+        closeModal(); // Cierra el modal
     }
 
     function guardarExpediente() {
-        const numero = document.getElementById('inputExpediente').value.trim();
-        if (numero !== '') {
-            document.getElementById('campoNumeroExpediente').value = numero;
-            document.getElementById('previewExpediente').innerText = 'Expediente MPD2025-EXP-' +numero;
-            cerrarmodalExpediente();
-        } else {
-            alert('Por favor, ingrese un número de expediente válido.');
+        const inputExp = document.getElementById('numeroExpediente');
+        const preview = document.getElementById('previewExpediente');
+        const btn = document.getElementById('btnExpediente');
+        const campoOculto = document.getElementById('campoNumeroExpediente');
+
+        if (!inputExp || !preview || !btn) {
+            console.error('Falta un elemento del DOM (numeroExpediente, previewExpediente o btnExpediente)');
+            return;
         }
+
+        const numero = inputExp.value.trim();
+
+        // Solo si existe el campo oculto, lo actualiza
+        if (campoOculto) {
+            campoOculto.value = numero || '';
+        }
+
+        // Actualiza vista previa y texto del botón
+        if (numero) {
+            preview.innerText = 'Expediente MPD2025-EXP-' + numero;
+            btn.innerText = 'Editar número de expediente';
+        } else {
+            preview.innerText = '';
+            btn.innerText = 'Ingresar número de expediente';
+        }
+
+        cerrarmodalExpediente();
     }
 
     function antesDeExportar() {
@@ -1251,25 +1319,35 @@
 
     });
 
-    // Aplicar patrón
+    //aplicar patron
     document.getElementById('aplicar-patron').addEventListener('click', () => {
-        const seleccionados = Array.from(document.querySelectorAll('.dia-patron'))
-            .filter(cb => cb.checked)
-            .map(cb => parseInt(cb.value)); 
+        const todaSemana = document.getElementById('toda-semana').checked;
+
+        // 🔹 Si está marcado “Toda la semana (L–V)”, forzamos selección 1–5
+        let seleccionados;
+        if (todaSemana) {
+            seleccionados = [1, 2, 3, 4, 5];
+            // Aseguramos que los checkboxes reflejen eso visualmente
+            document.querySelectorAll('.dia-patron').forEach(cb => {
+                cb.checked = cb.value >= 1 && cb.value <= 5;
+            });
+        } else {
+            // Solo los checkboxes manuales
+            seleccionados = Array.from(document.querySelectorAll('.dia-patron'))
+                .filter(cb => cb.checked)
+                .map(cb => parseInt(cb.value));
+        }
 
         const inputs = document.querySelectorAll('.asistencia-input');
 
-        
         document.querySelectorAll(`tr[data-dni="${dniActual}"][data-cod="${codActual}"]`).forEach(fila => {
             const dni = fila.dataset.dni;
             const diasEnMes = new Date(anio, mes, 0).getDate();
             const celdasDia = fila.querySelectorAll('td[data-dia]');
 
             if (celdasDia.length < diasEnMes) {
-                // Eliminar todas las celdas que no tienen data-dia (es decir, las que vienen de licencias parciales u observaciones)
                 fila.querySelectorAll('td:not([data-dia]):not(:nth-child(-n+7))').forEach(td => td.remove());
 
-                // Regenerar solo los días faltantes
                 const existentes = new Set(Array.from(fila.querySelectorAll('td[data-dia]')).map(td => parseInt(td.dataset.dia)));
 
                 for (let d = 1; d <= diasEnMes; d++) {
@@ -1292,7 +1370,6 @@
 
                         nuevaCelda.appendChild(input);
 
-                        // Insertar en la posición correcta
                         let insertBefore = Array.from(fila.children).find(td => {
                             const dia = td.getAttribute('data-dia');
                             return dia && parseInt(dia) > d;
@@ -1307,15 +1384,12 @@
             }
         });
 
-
-        // 2. Aplicar el patrón a todos los inputs
+        // ✅ Aplicar el patrón
         inputs.forEach(input => {
-            const diaSemana = parseInt(input.dataset.diaSemana);
+            const diaSemana = parseInt(input.dataset.diaSemana); // 0=Dom, 6=Sab
             const fecha = input.dataset.fecha;
             const esFeriado = feriados.includes(fecha);
-            const isFinSemana = (diaSemana === 0 || diaSemana === 6);
 
-            if (isFinSemana) return;
             if (esFeriado) {
                 input.value = 'F';
             } else if (seleccionados.includes(diaSemana)) {
@@ -1324,6 +1398,10 @@
                 input.value = '';
             }
         });
+
+        // 🧹 Limpieza automática al final
+        document.getElementById('toda-semana').checked = false;
+        document.querySelectorAll('.dia-patron').forEach(cb => cb.checked = false);
     });
 
     // Guardar los datos para la tabla
@@ -1874,7 +1952,27 @@
         }
     });
 
+    document.addEventListener('DOMContentLoaded', () => {
+        let zoom = 100; // porcentaje inicial
+        const zoomInBtn = document.getElementById('zoomIn');
+        const zoomOutBtn = document.getElementById('zoomOut');
 
+        function aplicarZoom() {
+            document.body.style.zoom = `${zoom}%`;
+        }
+
+        zoomInBtn.addEventListener('click', () => {
+            zoom += 10;
+            aplicarZoom();
+        });
+
+        zoomOutBtn.addEventListener('click', () => {
+            if (zoom > 50) {
+                zoom -= 10;
+                aplicarZoom();
+            }
+        });
+    });
 </script>
 
 

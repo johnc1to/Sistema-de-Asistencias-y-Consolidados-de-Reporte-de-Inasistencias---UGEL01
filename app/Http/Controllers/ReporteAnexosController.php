@@ -121,8 +121,8 @@ class ReporteAnexosController extends Controller
         $anexo03Ids = DB::connection('siic_anexos')->table('anexo03')->select('id_contacto');
 
         $anioMes = $request->input('anioMes') ?? now()->format('Y-m');
-
-        $query = DB::table('iiee_a_evaluar_rie as R')
+        DB::statement("SET lc_time_names = 'es_ES';");
+        $query = DB::table('iiee_a_evaluar_RIE as R')
             ->select(
                 'R.codlocal',
                 'R.red',
@@ -140,6 +140,7 @@ class ReporteAnexosController extends Controller
                 'C.celular_pers',
                 'R.correo_inst',
                 'C.correo_pers',
+                DB::raw("MAX(ANEXO03.fecha_creacion) as fecha_creacion")
             )
             ->leftJoin(DB::raw("
                 (
@@ -156,9 +157,9 @@ class ReporteAnexosController extends Controller
                         ) as modalidad,
                         IF(expediente IS NULL,'EN PROCESO','ENVIADO') as situacion,
                         ruta_pdf,  
-                        expediente
+                        expediente,
+                        DATE_FORMAT(fecha_creacion, '%M %Y') as fecha_creacion
                     FROM siic01ugel01gob_anexos.anexo03
-                    WHERE fecha_creacion LIKE '%$anioMes%'
                 ) ANEXO03
             "), function ($join) {
                 $join->on('R.codlocal','=','ANEXO03.codlocal')
@@ -181,11 +182,16 @@ class ReporteAnexosController extends Controller
             )
             ->get();
 
+        $totalDirectores = $query->count();
 
-        // Agrupamos según la situación
-        $directoresSinAnexo03 = $query->where('Anexo03', 'NO REGISTRO');
-        $directoresEnProceso  = $query->where('Anexo03', 'EN PROCESO');
-        $directoresCompletos  = $query->where('Anexo03', 'ENVIADO');
+        $directoresSinAnexo03 = $query->filter(fn($r) => $r->Anexo03 === 'NO REGISTRO');
+        $directoresEnProceso  = $query->filter(fn($r) => $r->Anexo03 === 'EN PROCESO');
+        $directoresCompletos  = $query->filter(fn($r) => $r->Anexo03 === 'ENVIADO');
+
+        // Evita división entre cero
+        $porcSinAnexo03 = $totalDirectores ? round(($directoresSinAnexo03->count() / $totalDirectores) * 100, 1) : 0;
+        $porcEnProceso  = $totalDirectores ? round(($directoresEnProceso->count() / $totalDirectores) * 100, 1) : 0;
+        $porcCompletos  = $totalDirectores ? round(($directoresCompletos->count() / $totalDirectores) * 100, 1) : 0;
 
         // 1. Observaciones críticas del Anexo 03
         $observacionesCriticas = DB::connection('siic_anexos')
@@ -349,6 +355,14 @@ class ReporteAnexosController extends Controller
             ->groupBy(fn($item) => strtoupper($item->tipo_observacion))
             ->map->count();
 
+        $institucionesUnicas = DB::table('iiee_a_evaluar_RIE')
+            ->select('modalidad', 'codlocal')
+            ->where('cant_plazas_nexus', '>', 0)
+            ->where('estado', 1)
+            ->groupBy('modalidad', 'codlocal')
+            ->get()
+            ->count();
+
         return view('reporteAnexos.reporteanexos03', compact(
             'session',
             'reportes',
@@ -365,7 +379,12 @@ class ReporteAnexosController extends Controller
             'anioMes',
             'anioMesAnterior',
             'observacionesPorTipo',
-            'observacionesPorTipoAnterior'
+            'observacionesPorTipoAnterior',
+            'institucionesUnicas',
+            'porcSinAnexo03',
+            'porcEnProceso',
+            'porcCompletos',
+            'totalDirectores'
         ));
     }
 

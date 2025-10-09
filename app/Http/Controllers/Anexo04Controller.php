@@ -161,18 +161,26 @@ class Anexo04Controller extends Controller
         })->values();
 
         $hoy = new \DateTime(); // fecha actual
-        $dia = (int) $hoy->format('j'); // día del mes
-
-        if ($dia <= 3) {
-            // Si estamos en los primeros 3 días, usar el mes anterior
-            $fecha = (clone $hoy)->modify('first day of last month');
-        } else {
-            // Si estamos del día 4 en adelante, usar el mes actual
-            $fecha = (clone $hoy)->modify('first day of this month');
-        }
+        $fecha = (clone $hoy)->modify('first day of last month'); // primer día del mes anterior
 
         $anio = (int) $fecha->format('Y');
         $mes  = (int) $fecha->format('n');
+
+        // 🔹 Buscar oficio SOLO si pertenece al mes/anio de trabajo (no al actual ni anterior)
+        $oficioguardado = DB::connection('siic_anexos')->table('anexo04')
+            ->where('id_contacto', $director['id_contacto'])
+            ->where('anio', $anio)
+            ->where('mes', $mes)
+            ->orderBy('fecha_creacion', 'desc')
+            ->value('oficio');
+
+        // 🔹 Buscar expediente igual
+        $expedienteguardado = DB::connection('siic_anexos')->table('anexo04')
+            ->where('id_contacto', $director['id_contacto'])
+            ->where('anio', $anio)
+            ->where('mes', $mes)
+            ->orderBy('fecha_creacion', 'desc')
+            ->value('expediente');
 
 
         // Obtener todos los registros anexo04 que coincidan con el filtro
@@ -185,95 +193,98 @@ class Anexo04Controller extends Controller
 
         $idsAnexo04 = $anexos04->pluck('id')->all();
 
-        $personasAnexo04 = DB::connection('siic_anexos')->table('anexo04_persona')
-            ->whereIn('id_anexo04', $idsAnexo04)
+        $personasAnexo04 = DB::connection('siic_anexos')->table('anexo04_persona as ap')
+            ->join('anexo04 as a', 'a.id', '=', 'ap.id_anexo04')
+            ->where('a.codlocal', $codlocal)
+            ->select('ap.id', 'ap.persona_json', 'a.fecha_creacion') 
             ->get()
             ->mapWithKeys(function ($item) {
-                
-                $json = json_decode($item->persona_json);
+                $persona = json_decode($item->persona_json);
+                $dni = $persona->dni ?? null;
+                $codplaza = $persona->cod ?? null;
+                $clave = $codplaza ? "{$dni}_{$codplaza}" : $dni;
 
-                if (is_string($json)) {
-                    $json = json_decode($json);
-                }
-
-                if (!is_object($json) || !isset($json->dni)) {
-                    dd('Error en persona_json', $item->persona_json, $json);
-                }
-
-                return [$json->dni => $item->id];
-            });
-
-        $inasistencias = DB::connection('siic_anexos')->table('anexo04_inasistencia')
-            ->whereIn('id_persona', $personasAnexo04->values()->all())
-            ->get()
-            ->mapWithKeys(function ($item) {
-                $totales = json_decode($item->inasistencia, true);
-                if (is_string($totales)) {
-                    $totales = json_decode($totales, true);
-                }
-
-                $detalle = json_decode($item->detalle, true);
-                if (is_string($detalle)) {
-                    $detalle = json_decode($detalle, true);
-                }
-
-                return [$item->id_persona => [
-                    'totales' => $totales,
-                    'detalle' => $detalle
+                return [$clave => [
+                    'id' => $item->id,
+                    'fecha_creacion' => $item->fecha_creacion
                 ]];
             });
-        
 
-        $datosInasistenciaPorDni = [];
 
-        foreach ($personasAnexo04 as $dni => $id_persona) {
-            $inasistencia = $inasistencias[$id_persona] ?? null;
+            $idPersonas = collect($personasAnexo04)->pluck('id')->all();
 
-            if ($inasistencia) {
-                $datosInasistenciaPorDni[$dni] = [
-                    'inasistencia_total' => $inasistencia['inasistencia_total'] ?? 0,
-                    'huelga_total' => $inasistencia['huelga_total'] ?? 0,
-                    'tardanza_total' => [
-                        'horas' => $inasistencia['tardanza_total']['horas'] ?? 0,
-                        'minutos' => $inasistencia['tardanza_total']['minutos'] ?? 0,
-                    ],
-                    'permiso_sg_total' => [
-                        'horas' => $inasistencia['permiso_sg_total']['horas'] ?? 0,
-                        'minutos' => $inasistencia['permiso_sg_total']['minutos'] ?? 0,
-                    ],
-                ];
-            } else {
-                $datosInasistenciaPorDni[$dni] = [
-                    'inasistencia_total' => 0,
-                    'huelga_total' => 0,
-                    'tardanza_total' => ['horas' => 0, 'minutos' => 0],
-                    'permiso_sg_total' => ['horas' => 0, 'minutos' => 0],
-                ];
+            $inasistencias = DB::connection('siic_anexos')->table('anexo04_inasistencia')
+                ->whereIn('id_persona', $idPersonas) // <- ahora sí es un array plano
+                ->get()
+                ->mapWithKeys(function ($item) {
+                    $totales = json_decode($item->inasistencia, true);
+                    if (is_string($totales)) {
+                        $totales = json_decode($totales, true);
+                    }
+
+                    $detalle = json_decode($item->detalle, true);
+                    if (is_string($detalle)) {
+                        $detalle = json_decode($detalle, true);
+                    }
+
+                    return [$item->id_persona => [
+                        'totales' => $totales,
+                        'detalle' => $detalle
+                    ]];
+                });
+
+            $datosInasistenciaPorPersona = [];
+
+            foreach ($personasAnexo04 as $clave => $infoPersona) {
+                $id = $infoPersona['id']; // <-- aquí tomamos solo el ID
+
+                $inasistencia = $inasistencias[$id] ?? null;
+
+                if ($inasistencia) {
+                    $datosInasistenciaPorPersona[$clave] = [
+                        'inasistencia_total' => $inasistencia['totales']['inasistencia_total'] ?? 0,
+                        'huelga_total' => $inasistencia['totales']['huelga_total'] ?? 0,
+                        'tardanza_total' => [
+                            'horas' => $inasistencia['totales']['tardanza_total']['horas'] ?? 0,
+                            'minutos' => $inasistencia['totales']['tardanza_total']['minutos'] ?? 0,
+                        ],
+                        'permiso_sg_total' => [
+                            'horas' => $inasistencia['totales']['permiso_sg_total']['horas'] ?? 0,
+                            'minutos' => $inasistencia['totales']['permiso_sg_total']['minutos'] ?? 0,
+                        ],
+                    ];
+                } else {
+                    $datosInasistenciaPorPersona[$clave] = [
+                        'inasistencia_total' => 0,
+                        'huelga_total' => 0,
+                        'tardanza_total' => ['horas' => 0, 'minutos' => 0],
+                        'permiso_sg_total' => ['horas' => 0, 'minutos' => 0],
+                    ];
+                }
             }
-        }
-
-        // Combinar con personas filtradas
-       $filtrados = $filtrados->map(function ($persona) use ($datosInasistenciaPorDni, $inasistencias, $personasAnexo04) {
-            $dni = $persona->dni;
-            $id_persona = $personasAnexo04[$dni] ?? null;
-
-            if ($id_persona && isset($inasistencias[$id_persona]['totales'])) {
-                $tot = $inasistencias[$id_persona]['totales'];
-                $persona->inasistencias_dias = $tot['inasistencia_total'] ?? 0;
-                $persona->huelga_paro_dias = $tot['huelga_total'] ?? 0;
-                $persona->tardanzas_horas = $tot['tardanza_total']['horas'] ?? 0;
-                $persona->tardanzas_minutos = $tot['tardanza_total']['minutos'] ?? 0;
-                $persona->permisos_sg_horas = $tot['permiso_sg_total']['horas'] ?? 0;
-                $persona->permisos_sg_minutos = $tot['permiso_sg_total']['minutos'] ?? 0;
-            }
-
-            // Pasar el detalle al Blade
-            $detalle = $inasistencias[$id_persona]['detalle'] ?? null;
-            $persona->detalle_inasistencia_json = $detalle ?: null;
 
 
-            return $persona;
-        });
+
+            // Combinar con personas filtradas
+            $filtrados = $filtrados->map(function ($persona) use ($datosInasistenciaPorPersona, $inasistencias, $personasAnexo04) {
+                $clave = $persona->dni . '_' . $persona->cod;
+                $id_persona = $personasAnexo04[$clave]['id'] ?? null;
+
+                if ($id_persona && isset($inasistencias[$id_persona]['totales'])) {
+                    $tot = $inasistencias[$id_persona]['totales'];
+                    $persona->inasistencias_dias = $tot['inasistencia_total'] ?? 0;
+                    $persona->huelga_paro_dias = $tot['huelga_total'] ?? 0;
+                    $persona->tardanzas_horas = $tot['tardanza_total']['horas'] ?? 0;
+                    $persona->tardanzas_minutos = $tot['tardanza_total']['minutos'] ?? 0;
+                    $persona->permisos_sg_horas = $tot['permiso_sg_total']['horas'] ?? 0;
+                    $persona->permisos_sg_minutos = $tot['permiso_sg_total']['minutos'] ?? 0;
+                }
+
+                $detalle = $inasistencias[$id_persona]['detalle'] ?? null;
+                $persona->detalle_inasistencia_json = $detalle ?: null;
+
+                return $persona;
+            });
 
 
             return view('reporteAnexo04.formulario04', [
@@ -288,8 +299,9 @@ class Anexo04Controller extends Controller
                 'codlocal' => $codlocal,
                 'd_cod_tur' => $d_cod_tur,
                 'firmaGuardada' => $firmaGuardada,
-                'inasistencias' => $datosInasistenciaPorDni,
-
+                'inasistencias' => $datosInasistenciaPorPersona,
+                'oficioguardado' => $oficioguardado,
+                'expedienteguardado' => $expedienteguardado
             ]);
     }
 
@@ -316,47 +328,97 @@ class Anexo04Controller extends Controller
         try {
             // --- 1. Encontrar o crear bloque Anexo04 ---
             if ($request->numero_oficio) {
-                $borrador = Anexo04::where('codlocal', $request->codlocal)
+            // Si llega un expediente, validar si ya existe el mismo oficio sin expediente
+                if (!empty($request->numero_expediente)) {
+                    $coincideOficio = Anexo04::where('codlocal', $request->codlocal)
+                        ->where('mes', $request->mes)
+                        ->where('anio', $request->anio)
+                        ->where('oficio', $request->numero_oficio)
+                        ->whereNull('expediente')
+                        ->first();
+
+                    if ($coincideOficio) {
+                        //  Actualiza todos los niveles con ese mismo oficio sin expediente
+                        Anexo04::where('codlocal', $request->codlocal)
+                            ->where('mes', $request->mes)
+                            ->where('anio', $request->anio)
+                            ->where('oficio', $request->numero_oficio)
+                            ->whereNull('expediente')
+                            ->update([
+                                'expediente' => $request->numero_expediente,
+                                'fecha_actualizacion' => now(),
+                            ]);
+
+                        // Reasignamos $anexo para continuar usando ese bloque existente
+                        $anexo = $coincideOficio;
+                    } else {
+                        // Si no hay coincidencia de oficio → sigue flujo normal
+                        $borrador = Anexo04::where('codlocal', $request->codlocal)
+                            ->where('nivel', $request->nivel)
+                            ->where('mes', $request->mes)
+                            ->where('anio', $request->anio)
+                            ->whereNull('oficio')
+                            ->first();
+                    }
+                } else {
+                    // Si no hay expediente aún → flujo normal (registrar oficio)
+                    $borrador = Anexo04::where('codlocal', $request->codlocal)
+                        ->where('nivel', $request->nivel)
+                        ->where('mes', $request->mes)
+                        ->where('anio', $request->anio)
+                        ->whereNull('oficio')
+                        ->first();
+                }
+
+                if (!isset($anexo)) {
+                    if ($borrador ?? null) {
+                        // Actualiza todos los niveles del mismo codlocal, mes y año
+                        Anexo04::where('codlocal', $request->codlocal)
+                            ->where('mes', $request->mes)
+                            ->where('anio', $request->anio)
+                            ->whereNull('oficio')
+                            ->update([
+                                'oficio' => $request->numero_oficio,
+                                'expediente' => $request->numero_expediente,
+                                'fecha_actualizacion' => now(),
+                            ]);
+
+                        $anexo = $borrador;
+                    } else {
+                        // Si no hay borrador → crear nuevo
+                        $anexo = Anexo04::create([
+                            'id_contacto' => session('siic01')['id_contacto'],
+                            'codlocal' => $request->codlocal,
+                            'nivel' => $request->nivel,
+                            'mes' => $request->mes,
+                            'anio' => $request->anio,
+                            'oficio' => $request->numero_oficio,
+                            'expediente' => $request->numero_expediente,
+                            'fecha_creacion' => now(),
+                            'fecha_actualizacion' => now(),
+                        ]);
+                    }
+                }
+            }else {
+                // Si no hay oficio todavía → buscar o crear un borrador
+                $anexo = Anexo04::where('codlocal', $request->codlocal)
                     ->where('nivel', $request->nivel)
                     ->where('mes', $request->mes)
                     ->where('anio', $request->anio)
                     ->whereNull('oficio')
                     ->first();
 
-                if ($borrador) {
-                    $borrador->oficio = $request->numero_oficio;
-                    $borrador->expediente = $request->numero_expediente;
-                    $borrador->fecha_actualizacion = now();
-                    $borrador->save();
-                }
-
-                $anexo = Anexo04::create([
-                    'id_contacto' => session('siic01')['id_contacto'],
-                    'codlocal' => $request->codlocal,
-                    'nivel' => $request->nivel,
-                    'mes' => $request->mes,
-                    'anio' => $request->anio,
-                    'oficio' => null,
-                    'expediente' => null,
-                    'fecha_creacion' => now(),
-                    'fecha_actualizacion' => now(),
-                ]);
-
-            } else {
-                $anexo = Anexo04::firstOrCreate(
-                    [
+                if (!$anexo) {
+                    $anexo = Anexo04::create([
+                        'id_contacto' => session('siic01')['id_contacto'],
                         'codlocal' => $request->codlocal,
                         'nivel' => $request->nivel,
                         'mes' => $request->mes,
                         'anio' => $request->anio,
-                        'oficio' => null,
-                    ],
-                    [
-                        'id_contacto' => session('siic01')['id_contacto'],
                         'fecha_creacion' => now(),
                         'fecha_actualizacion' => now(),
-                    ]
-                );
+                    ]);
+                }
             }
 
             // --- 2. Funciones auxiliares ---
@@ -541,31 +603,24 @@ class Anexo04Controller extends Controller
 
 
 
-        $hoy = now();
+        $hoy = new \DateTime(); // fecha actual
+        $fecha = (clone $hoy)->modify('first day of last month'); // primer día del mes anterior
 
-        if ($hoy->day <= 3) {
-            // Primeros 3 días del mes → usar mes anterior
-            $fecha = $hoy->copy()->subMonth();
-        } else {
-            // Del 4 en adelante → usar mes actual
-            $fecha = $hoy;
-        }
-
-        $anio = $fecha->year;
-        $mes  = $fecha->month;
+        $anio = (int) $fecha->format('Y');
+        $mes  = (int) $fecha->format('n');
 
         //Lista de docentes desde nexus (para control de acceso)
-            if (!$institucion) {
-                return redirect()->back()->with('error', 'No se encontró institución para este director.');
-            }
-            //  Aquí ya tenemos idmodalidad de frente
-            $idModalidad = $institucion->idmodalidad;
-            //  Ahora ya tenemos el idmodalidad de la institución directamente
-            $idnivelesModalidad = DB::table('niveles')
-                ->where('Idmodalidad', $idModalidad)
-                ->pluck('idnivel');
+        if (!$institucion) {
+            return redirect()->back()->with('error', 'No se encontró institución para este director.');
+        }
+        //  Aquí ya tenemos idmodalidad de frente
+        $idModalidad = $institucion->idmodalidad;
+        //  Ahora ya tenemos el idmodalidad de la institución directamente
+        $idnivelesModalidad = DB::table('niveles')
+            ->where('Idmodalidad', $idModalidad)
+            ->pluck('idnivel');
         // Personal de la IE
-                $personalNexus = DB::table('nexus')
+        $personalNexus = DB::table('nexus')
             ->select(
                 'nexus.numdocum as dni',
                 DB::raw("CONCAT(nexus.apellipat, ' ', nexus.apellimat, ', ', nexus.nombres) as nombres"),
@@ -628,23 +683,35 @@ class Anexo04Controller extends Controller
             ->get();
 
         // Mapear datos inasistencias con detalle
-        $datosInasistenciaPorDni = [];
+        $datosInasistenciaPorDniCod = [];
+
         foreach ($registros as $r) {
-            $persona_data = $r->persona->persona_json ?? [];
+            $persona_data = $r->persona->persona_json ?? '{}';
+            $persona_decod = is_string($persona_data) ? json_decode($persona_data, true) : $persona_data;
 
-            $dni = $persona_data['dni'] ?? null;
-            if (!$dni) continue;
+            // Asegurar que sea arreglo
+            if (!is_array($persona_decod)) continue;
 
-            $resumen = $r->inasistencia ?? [];
-            $detalle = $r->detalle ?? [
+            // Extraer solo los campos necesarios
+            $dni = $persona_decod['dni'] ?? null;
+            $cod = $persona_decod['cod'] ?? null;
+
+            if (!$dni || !$cod) continue;
+
+            $resumen = is_array($r->inasistencia) ? $r->inasistencia : json_decode($r->inasistencia, true);
+            $detalle = is_array($r->detalle) ? $r->detalle : json_decode($r->detalle, true);
+
+            // Si no hay datos válidos, se inicializa vacío
+            $detalle = $detalle ?: [
                 'inasistencia' => [],
                 'tardanza' => [],
                 'permiso_sg' => [],
                 'huelga' => [],
             ];
 
-
-            $datosInasistenciaPorDni[$dni] = [
+            $datosInasistenciaPorDniCod["{$dni}_{$cod}"] = [
+                'dni' => $dni,
+                'cod' => $cod,
                 'inasistencia_total' => $resumen['inasistencia_total'] ?? 0,
                 'huelga_total' => $resumen['huelga_total'] ?? 0,
                 'tardanza_total' => $resumen['tardanza_total'] ?? ['horas' => 0, 'minutos' => 0],
@@ -657,23 +724,24 @@ class Anexo04Controller extends Controller
                 'huelga_fechas' => $detalle['huelga'] ?? [],
             ];
         }
-
+        
         // PDF
         $mpdf = new \Mpdf\Mpdf(['format' => 'A4-L']);
-        // $headerVertical = '
-        //     <div style="position: fixed; top: 18%; right: 0; transform: translateY(-50%) rotate(180deg);
-        //         writing-mode: vertical-rl; text-orientation: mixed; width: 40px; font-weight: bold;
-        //         font-size: 23px; line-height: 1.2; color: #999; text-align: center;">
-        //         R<br>S<br>G<br>-<br>3<br>2<br>6<br>-<br>2<br>0<br>1<br>7<br>-<br>M<br>I<br>N<br>E<br>D<br>U
-        //     </div>';
 
         foreach ($niveles as $nivel) {
             $filtrados = $personal
                 ->where('nivel', $nivel)
-                ->map(function ($persona) use ($datosInasistenciaPorDni) {
-                    $dni = $persona->dni;
-                    $inasistencia = $datosInasistenciaPorDni[$dni] ?? null;
+                ->map(function ($persona) use ($datosInasistenciaPorDniCod) {
 
+                    $dni = $persona->dni;
+                    $cod = $persona->cod ?? null; // Aseguramos que exista el código de plaza
+
+                    // Clave combinada
+                    $clave = "{$dni}_{$cod}";
+
+                    $inasistencia = $datosInasistenciaPorDniCod[$clave] ?? null;
+
+                    // Asignar totales (si existen)
                     $persona->inasistencias_dias = $inasistencia['inasistencia_total'] ?? 0;
                     $persona->huelga_paro_dias = $inasistencia['huelga_total'] ?? 0;
                     $persona->tardanzas_horas = $inasistencia['tardanza_total']['horas'] ?? 0;
@@ -681,6 +749,7 @@ class Anexo04Controller extends Controller
                     $persona->permisos_sg_horas = $inasistencia['permiso_sg_total']['horas'] ?? 0;
                     $persona->permisos_sg_minutos = $inasistencia['permiso_sg_total']['minutos'] ?? 0;
 
+                    // Asignar detalles diarios
                     $persona->detalle_inasistencia = [
                         'inasistencia_fechas' => $inasistencia['inasistencia_fechas'] ?? [],
                         'tardanza_fechas' => $inasistencia['tardanza_fechas'] ?? [],
@@ -740,14 +809,14 @@ class Anexo04Controller extends Controller
                 'logo' => $rutaLogoWeb,
                 'firmaBase64' => $firmaBase64,
                 'firmaGuardada' => $firmaGuardada,
-                'datos_inasistencias' => $datosInasistenciaPorDni,
+                'datos_inasistencias' => $datosInasistenciaPorDniCod,
             ];
 
             $html = View::make('reporteAnexo04.formulario04_pdfpreliminar', $data)->render();
             $mpdf->AddPage('L');
             $mpdf->WriteHTML($html);
         }
-
+        
         return response($mpdf->Output('reporte_inasistencia_preliminar.pdf', 'I'), 200)
             ->header('Content-Type', 'application/pdf');
     }
@@ -834,75 +903,78 @@ class Anexo04Controller extends Controller
                 
             //Obtener firma
             $firmaGuardada = DB::connection('siic_anexos')->table('anexo03')
-            ->where('id_contacto', $director['id_contacto'])
-            ->value('firma');
+                ->where('id_contacto', $director['id_contacto'])
+                ->value('firma');
             //Lista de docentes desde nexus (para control de acceso)
-                    if (!$institucion) {
-                        return redirect()->back()->with('error', 'No se encontró institución para este director.');
-                    }
-                    //  Aquí ya tenemos idmodalidad de frente
-                    $idModalidad = $institucion->idmodalidad;
-                    //  Ahora ya tenemos el idmodalidad de la institución directamente
-                    $idnivelesModalidad = DB::table('niveles')
-                        ->where('Idmodalidad', $idModalidad)
-                        ->pluck('idnivel');
+            if (!$institucion) {
+                return redirect()->back()->with('error', 'No se encontró institución para este director.');
+            }
+            //  Aquí ya tenemos idmodalidad de frente
+            $idModalidad = $institucion->idmodalidad;
+            //  Ahora ya tenemos el idmodalidad de la institución directamente
+            $idnivelesModalidad = DB::table('niveles')
+                ->where('Idmodalidad', $idModalidad)
+                ->pluck('idnivel');
             // Obtener docentes y personal
-                    $personalNexus = DB::table('nexus')
-            ->select(
-                'nexus.numdocum as dni',
-                DB::raw("CONCAT(nexus.apellipat, ' ', nexus.apellimat, ', ', nexus.nombres) as nombres"),
-                'nexus.descargo as cargo',
-                'nexus.situacion as condicion',
-                'nexus.jornlab as jornada',
-                'nexus.descniveduc as nivel',
-                'nexus.nombreooii as ugel',
-                'nexus.codplaza as cod',
-                'nexus.obser as obser',
-                'nexus.descmovim as mov',
-                'nexus.fecinicio as finicio',
-                'nexus.fectermino as ftermino',
-                DB::raw("'OFICIAL' as fuente") // <- Para saber de dónde viene
-            )
-            ->where('nexus.codlocal', $codlocal)
-            ->whereIn('nexus.idnivel', $idnivelesModalidad)
-            ->whereNotNull('nexus.numdocum')
-            ->where('nexus.numdocum', '!=', 'VACANTE')
-            ->where('nexus.situacion', '!=', 'VACANTE')
-            ->where('nexus.estado', 1);
+            $personalNexus = DB::table('nexus')
+                ->select(
+                    'nexus.numdocum as dni',
+                    DB::raw("CONCAT(nexus.apellipat, ' ', nexus.apellimat, ', ', nexus.nombres) as nombres"),
+                    'nexus.descargo as cargo',
+                    'nexus.situacion as condicion',
+                    'nexus.jornlab as jornada',
+                    'nexus.descniveduc as nivel',
+                    'nexus.nombreooii as ugel',
+                    'nexus.codplaza as cod',
+                    'nexus.obser as obser',
+                    'nexus.descmovim as mov',
+                    'nexus.fecinicio as finicio',
+                    'nexus.fectermino as ftermino',
+                    DB::raw("'OFICIAL' as fuente") // <- Para saber de dónde viene
+                )
+                ->where('nexus.codlocal', $codlocal)
+                ->whereIn('nexus.idnivel', $idnivelesModalidad)
+                ->whereNotNull('nexus.numdocum')
+                ->where('nexus.numdocum', '!=', 'VACANTE')
+                ->where('nexus.situacion', '!=', 'VACANTE')
+                ->where('nexus.estado', 1);
 
-        $personalExcepcional = DB::table('nexus_excepcional')
-            ->select(
-                'nexus_excepcional.numdocum as dni',
-                DB::raw("CONCAT(nexus_excepcional.apellipat, ' ', nexus_excepcional.apellimat, ', ', nexus_excepcional.nombres) as nombres"),
-                'nexus_excepcional.descargo as cargo',
-                'nexus_excepcional.situacion as condicion',
-                'nexus_excepcional.jornlab as jornada',
-                'nexus_excepcional.descniveduc as nivel',
-                'nexus_excepcional.nombreooii as ugel',
-                'nexus_excepcional.codplaza as cod',
-                'nexus_excepcional.obser as obser',
-                'nexus_excepcional.descmovim as mov',
-                'nexus_excepcional.fecinicio as finicio',
-                'nexus_excepcional.fectermino as ftermino',
-                DB::raw("'EXCEPCIONAL' as fuente")
-            )
-            ->where('nexus_excepcional.codlocal', $codlocal)
-            ->whereIn('nexus_excepcional.idnivel', $idnivelesModalidad)
-            ->whereNotNull('nexus_excepcional.numdocum')
-            ->where('nexus_excepcional.numdocum', '!=', 'VACANTE')
-            ->where('nexus_excepcional.situacion', '!=', 'VACANTE')
-            ->where('nexus_excepcional.estado', 1);
+            $personalExcepcional = DB::table('nexus_excepcional')
+                ->select(
+                    'nexus_excepcional.numdocum as dni',
+                    DB::raw("CONCAT(nexus_excepcional.apellipat, ' ', nexus_excepcional.apellimat, ', ', nexus_excepcional.nombres) as nombres"),
+                    'nexus_excepcional.descargo as cargo',
+                    'nexus_excepcional.situacion as condicion',
+                    'nexus_excepcional.jornlab as jornada',
+                    'nexus_excepcional.descniveduc as nivel',
+                    'nexus_excepcional.nombreooii as ugel',
+                    'nexus_excepcional.codplaza as cod',
+                    'nexus_excepcional.obser as obser',
+                    'nexus_excepcional.descmovim as mov',
+                    'nexus_excepcional.fecinicio as finicio',
+                    'nexus_excepcional.fectermino as ftermino',
+                    DB::raw("'EXCEPCIONAL' as fuente")
+                )
+                ->where('nexus_excepcional.codlocal', $codlocal)
+                ->whereIn('nexus_excepcional.idnivel', $idnivelesModalidad)
+                ->whereNotNull('nexus_excepcional.numdocum')
+                ->where('nexus_excepcional.numdocum', '!=', 'VACANTE')
+                ->where('nexus_excepcional.situacion', '!=', 'VACANTE')
+                ->where('nexus_excepcional.estado', 1);
 
-        $personal = $personalNexus->unionAll($personalExcepcional)->get();
+            $personal = $personalNexus->unionAll($personalExcepcional)->get();
 
             $niveles = $personal->pluck('nivel')->unique()->sort()->values();
 
-
         // Nivel seleccionado
             $nivelSeleccionado = $niveles;
-                
-
-                $filtrados = $personal->where('nivel', $nivelSeleccionado)->values();
+                if (is_iterable($nivelSeleccionado)) {
+                    // Si hay varios niveles (colección o array)
+                    $filtrados = $personal->whereIn('nivel', $nivelSeleccionado)->values();
+                } else {
+                    // Si es un solo nivel
+                    $filtrados = $personal->where('nivel', $nivelSeleccionado)->values();
+                }
 
                 $filtrados = $filtrados->sort(function ($a, $b) {
                 // Prioridad por jerarquía del cargo
@@ -946,15 +1018,7 @@ class Anexo04Controller extends Controller
                 return strcmp($a->nombres, $b->nombres);
                 })->values();
                     $hoy = new \DateTime(); // fecha actual
-                    $dia = (int) $hoy->format('j'); // día del mes
-
-                    if ($dia <= 3) {
-                        // Si estamos en los primeros 3 días, usar el mes anterior
-                        $fecha = (clone $hoy)->modify('first day of last month');
-                    } else {
-                        // Si estamos del día 4 en adelante, usar el mes actual
-                        $fecha = (clone $hoy)->modify('first day of this month');
-                    }
+                    $fecha = (clone $hoy)->modify('first day of last month'); // primer día del mes anterior
 
                     $anio = (int) $fecha->format('Y');
                     $mes  = (int) $fecha->format('n');
@@ -970,57 +1034,68 @@ class Anexo04Controller extends Controller
 
             $idsAnexo04 = $anexos04->pluck('id')->all();
 
-            $personasAnexo04 = DB::connection('siic_anexos')->table('anexo04_persona')
-                ->whereIn('id_anexo04', $idsAnexo04)
+            $personasAnexo04 = DB::connection('siic_anexos')->table('anexo04_persona as ap')
+                ->join('anexo04 as a', 'a.id', '=', 'ap.id_anexo04')
+                ->where('a.codlocal', $codlocal)
+                ->select('ap.id', 'ap.persona_json', 'a.fecha_creacion') 
                 ->get()
                 ->mapWithKeys(function ($item) {
-                    // Primera decodificación
-                    $json = json_decode($item->persona_json);
+                    $persona = json_decode($item->persona_json);
+                    $dni = $persona->dni ?? null;
+                    $codplaza = $persona->cod ?? null;
+                    $clave = $codplaza ? "{$dni}_{$codplaza}" : $dni;
 
-                    // Si el resultado aún es un string, hacer segunda decodificación
-                    if (is_string($json)) {
-                        $json = json_decode($json);
-                    }
-
-                    if (!is_object($json) || !isset($json->dni)) {
-                        dd('Error en persona_json', $item->persona_json, $json);
-                    }
-
-                    return [$json->dni => $item->id];
+                    return [$clave => [
+                        'id' => $item->id,
+                        'fecha_creacion' => $item->fecha_creacion
+                    ]];
                 });
+            
+
+            $idPersonas = collect($personasAnexo04)->pluck('id')->all();
 
             $inasistencias = DB::connection('siic_anexos')->table('anexo04_inasistencia')
-                ->whereIn('id_persona', $personasAnexo04->values()->all())
+                ->whereIn('id_persona', $idPersonas) // <- ahora sí es un array plano
                 ->get()
                 ->mapWithKeys(function ($item) {
-                    $decoded = json_decode($item->inasistencia, true);
-                    // Si $decoded sigue siendo string (JSON anidado), decodifica otra vez
-                    if (is_string($decoded)) {
-                        $decoded = json_decode($decoded, true);
+                    $totales = json_decode($item->inasistencia, true);
+                    if (is_string($totales)) {
+                        $totales = json_decode($totales, true);
                     }
-                    return [$item->id_persona => $decoded];
+
+                    $detalle = json_decode($item->detalle, true);
+                    if (is_string($detalle)) {
+                        $detalle = json_decode($detalle, true);
+                    }
+
+                    return [$item->id_persona => [
+                        'totales' => $totales,
+                        'detalle' => $detalle
+                    ]];
                 });
 
-            $datosInasistenciaPorDni = [];
+            $datosInasistenciaPorPersona = [];
 
-            foreach ($personasAnexo04 as $dni => $id_persona) {
-                $inasistencia = $inasistencias[$id_persona] ?? null;
+            foreach ($personasAnexo04 as $clave => $infoPersona) {
+                $id = $infoPersona['id'];
+
+                $inasistencia = $inasistencias[$id] ?? null;
 
                 if ($inasistencia) {
-                    $datosInasistenciaPorDni[$dni] = [
-                        'inasistencia_total' => $inasistencia['inasistencia_total'] ?? 0,
-                        'huelga_total' => $inasistencia['huelga_total'] ?? 0,
+                    $datosInasistenciaPorPersona[$clave] = [
+                        'inasistencia_total' => $inasistencia['totales']['inasistencia_total'] ?? 0,
+                        'huelga_total' => $inasistencia['totales']['huelga_total'] ?? 0,
                         'tardanza_total' => [
-                            'horas' => $inasistencia['tardanza_total']['horas'] ?? 0,
-                            'minutos' => $inasistencia['tardanza_total']['minutos'] ?? 0,
+                            'horas' => $inasistencia['totales']['tardanza_total']['horas'] ?? 0,
+                            'minutos' => $inasistencia['totales']['tardanza_total']['minutos'] ?? 0,
                         ],
                         'permiso_sg_total' => [
-                            'horas' => $inasistencia['permiso_sg_total']['horas'] ?? 0,
-                            'minutos' => $inasistencia['permiso_sg_total']['minutos'] ?? 0,
+                            'horas' => $inasistencia['totales']['permiso_sg_total']['horas'] ?? 0,
+                            'minutos' => $inasistencia['totales']['permiso_sg_total']['minutos'] ?? 0,
                         ],
                     ];
                 } else {
-                    $datosInasistenciaPorDni[$dni] = [
+                    $datosInasistenciaPorPersona[$clave] = [
                         'inasistencia_total' => 0,
                         'huelga_total' => 0,
                         'tardanza_total' => ['horas' => 0, 'minutos' => 0],
@@ -1029,24 +1104,35 @@ class Anexo04Controller extends Controller
                 }
             }
             
-            // Combinar con personas filtradas
-            $filtrados = $filtrados->map(function ($persona) use ($datosInasistenciaPorDni) {
-                $dni = $persona->dni;
-                $inasistencia = $datosInasistenciaPorDni[$dni] ?? null;
+            //dd($datosInasistenciaPorPersona);
+                $filtrados = $filtrados->map(function ($persona) use ($datosInasistenciaPorPersona) {
+                    $dni = $persona->dni ?? null;
+                    $cod = $persona->cod ?? null;
 
-                $persona->inasistencias_dias = $inasistencia['inasistencia_total'] ?? 0;
-                $persona->huelga_paro_dias = $inasistencia['huelga_total'] ?? 0;
+                    // misma clave que usaste antes
+                    $clave = $cod ? "{$dni}_{$cod}" : $dni;
 
-                $persona->tardanzas_horas = $inasistencia['tardanza_total']['horas'] ?? 0;
-                $persona->tardanzas_minutos = $inasistencia['tardanza_total']['minutos'] ?? 0;
+                    $inasistencia = $datosInasistenciaPorPersona[$clave] ?? null;
 
-                $persona->permisos_sg_horas = $inasistencia['permiso_sg_total']['horas'] ?? 0;
-                $persona->permisos_sg_minutos = $inasistencia['permiso_sg_total']['minutos'] ?? 0;
+                    if ($inasistencia) {
+                        $persona->inasistencias_dias   = $inasistencia['inasistencia_total'] ?? 0;
+                        $persona->huelga_paro_dias     = $inasistencia['huelga_total'] ?? 0;
+                        $persona->tardanzas_horas      = $inasistencia['tardanza_total']['horas'] ?? 0;
+                        $persona->tardanzas_minutos    = $inasistencia['tardanza_total']['minutos'] ?? 0;
+                        $persona->permisos_sg_horas    = $inasistencia['permiso_sg_total']['horas'] ?? 0;
+                        $persona->permisos_sg_minutos  = $inasistencia['permiso_sg_total']['minutos'] ?? 0;
+                    } else {
+                        $persona->inasistencias_dias   = 0;
+                        $persona->huelga_paro_dias     = 0;
+                        $persona->tardanzas_horas      = 0;
+                        $persona->tardanzas_minutos    = 0;
+                        $persona->permisos_sg_horas    = 0;
+                        $persona->permisos_sg_minutos  = 0;
+                    }
 
-                return $persona;
-                
-            });
-
+                    return $persona;
+                });
+                //dd($filtrados);
                 // Datos comunes para ambas vistas
                 $data = [
                     'registros' => $filtrados,
@@ -1067,7 +1153,7 @@ class Anexo04Controller extends Controller
                     'codmodulares' => $codmodulares,
                     'resolucion' => $resolucion,
                     'inasistencias' => $inasistencias,
-                    'datos_inasistencias'=>$datosInasistenciaPorDni,
+                    'datos_inasistencias'=>$datosInasistenciaPorPersona,
                 ];
 
                 // Datos específicos para el oficio
@@ -1193,7 +1279,7 @@ class Anexo04Controller extends Controller
                     'firmaBase64' => $firmaBase64,
                     'firmaGuardada' => $firmaGuardada,
                     'inasistencias'=> $inasistencias,
-                    'datos_inasistencias'=> $datosInasistenciaPorDni,
+                    'datos_inasistencias'=> $datosInasistenciaPorPersona,
                 ];
 
                 // Renderizar vista del reporte horizontal

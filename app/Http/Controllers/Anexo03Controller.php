@@ -63,21 +63,30 @@ class Anexo03Controller extends Controller
             ->where('codlocal', $codlocal)
             ->where('codmod', $codmod)
             ->value('turno');
-  
-        
+
         //Obtener firma
         $firmaGuardada = DB::connection('siic_anexos')->table('anexo03')
             ->where('id_contacto', $director['id_contacto'])
             ->value('firma');
 
         //Obtener oficio
+        $fechaActual = Carbon::now();
+        $anio = $fechaActual->year;
+        $mes = $fechaActual->month;
+
         $oficioguardado = DB::connection('siic_anexos')->table('anexo03')
             ->where('id_contacto', $director['id_contacto'])
+            ->whereYear('fecha_creacion', $anio)
+            ->whereMonth('fecha_creacion', $mes)
+            ->orderBy('fecha_creacion', 'desc')
             ->value('oficio');
         
         //Obtener expediente
         $expedienteguardado = DB::connection('siic_anexos')->table('anexo03')
             ->where('id_contacto', $director['id_contacto'])
+            ->whereYear('fecha_creacion', $anio)
+            ->whereMonth('fecha_creacion', $mes)
+            ->orderBy('fecha_creacion', 'desc')
             ->value('expediente');
 
         //Lista de docentes desde nexus (para control de acceso)
@@ -287,8 +296,8 @@ class Anexo03Controller extends Controller
             'asistencias' => $datosAsistenciaPorDni,
             'd_cod_tur' => $d_cod_tur,
             'firmaGuardada' => $firmaGuardada,
-            'oficio'=>$oficioguardado,
-            'expediente'=>$expedienteguardado,
+            'oficioguardado'=>$oficioguardado,
+            'expedienteguardado'=>$expedienteguardado,
         ]);
 
     }
@@ -298,7 +307,9 @@ class Anexo03Controller extends Controller
     {
         DB::beginTransaction();
         try {
-            // Buscar si ya existe un anexo03 para ese contacto + local + nivel
+            $fechaActual = now();
+
+            // Buscar el último anexo03 del director, local y nivel
             $anexoExistente = DB::connection('siic_anexos')->table('anexo03')
                 ->where('id_contacto', $request->id_contacto)
                 ->where('codlocal', $request->codlocal)
@@ -309,42 +320,84 @@ class Anexo03Controller extends Controller
             $idAnexo03 = null;
 
             if ($anexoExistente) {
-                if (is_null($anexoExistente->oficio) || is_null($anexoExistente->expediente)) {
-                    // Buscar la fecha mínima del último bloque abierto (los que aún no tienen oficio/expediente)
-                    $ultimaFecha = DB::connection('siic_anexos')->table('anexo03')
-                        ->where('id_contacto', $request->id_contacto)
-                        ->where('codlocal', $request->codlocal)
-                        ->whereNull('oficio')
-                        ->whereNull('expediente')
-                        ->min('fecha_creacion'); // primer registro del bloque abierto
+                $esMismoMes = \Carbon\Carbon::parse($anexoExistente->fecha_creacion)->isSameMonth($fechaActual);
 
-                    // Actualizar todos los registros de ese bloque abierto
-                    DB::connection('siic_anexos')->table('anexo03')
+                //  NUEVO: Si llega un expediente y ya existe el mismo oficio con expediente NULL → completar sin duplicar
+                if (!empty($request->numero_expediente) && !empty($request->numero_oficio)) {
+                    $coincideOficio = DB::connection('siic_anexos')->table('anexo03')
                         ->where('id_contacto', $request->id_contacto)
                         ->where('codlocal', $request->codlocal)
-                        ->where('fecha_creacion', '>=', $ultimaFecha)
-                        ->whereNull('oficio')
+                        // Quitamos el filtro por nivel para que aplique a todos
+                        ->where('oficio', $request->numero_oficio)
                         ->whereNull('expediente')
-                        ->update([
-                            'oficio' => $request->numero_oficio,
+                        ->orderByDesc('fecha_creacion')
+                        ->first();
+
+                    if ($coincideOficio) {
+                        //  Actualiza todos los niveles con el mismo oficio y sin expediente
+                        DB::connection('siic_anexos')->table('anexo03')
+                            ->where('id_contacto', $request->id_contacto)
+                            ->where('codlocal', $request->codlocal)
+                            ->where('oficio', $request->numero_oficio)
+                            ->whereNull('expediente')
+                            ->update([
+                                'expediente' => $request->numero_expediente,
+                                'fecha_actualizacion' => now(),
+                            ]);
+
+                        $idAnexo03 = $coincideOficio->id_anexo03;
+                    }
+                }
+
+                if (!$idAnexo03) {
+                    if (is_null($anexoExistente->oficio) || is_null($anexoExistente->expediente)) {
+                        if ($esMismoMes) {
+                            //  Caso 1: Bloque abierto del mismo mes → completar
+                            $ultimaFecha = DB::connection('siic_anexos')->table('anexo03')
+                                ->where('id_contacto', $request->id_contacto)
+                                ->where('codlocal', $request->codlocal)
+                                ->whereNull('oficio')
+                                ->whereNull('expediente')
+                                ->min('fecha_creacion');
+
+                            DB::connection('siic_anexos')->table('anexo03')
+                                ->where('id_contacto', $request->id_contacto)
+                                ->where('codlocal', $request->codlocal)
+                                ->where('fecha_creacion', '>=', $ultimaFecha)
+                                ->whereNull('oficio')
+                                ->whereNull('expediente')
+                                ->update([
+                                    'oficio' => $request->numero_oficio,
+                                    'expediente' => $request->numero_expediente,
+                                    'fecha_actualizacion' => now(),
+                                ]);
+
+                            $idAnexo03 = $anexoExistente->id_anexo03;
+                        } else {
+                            //  Caso 2: Bloque abierto, pero de otro mes → crear uno nuevo
+                            $idAnexo03 = DB::connection('siic_anexos')->table('anexo03')->insertGetId([
+                                'id_contacto' => $request->id_contacto,
+                                'codlocal'   => $request->codlocal,
+                                'nivel'      => $request->nivel,
+                                'oficio'     => $request->numero_oficio,
+                                'expediente' => $request->numero_expediente,
+                                'fecha_creacion' => now(),
+                            ]);
+                        }
+                    } else {
+                        //  Caso 3: Bloque cerrado → crear uno nuevo
+                        $idAnexo03 = DB::connection('siic_anexos')->table('anexo03')->insertGetId([
+                            'id_contacto' => $request->id_contacto,
+                            'codlocal'   => $request->codlocal,
+                            'nivel'      => $request->nivel,
+                            'oficio'     => $request->numero_oficio,
                             'expediente' => $request->numero_expediente,
-                            'fecha_actualizacion' => now(),
+                            'fecha_creacion' => now(),
                         ]);
-
-                    $idAnexo03 = $anexoExistente->id_anexo03;
-                } else {
-                    // Caso 2: Bloque cerrado → crear uno nuevo
-                    $idAnexo03 = DB::connection('siic_anexos')->table('anexo03')->insertGetId([
-                        'id_contacto' => $request->id_contacto,
-                        'codlocal'   => $request->codlocal,
-                        'nivel'      => $request->nivel,
-                        'oficio'     => $request->numero_oficio,
-                        'expediente' => $request->numero_expediente,
-                        'fecha_creacion' => now(),
-                    ]);
+                    }
                 }
             } else {
-                // Caso 3: No existe ninguno → crear primero
+                // Caso 4: No existe ninguno → crear primero
                 $idAnexo03 = DB::connection('siic_anexos')->table('anexo03')->insertGetId([
                     'id_contacto' => $request->id_contacto,
                     'codlocal'   => $request->codlocal,
@@ -428,7 +481,15 @@ class Anexo03Controller extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['error' => $e->getMessage()], 500);
+            return response()->json([
+                'error' => 'Ha ocurrido un inconveniente al guardar el reporte. 
+                Sírvase comunicar con el grupo ETI de la UGEL 01 para asistencia técnica.
+                📞 Anexos de soporte:
+                - 34071: Gerardo (Soporte)
+                - 34070: Arturo (Soporte)
+                - 34036: Josein (Soporte)',
+                'detalle' => $e->getMessage(),
+            ], 500);
         }
     }
 

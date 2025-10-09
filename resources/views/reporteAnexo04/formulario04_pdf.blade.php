@@ -79,105 +79,75 @@
             <th rowspan="2">Condición</th>
             <th rowspan="2">Jor. Lab.</th>
             <th class="border px-2 py-0 bg-gray-200 text-center" rowspan="2">
-                        <div class="flex flex-col h-full">
-                            <div class="border-b border-white py-1">Inasistencias</div>
-                            <div class="py-1 text-xs font-semibold">Días</div>
-                        </div>
-                    </th>
-
-                            <th class="border px-2 py-1 bg-gray-200 text-center" colspan="2">
-                                Tardanzas<br>
-                            </th>
-
-                            <th class="border px-2 py-1 bg-gray-200 text-center" colspan="2">
-                                Permisos SG<br>
-                            </th>
-
-                            <th class="border px-2 py-0 bg-gray-200 text-center" rowspan="2">
-                        <div class="flex flex-col h-full">
-                            <div class="border-b border-white py-1">Huelga / Paro</div>
-                            <div class="py-1 text-xs font-semibold">Días</div>
-                        </div>
-                    </th>
-                            <th class="border px-2 py-1 bg-gray-200" rowspan="2">Observaciones</th>
-                        </tr>
-                        <tr>
-                            <th class="border px-2 py-0 bg-gray-200 text-xs font-normal">
-                                <div class="flex flex-col items-center justify-center h-full leading-tight">
-                                    <div class="font-semibold">Horas</div>
-                                    <div>(*)</div>
-                                </div>
-                            </th>
-                            <th class="border px-2 py-0 bg-gray-200 text-xs font-normal">
-                                <div class="flex flex-col items-center justify-center h-full leading-tight">
-                                    <div class="font-semibold">Minutos</div>
-                                    <div>(*)</div>
-                                </div>
-                            </th>
-                            <th class="border px-2 py-0 bg-gray-200 text-xs font-normal">
-                                <div class="flex flex-col items-center justify-center h-full leading-tight">
-                                    <div class="font-semibold">Horas</div>
-                                    <div>(*)</div>
-                                </div>
-                            </th>
-                            <th class="border px-2 py-0 bg-gray-200 text-xs font-normal">
-                                <div class="flex flex-col items-center justify-center h-full leading-tight">
-                                    <div class="font-semibold">Minutos</div>
-                                    <div>(*)</div>
-                                </div>
-                            </th>
-                        </tr>
-        </thead>
-        <tbody>
-        @foreach ($registros as $index => $r)
-            @php
-                $dni = $r->dni;
-                $datos = $datos_inasistencias[$dni] ?? [];
-            @endphp
-            <tr>
-                <td>{{ $index + 1 }}</td>
-                <td>{{ $dni }}</td>
-                <td style="text-align: left;">{{ $r->nombres }}</td>
-                <td>{{ $r->cargo }}</td>
-                <td>{{ $r->condicion }}</td>
-                <td>{{ $r->jornada }}</td>
-
-                {{-- Valores desde datos_inasistencias --}}
-                <td class="border px-2 py-1 text-center">
-                    @php $valor = $datos['inasistencia_total'] ?? 0; @endphp
-                    {!! $valor > 0 ? '<strong>' . $valor . '</strong>' : $valor !!}
-                </td>
-
-                <td class="border px-2 py-1 text-center">
-                    @php $valor = $datos['tardanza_total']['horas'] ?? 0; @endphp
-                    {!! $valor > 0 ? '<strong>' . $valor . '</strong>' : $valor !!}
-                </td>
-
-                <td class="border px-2 py-1 text-center">
-                    @php $valor = $datos['tardanza_total']['minutos'] ?? 0; @endphp
-                    {!! $valor > 0 ? '<strong>' . $valor . '</strong>' : $valor !!}
-                </td>
-
-                <td class="border px-2 py-1 text-center">
-                    @php $valor = $datos['permiso_sg_total']['horas'] ?? 0; @endphp
-                    {!! $valor > 0 ? '<strong>' . $valor . '</strong>' : $valor !!}
-                </td>
-
-                <td class="border px-2 py-1 text-center">
-                    @php $valor = $datos['permiso_sg_total']['minutos'] ?? 0; @endphp
-                    {!! $valor > 0 ? '<strong>' . $valor . '</strong>' : $valor !!}
-                </td>
-
-                <td class="border px-2 py-1 text-center">
-                    @php $valor = $datos['huelga_total'] ?? 0; @endphp
-                    {!! $valor > 0 ? '<strong>' . $valor . '</strong>' : $valor !!}
-                </td>
-
-                <td class="border px-2 py-1">{{ e($r->observaciones ?? '') }}</td>
-            </tr>
-        @endforeach
+                <div class="flex flex-col h-full">
+                    <div class="border-b border-white py-1">Inasistencias</div>
+                    <div class="py-1 text-xs font-semibold">Días</div>
+                </div>
+            </th>
+            <th class="border px-2 py-1 bg-gray-200 text-center" colspan="2">
+                Tardanzas<br>
+            </th>
+            <th class="border px-2 py-1 bg-gray-200 text-center" colspan="2">
+                Permisos SG<br>
+            </th>
+            <th class="border px-2 py-0 bg-gray-200 text-center" rowspan="2">
+                <div class="flex flex-col h-full">
+                    <div class="border-b border-white py-1">Huelga / Paro</div>
+                    <div class="py-1 text-xs font-semibold">Días</div>
+                </div>
+            </th>
+            <th class="border px-2 py-1 bg-gray-200" rowspan="2">Observaciones</th>
+        </tr>
+        <tr>
+            <th class="border px-2 py-0 bg-gray-200 text-xs font-normal">
+                <div class="flex flex-col items-center justify-center h-full leading-tight">
+                    <div class="font-semibold">Horas</div>
+                    <div>(*)</div>
+                </div>
+            </th>
+            <th class="border px-2 py-0 bg-gray-200 text-xs font-normal">
+                <div class="flex flex-col items-center justify-center h-full leading-tight">
+                    <div class="font-semibold">Minutos</div>
+                    <div>(*)</div>
+                </div>
+            </th>
+            <th class="border px-2 py-0 bg-gray-200 text-xs font-normal">
+                <div class="flex flex-col items-center justify-center h-full leading-tight">
+                    <div class="font-semibold">Horas</div>
+                    <div>(*)</div>
+                </div>
+            </th>
+            <th class="border px-2 py-0 bg-gray-200 text-xs font-normal">
+                <div class="flex flex-col items-center justify-center h-full leading-tight">
+                    <div class="font-semibold">Minutos</div>
+                    <div>(*)</div>
+                </div>
+            </th>
+        </tr>
+    </thead>
+    <tbody class="bg-white">
+        @forelse ($registros as $index => $r)
+        <tr class="hover:bg-gray-100">
+            <td class="border px-2 py-1">{{ $index + 1 }}</td>
+            <td class="border px-2 py-1 ">{{ $r->dni }}</td>
+            <td class="border px-2 py-1 text-left">{{ $r->nombres }}</td>
+            <td class="border px-2 py-1 text-center">{{ $r->cargo }}</td>
+            <td class="border px-2 py-1">{{ $r->condicion }}</td>
+            <td class="border px-2 py-1">{{ $r->jornada }}</td>
+            <td class="border px-2 py-1 text-center">{{ $r->inasistencias_dias ?? '' }}</td>
+            <td class="border px-2 py-1 text-center">{{ $r->tardanzas_horas ?? '' }}</td>
+            <td class="border px-2 py-1 text-center">{{ $r->tardanzas_minutos ?? '' }}</td>
+            <td class="border px-2 py-1 text-center">{{ $r->permisos_sg_horas ?? '' }}</td>
+            <td class="border px-2 py-1 text-center">{{ $r->permisos_sg_minutos ?? '' }}</td>
+            <td class="border px-2 py-1 text-center">{{ $r->huelga_paro_dias ?? '' }}</td>
+            <td class="border px-2 py-1">{{ e($r->observaciones ?? '') }}</td>
+        </tr>
+        @empty
+        <tr>
+            <td colspan="13" class="text-center py-2">No hay registros disponibles.</td>
+        </tr>
+        @endforelse
     </tbody>
-
 </table>
 
 <!-- Firma, Lugar/Fecha y Hora/Minuto en la misma línea -->
